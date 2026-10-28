@@ -79,6 +79,14 @@ if ($StandInGameCode) {
         throw 'generated/default holds the CI stand-in, not your game: delete generated/ and run scripts/build-game.ps1.'
     }
 }
+if ($StandInGameCode) {
+    # Ninja runs the codegen step of a new build folder once, to record its
+    # dependencies; with the stand-ins there is no default.xex to run it on.
+    $standInTool = Join-Path $projectRoot 'build/stand-in-codegen.cmd'
+    New-Item -ItemType Directory -Force (Split-Path -Parent $standInTool) | Out-Null
+    Set-Content -LiteralPath $standInTool -Value '@exit /b 0' -Encoding ascii
+    $rexglue = ConvertTo-CMakePath $standInTool
+}
 if ($ShaderCache) {
     foreach ($file in 'shader_cache_spirv.bin', 'shader_manifest.json') {
         if (-not (Test-Path -LiteralPath (Join-Path $ShaderCache $file))) { throw "The shader cache folder has no $file`: $ShaderCache" }
@@ -181,7 +189,9 @@ try {
         "-DNATIVE_RENDERER_PLUME_SOURCE=$PlumeSource" "-DBROKENBOND_XENOS_RECOMP_THIRDPARTY=$XenosRecompThirdparty" `
         "-DBROKENBOND_PREBUILT_SHADER_CACHE=$ShaderCache" "-DBROKENBOND_VERSION=$Version"
     if ($LASTEXITCODE -ne 0) { throw 'Android configuration failed.' }
-    & cmake --build $androidBuild --target android_jnilibs --parallel $Jobs
+    # CI (stand-ins) keeps going after an error, to report all of them in one run.
+    $keepGoing = if ($StandInGameCode) { @('--', '-k', '0') } else { @() }
+    & cmake --build $androidBuild --target android_jnilibs --parallel $Jobs @keepGoing
     if ($LASTEXITCODE -ne 0) { throw 'Android native build failed.' }
 
     # 5. The APK. Without a keystore (BROKENBOND_KEYSTORE, see
