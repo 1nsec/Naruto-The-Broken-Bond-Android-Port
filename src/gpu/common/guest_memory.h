@@ -12,8 +12,11 @@
 #include <cstring>
 #include <string_view>
 #include <vector>
-#include <windows.h>
+#include "platform/win32.h"
 #include <rex/ppc/context.h>
+#ifndef _WIN32
+#include <rex/platform/exceptions.h>
+#endif
 #include <rex/system/thread_state.h>
 #include "gpu/d3d/d3d.h"
 
@@ -70,6 +73,7 @@ __declspec(noinline) inline void GuestCopy(void* out, const void* in, size_t siz
 __declspec(noinline) inline bool GuestEqual(const void* a, const void* b, size_t size) {
   return std::memcmp(a, b, size) == 0;
 }
+#ifdef _WIN32
 inline bool CopyFromGuest(void* out, const uint8_t* host, size_t size) {
   __try {
     GuestCopy(out, host, size);
@@ -86,6 +90,26 @@ inline bool CopyToGuest(uint8_t* host, const uint8_t* bytes, size_t size) {
     return false;
   }
 }
+#else
+// The SDK's structured exception emulation: inside SEH_TRY, a fault (SIGSEGV
+// or SIGBUS) raised in a called function is thrown as rex::SehException.
+inline bool CopyFromGuest(void* out, const uint8_t* host, size_t size) {
+  SEH_TRY {
+    GuestCopy(out, host, size);
+    return true;
+  }
+  SEH_CATCH { return false; }
+  SEH_END
+}
+inline bool CopyToGuest(uint8_t* host, const uint8_t* bytes, size_t size) {
+  SEH_TRY {
+    GuestCopy(host, bytes, size);
+    return GuestEqual(host, bytes, size);
+  }
+  SEH_CATCH { return false; }
+  SEH_END
+}
+#endif
 inline bool ReadPhysical(uint8_t* base, uint32_t physical, uint32_t size, void* out) {
   if (physical >= 0x20000000u || size > 0x20000000u - physical) return false;
   return CopyFromGuest(out, base + 0x100000000ull + physical, size);

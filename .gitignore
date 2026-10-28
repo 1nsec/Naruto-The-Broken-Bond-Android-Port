@@ -43,3 +43,11 @@ __pycache__/
 # Hidden title screen extra (kept out of the public source)
 /assets/secret/
 /assets/portraits/
+
+# Android app build output and the staged native libraries (built from your game files)
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/app/src/main/jniLibs/
+/android/local.properties
+/android/*.keystore

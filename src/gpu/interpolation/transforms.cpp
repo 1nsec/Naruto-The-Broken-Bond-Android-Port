@@ -6,7 +6,7 @@
 #include "gpu/common/title_loading.h"
 #include "gpu/d3d/d3d.h"
 #include "gpu/host/services.h"
-#include <windows.h>
+#include "platform/win32.h"
 #include <fmt/format.h>
 #include <rex/hook.h>
 #include <rex/ppc/context.h>

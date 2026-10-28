@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <windows.h>
+#include "platform/win32.h"
 #include <rex/ppc/context.h>
 #include "gpu/backend/contracts.h"
 #include "gpu/shaders/package.h"

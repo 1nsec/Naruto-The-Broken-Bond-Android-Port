@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <windows.h>
+#include "platform/win32.h"
 #include <fmt/format.h>
 #include <rex/system/thread_state.h>
 #include "gpu/host/services.h"

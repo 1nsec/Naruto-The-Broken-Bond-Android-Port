@@ -1,6 +1,6 @@
 // Sampling profiler of the title's threads (sampler.h).
 #include "gpu/diagnostics/sampler.h"
-#include <windows.h>
+#include "platform/win32.h"
 #include <psapi.h>
 #include <algorithm>
 #include <atomic>

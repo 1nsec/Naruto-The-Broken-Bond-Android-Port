@@ -7,7 +7,7 @@
 #include "gpu/d3d/frame.h"
 #include "gpu/host/services.h"
 #include "gpu/settings.h"
-#include <windows.h>
+#include "platform/win32.h"
 #include <fmt/format.h>
 #include <rex/hook.h>
 #include <rex/ppc/context.h>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="alpha_badge">ALPHA ANDROID · port de fã não oficial · use seu próprio jogo</string>
+    <string name="version_line">Versão %1$s · renderer nativo Vulkan · ReXGlue</string>
+    <string name="play">Jogar</string>
+    <string name="pick_iso">Escolher a ISO do jogo…</string>
+    <string name="settings">Configurações</string>
+    <string name="help">Ajuda</string>
+    <string name="iso_selected">Disco do jogo: %1$s</string>
+    <string name="iso_found">Disco do jogo encontrado na pasta de dados: %1$s</string>
+    <string name="iso_missing">Nenhum disco ainda. Escolha a sua ISO de Xbox 360 do Naruto: The Broken Bond, ou copie para:\n%1$s</string>
+    <string name="iso_no_permission">O seletor de arquivos não deu acesso a esse arquivo. Tente outro local.</string>
+    <string name="iso_check_title">É o arquivo certo?</string>
+    <string name="iso_check_message">%1$s não parece ser a imagem de disco de Xbox 360 do jogo (um .iso de uns 7 GB). O jogo só inicia com a revisão de disco suportada.</string>
+    <string name="no_file_picker">Nenhum seletor de arquivos disponível neste aparelho.</string>
+    <string name="no_vulkan_title">Vulkan 1.1 não encontrado</string>
+    <string name="no_vulkan_message">Este aparelho não informa Vulkan 1.1, que o renderer precisa. O jogo provavelmente não vai iniciar.</string>
+    <string name="help_title">Como jogar</string>
+    <string name="help_message">1. Escolha a sua própria ISO de Xbox 360 do Naruto: The Broken Bond (nenhum arquivo do jogo vem junto).\n\n2. Toque em Jogar. A primeira vez demora; áreas novas podem travar uma vez enquanto os gráficos são preparados.\n\n3. Controles na tela: o lado esquerdo anda, o lado direito gira a câmera, a engrenagem abre as Opções de PC. Controle Bluetooth ou USB também funciona (os controles na tela somem enquanto um estiver conectado).\n\n4. O gesto de voltar abre um menu para continuar, esconder os controles na tela ou sair.\n\nSaves, configurações (naruto.toml) e logs ficam em:\n%1$s\n\nEsta é uma alpha para celulares Snapdragon (Adreno). Se fechar sozinho, mande o arquivo mais novo da pasta logs/ com o modelo do celular.</string>
+    <string name="menu_continue">Continuar</string>
+    <string name="menu_hide_touch">Esconder controles na tela</string>
+    <string name="menu_show_touch">Mostrar controles na tela</string>
+    <string name="menu_exit">Sair do jogo</string>
+
+    <string name="settings_note">Fica salvo no naruto.toml. No jogo, as Opções de PC (botão de engrenagem) têm todas as opções. A maioria das opções gráficas vale na próxima vez que abrir.</string>
+    <string name="settings_save_failed">Não deu para salvar o naruto.toml.</string>
+    <string name="settings_graphics">Gráficos</string>
+    <string name="settings_game">Jogo</string>
+    <string name="settings_touch">Controles na tela</string>
+    <string name="settings_debug">Depuração</string>
+    <string name="setting_resolution">Resolução de renderização</string>
+    <string name="setting_frame_rate">Taxa de quadros</string>
+    <string name="setting_msaa">Anti-aliasing (MSAA)</string>
+    <string name="setting_fxaa">Suavização de bordas</string>
+    <string name="setting_upscaling">Upscaling</string>
+    <string name="setting_vsync">Sincronização vertical</string>
+    <string name="setting_transparency_aa">Anti-aliasing de transparência</string>
+    <string name="setting_async_shaders">Pular gráficos não prontos (menos travadas)</string>
+    <string name="setting_show_fps">Mostrar FPS</string>
+    <string name="setting_language">Idioma do jogo</string>
+    <string name="setting_skip_intros">Pular vídeos de introdução</string>
+    <string name="setting_title_screen">Tela de título do PC</string>
+    <string name="setting_mute">Sem som</string>
+    <string name="setting_touch">Mostrar controles na tela</string>
+    <string name="setting_touch_opacity">Opacidade</string>
+    <string name="setting_touch_scale">Tamanho</string>
+    <string name="setting_log_to_file">Salvar arquivos de log</string>
+    <string name="settings_reset">Voltar ao padrão do Android</string>
+    <string name="settings_reset_confirm">Substituir o naruto.toml pelo padrão do Android?</string>
+    <string name="off">Desligado</string>
+</resources>

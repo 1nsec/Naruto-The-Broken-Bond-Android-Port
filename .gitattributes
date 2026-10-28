@@ -13,3 +13,8 @@ LICENSE text eol=lf
 .gitattributes text eol=lf
 .gitignore text eol=lf
 .gitmodules text eol=lf
+# Windows batch files need CRLF; the Gradle wrapper script LF; the wrapper jar is binary.
+*.bat text eol=crlf
+gradlew text eol=lf
+*.jar binary
+*.png binary

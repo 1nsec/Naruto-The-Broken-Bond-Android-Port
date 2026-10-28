@@ -1,0 +1,92 @@
+// The Android app: the launcher (game files, settings) and the game activity
+// (SDL3's SDLActivity running libmain.so). The native libraries are built by
+// scripts/build-android.ps1 / .sh into src/main/jniLibs/arm64-v8a: libmain.so
+// (the game), librexruntime.so (ReXGlue), libSDL3.so and libc++_shared.so.
+plugins {
+    id "com.android.application"
+}
+
+def portVersion = (System.getenv("BROKENBOND_VERSION") ?: project.findProperty("brokenbondVersion") ?: "2.5-android-alpha").toString()
+def portVersionCode = (System.getenv("BROKENBOND_VERSION_CODE") ?: project.findProperty("brokenbondVersionCode") ?: "1").toString().toInteger()
+
+android {
+    namespace "org.brokenbond.port"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "org.brokenbond.port"
+        minSdk 29        // Android 10: Vulkan 1.1, ASharedMemory, scoped storage.
+        targetSdk 35
+        versionCode portVersionCode
+        versionName portVersion
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    // A release keystore can be given through gradle properties or the
+    // environment (BROKENBOND_KEYSTORE, _PASSWORD, _KEY_ALIAS, _KEY_PASSWORD);
+    // without one the release APK is signed with the debug key.
+    def keystorePath = System.getenv("BROKENBOND_KEYSTORE") ?: project.findProperty("brokenbondKeystore")
+    signingConfigs {
+        if (keystorePath) {
+            release {
+                storeFile file(keystorePath)
+                storePassword System.getenv("BROKENBOND_KEYSTORE_PASSWORD") ?: project.findProperty("brokenbondKeystorePassword")
+                keyAlias System.getenv("BROKENBOND_KEY_ALIAS") ?: project.findProperty("brokenbondKeyAlias")
+                keyPassword System.getenv("BROKENBOND_KEY_PASSWORD") ?: project.findProperty("brokenbondKeyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystorePath ? signingConfigs.release : signingConfigs.debug
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+    }
+
+    sourceSets {
+        main {
+            // SDL3's Java side, from the SDK's SDL checkout: it must match libSDL3.so.
+            java.srcDirs += ["../../sdk/thirdparty/sdl3/android-project/app/src/main/java"]
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Compressed in the APK and extracted at install: libmain.so is large.
+            useLegacyPackaging true
+            keepDebugSymbols += ["**/*.so"]
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+// Fails early with a clear message when the native libraries are missing.
+tasks.register("checkNativeLibraries") {
+    doLast {
+        def dir = file("src/main/jniLibs/arm64-v8a")
+        def needed = ["libmain.so", "librexruntime.so", "libSDL3.so", "libc++_shared.so"]
+        def missing = needed.findAll { !new File(dir, it).exists() }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Missing native libraries in ${dir}: ${missing.join(', ')}. " +
+                    "Build them first with scripts/build-android.ps1 (Windows) or scripts/build-android.sh.")
+        }
+    }
+}
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibFolders") }.configureEach {
+    dependsOn "checkNativeLibraries"
+}

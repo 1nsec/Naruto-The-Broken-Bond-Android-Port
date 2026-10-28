@@ -15,7 +15,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#include <windows.h>
+#include "platform/win32.h"
 
 #include <algorithm>
 #include <atomic>

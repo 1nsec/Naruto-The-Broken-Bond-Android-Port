@@ -25,7 +25,7 @@ bool Backend::State::OutputEffects(OutputImage& source, BackImage& back, uint32_
   vkCmdClearColorImage(Commands(), back.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &black, 1, &range);
   for (size_t i = 0; i < plan.size(); ++i) {
     const auto& step = plan[i]; const bool last = i + 1 == plan.size();
-    VkImage output = back.image; SyncState* sync = &back.state; VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
+    VkImage output = back.image; SyncState* sync = &back.state; VkFormat format = swap_format;
     uint32_t dw = swap_extent.width, dh = swap_extent.height, ox = x, oy = y;
     if (!last) {
       auto& target = effects[2 + i];
@@ -75,6 +75,21 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
   }
   const char* reason = nullptr; VkResult result = VK_SUCCESS;
   if (!s.CloseBatch(reason, result)) return GraphicsError(evidence, reason, result);
+#ifdef __ANDROID__
+  {
+    // After a pause the Activity has a new ANativeWindow (none while it is in
+    // the background): the frame is skipped, or the surface follows the window.
+    void* native_window = SDL_GetPointerProperty(SDL_GetWindowProperties(static_cast<SDL_Window*>(s.window)),
+                                                 SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
+    if (!native_window) {
+      stage.presented = true; evidence = "{\"presented\":false,\"skipped\":\"no-native-window\"}"; return true;
+    }
+    if (native_window != s.native_window) {
+      if (!s.RetireSwapchain(evidence) || !s.CreateWindowSurface(evidence)) return false;
+      s.recreate_swapchain = true;
+    }
+  }
+#endif
   if (!s.swapchain || s.recreate_swapchain || uint32_t(rect.right) != s.swap_extent.width || uint32_t(rect.bottom) != s.swap_extent.height)
     if (!s.CreateSwapchain(rect.right, rect.bottom, evidence)) return false;
   // Bound the presentation queue to one pending frame independently of render completion.
@@ -109,7 +124,11 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
   if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
     s.Observe(result); return GraphicsError(evidence, "native-vulkan-acquire", result);
   }
+#ifndef __ANDROID__
+  // Android reports suboptimal for the identity transform on a rotated panel
+  // (CreateSwapchain), every frame: it is not a reason to recreate there.
   if (result == VK_SUBOPTIMAL_KHR) s.recreate_swapchain = true;
+#endif
   s.acquire_pending = true;
   if (!s.WaitPresent(s.acquire_fence, evidence)) return false;
   s.acquire_pending = false;
@@ -134,7 +153,7 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
   } else {
     const std::array<uint32_t, 12> c{bits(float(x)), bits(float(y)), bits(float(stage.width) / vw), bits(float(stage.height) / vh),
         stage.width, stage.height, bits(float(vw)), bits(float(vh))};
-    if (!s.OutputPass(stage, back.image, back.state, VK_FORMAT_B8G8R8A8_UNORM, s.swap_extent.width, s.swap_extent.height,
+    if (!s.OutputPass(stage, back.image, back.state, s.swap_format, s.swap_extent.width, s.swap_extent.height,
                       "present_ps", 0, c, page->buffer->buffer, ramp_offset, evidence)) return false;
   }
   std::shared_ptr<VmaBuffer> readback;
@@ -157,11 +176,11 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
   stage.last_use = s.batch.sequence; const uint64_t sequence = s.batch.sequence;
   s.submit_signal = back.rendered;
   if (!s.CloseBatch(reason, result)) return GraphicsError(evidence, reason, result);
-  if ((result = vkResetFences(s.vulkan->vk, 1, &back.presented)) != VK_SUCCESS)
+  if (s.present_fences && (result = vkResetFences(s.vulkan->vk, 1, &back.presented)) != VK_SUCCESS)
     return GraphicsError(evidence, "native-present-fence-reset", result);
   VkSwapchainPresentFenceInfoEXT completion{VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT};
   completion.swapchainCount = 1; completion.pFences = &back.presented;
-  VkPresentInfoKHR info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, &completion};
+  VkPresentInfoKHR info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, s.present_fences ? &completion : nullptr};
   info.waitSemaphoreCount = 1; info.pWaitSemaphores = &back.rendered;
   info.swapchainCount = 1; info.pSwapchains = &s.swapchain; info.pImageIndices = &index;
   auto* queue = static_cast<plume::VulkanCommandQueue*>(s.queue.get())->queue;
@@ -170,11 +189,16 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
     result = vkQueuePresentKHR(queue->vk, &info);
   });
   if (!authorized) return GraphicsError(evidence, "native-present-refused-after-failure");
-  back.pending = true;
+  back.pending = s.present_fences;
   stage.presented = true; ++s.presents;
   const VkResult present_result = result;
+#ifdef __ANDROID__
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_ERROR_SURFACE_LOST_KHR) s.recreate_swapchain = true;
+  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+#else
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) s.recreate_swapchain = true;
   else if (result != VK_SUCCESS) {
+#endif
     s.Observe(result); return GraphicsError(evidence, "native-vulkan-present", result);
   }
   if (capture) {

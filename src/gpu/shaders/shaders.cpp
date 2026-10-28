@@ -15,7 +15,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#ifdef _WIN32
 #include <dxgiformat.h>
+#endif
 #include <array>
 #include <chrono>
 #include <atomic>
@@ -31,7 +33,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <windows.h>
+#include "platform/win32.h"
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <rex/cvar.h>

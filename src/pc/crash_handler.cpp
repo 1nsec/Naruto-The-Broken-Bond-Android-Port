@@ -1,7 +1,7 @@
 // Writes a crash report (and a minidump) to logs/ when the game crashes, so a crash that happens
 // on a player's PC can be traced afterwards. Installed before main runs.
 
-#include <windows.h>
+#include "platform/win32.h"
 #include <dbghelp.h>
 #include <psapi.h>
 

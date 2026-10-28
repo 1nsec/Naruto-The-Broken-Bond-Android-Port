@@ -6,10 +6,12 @@
 #include <optional>
 #include <string>
 
-#include <windows.h>
+#include "platform/win32.h"
 #include <d3d12.h>
 #include <dxgi.h>
+#ifdef _WIN32
 #include <wrl/client.h>
+#endif
 
 #include <rex/cvar.h>
 #include <rex/logging.h>

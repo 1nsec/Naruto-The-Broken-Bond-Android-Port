@@ -1,7 +1,7 @@
 // The pipeline set of the draw layer (pipeline_set.h).
 #include "gpu/backend/pipeline_set.h"
 
-#include <windows.h>
+#include "platform/win32.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>

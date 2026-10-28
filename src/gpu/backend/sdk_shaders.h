@@ -23,7 +23,7 @@
 //   ui/shaders/vulkan_spirv/guest_output_ffx_cas_resample_ps.h a812592cabcdff59
 //   ui/shaders/vulkan_spirv/guest_output_ffx_fsr_easu_ps.h f4337cd793a7bf69
 //   ui/shaders/vulkan_spirv/guest_output_ffx_fsr_rcas_ps.h ac7f5a099e752370
-#include <windows.h>
+#include "platform/win32.h"
 
 namespace gpu::sdk_shaders {
 #include "gpu/backend/sdk_shaders/guest_output_triangle_strip_rect_vs.h"

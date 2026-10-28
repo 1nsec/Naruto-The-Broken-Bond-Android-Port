@@ -1,6 +1,6 @@
 // The version of the port (port_version.h).
 #include "port_version.h"
-#include <windows.h>
+#include "platform/win32.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
