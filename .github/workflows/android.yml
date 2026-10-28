@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -46,7 +46,7 @@ jobs:
           echo "ANDROID_NDK=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -72,6 +72,8 @@ jobs:
 
       - name: Configure
         run: |
+          set -o pipefail
+          mkdir -p build
           cmake -S . -B build/android -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="$ANDROID_PLATFORM" -DANDROID_STL=c++_shared \
@@ -82,7 +84,7 @@ jobs:
             -DBROKENBOND_NATIVE_RENDERER=ON -DBROKENBOND_NATIVE_D3D12=OFF -DBROKENBOND_NATIVE_VULKAN=ON \
             -DNATIVE_RENDERER_PLUME_SOURCE="$PWD/out/plume" \
             -DBROKENBOND_PREBUILT_SHADER_CACHE="$PWD/build/stub-shader-cache" \
-            -DBROKENBOND_VERSION=ci
+            -DBROKENBOND_VERSION=ci 2>&1 | tee build/configure.log
 
       - name: Build the native libraries
         run: |
@@ -100,7 +102,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat build/native-build.log build/gradle-build.log > build/android-build.log 2>/dev/null || true
+          mkdir -p build
+          for f in configure native-build gradle-build; do
+            [ -f "build/$f.log" ] && { echo "===== $f ====="; cat "build/$f.log"; }
+          done > build/android-build.log
           bash scripts/android/ci-publish-log.sh android build/android-build.log
 
       - name: Upload the stand-in APK (not playable)
