@@ -120,11 +120,18 @@ void ReportProductStop(std::string_view name, int code, bool released, std::stri
   std::string message = fmt::format("The native renderer stopped and the game will close.\n\nReason: {}", name);
   if (FAILED(HRESULT(removed)))
     message += fmt::format("\nThe graphics card stopped responding (0x{:08X}).", removed);
+#ifdef _WIN32
   message += "\n\nThe details are in the log, in the logs folder next to broken_bond.exe. "
              "If this happens again, the Xenos renderer can be chosen in the launcher.";
   const auto wide = rex::string::to_utf16(message);
   MessageBoxW(nullptr, reinterpret_cast<const wchar_t*>(wide.c_str()), L"broken_bond",
               MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+#else
+  // wchar_t is 32 bits outside Windows: the message goes as UTF-8.
+  message += "\n\nThe details are in the log: in the launcher, tap \"Save logs for a problem report\" "
+             "and send the zip from Downloads.";
+  MessageBoxA(nullptr, message.c_str(), "Naruto: The Broken Bond", MB_OK | MB_ICONERROR);
+#endif
 }
 }  // namespace
 

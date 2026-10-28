@@ -51,3 +51,4 @@ __pycache__/
 /android/app/src/main/jniLibs/
 /android/local.properties
 /android/*.keystore
+/android/app/src/main/assets/gpu/

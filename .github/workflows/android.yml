@@ -26,8 +26,53 @@ env:
   ANDROID_PLATFORM: android-29
 
 jobs:
+  turnip:
+    # Turnip, Mesa's Vulkan driver for Adreno GPUs, bundled with the app
+    # (scripts/android/build-turnip.sh); cached per Mesa tag and script.
+    name: Turnip driver (Mesa)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Cached build
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: build/turnip-out
+          key: turnip-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/android/build-turnip.sh', 'tools/android/dependencies.json') }}
+
+      - name: Install build tools
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build bison flex pkg-config glslang-tools
+          pip install --break-system-packages meson mako pyyaml packaging
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;${NDK_VERSION}" > /dev/null
+
+      - name: Build Turnip
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -o pipefail
+          mkdir -p build
+          bash scripts/android/build-turnip.sh "$ANDROID_HOME/ndk/${NDK_VERSION}" build/turnip-out 2>&1 | tee build/turnip-build.log
+
+      - name: Publish build log
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/android/ci-publish-log.sh turnip build/turnip-build.log
+
+      - name: Upload Turnip
+        uses: actions/upload-artifact@v4
+        with:
+          name: turnip
+          path: build/turnip-out/
+          retention-days: 7
+
   android:
     name: Android arm64 (stub game code)
+    needs: turnip
     runs-on: ubuntu-24.04
     steps:
       - name: Check out
@@ -80,6 +125,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DREXSDK_DIR="$PWD/sdk" -DREXGLUE_HOST_TOOL=/bin/true \
+            -DBROKENBOND_ADRENOTOOLS_SOURCE="$PWD/out/libadrenotools" \
             -DREXGLUE_ENABLE_TRACY=OFF -DREXGLUE_BUILD_TESTS=OFF \
             -DBROKENBOND_NATIVE_RENDERER=ON -DBROKENBOND_NATIVE_D3D12=OFF -DBROKENBOND_NATIVE_VULKAN=ON \
             -DNATIVE_RENDERER_PLUME_SOURCE="$PWD/out/plume" \
@@ -90,6 +136,12 @@ jobs:
         run: |
           set -o pipefail
           cmake --build build/android --target android_jnilibs -- -k 0 2>&1 | tee build/native-build.log
+
+      - name: Bundle Turnip
+        uses: actions/download-artifact@v4
+        with:
+          name: turnip
+          path: android/app/src/main/assets/gpu
 
       - name: Build the APK
         working-directory: android
@@ -107,7 +159,10 @@ jobs:
             unzip -l "$apk" | grep -E 'lib/|classes|assets/'
             mkdir -p build/apk-check && unzip -q -o "$apk" 'lib/*' -d build/apk-check
             libs=build/apk-check/lib/arm64-v8a
-            for lib in libmain.so librexruntime.so libSDL3.so libc++_shared.so; do
+            unzip -l "$apk" > build/apk-check/listing.txt
+            grep -q 'assets/gpu/libvulkan_freedreno.so' build/apk-check/listing.txt || { echo "missing the bundled Turnip"; exit 1; }
+            for lib in libmain.so librexruntime.so libSDL3.so libc++_shared.so \
+                       libhook_impl.so libmain_hook.so libfile_redirect_hook.so libgsl_alloc_hook.so; do
               test -f "$libs/$lib" || { echo "missing $lib"; exit 1; }
             done
             for lib in "$libs"/*.so; do

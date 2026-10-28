@@ -13,7 +13,9 @@ name: Android APK
 #
 # Mode "test" (also on pushes to ci/android-apk-test) builds the same way
 # against stand-ins, without the secret, to check the Windows build. Its APK
-# cannot play anything and is never released.
+# cannot play anything and is never released. A push to release/android-apk
+# builds the APK like "Run workflow" with the defaults: version
+# 2.5-android-alpha.<run number>, as a draft release.
 
 on:
   workflow_dispatch:
@@ -33,7 +35,7 @@ on:
         options: [draft, prerelease, none]
         default: draft
   push:
-    branches: [ci/android-apk-test]
+    branches: [ci/android-apk-test, release/android-apk]
 
 permissions:
   contents: write  # the release, and ci-publish-log.sh
@@ -43,16 +45,52 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MODE: ${{ inputs.mode || 'test' }}
-  VERSION: ${{ inputs.version || '2.5-android-alpha-test' }}
-  RELEASE: ${{ inputs.release || 'none' }}
+  MODE: ${{ inputs.mode || (github.ref == 'refs/heads/release/android-apk' && 'apk' || 'test') }}
+  VERSION: ${{ inputs.version || (github.ref == 'refs/heads/release/android-apk' && format('2.5-android-alpha.{0}', github.run_number) || '2.5-android-alpha-test') }}
+  RELEASE: ${{ inputs.release || (github.ref == 'refs/heads/release/android-apk' && 'draft' || 'none') }}
   NDK_VERSION: "29.0.14206865"  # The same as scripts/build-android.ps1.
   # A short path keeps the deep build folders under Windows' path length limit.
   REPO: C:\nb
 
 jobs:
+  turnip:
+    # Turnip, Mesa's Vulkan driver for Adreno GPUs, bundled with the app
+    # (scripts/android/build-turnip.sh); the same cache as android.yml.
+    name: Turnip driver (Mesa)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Cached build
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: build/turnip-out
+          key: turnip-${{ env.NDK_VERSION }}-${{ hashFiles('scripts/android/build-turnip.sh', 'tools/android/dependencies.json') }}
+
+      - name: Install build tools
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build bison flex pkg-config glslang-tools
+          pip install --break-system-packages meson mako pyyaml packaging
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;${NDK_VERSION}" > /dev/null
+
+      - name: Build Turnip
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: bash scripts/android/build-turnip.sh "$ANDROID_HOME/ndk/${NDK_VERSION}" build/turnip-out
+
+      - name: Upload Turnip
+        uses: actions/upload-artifact@v4
+        with:
+          name: turnip
+          path: build/turnip-out/
+          retention-days: 7
+
   apk:
-    name: Android APK (${{ inputs.mode || 'test' }})
+    needs: turnip
+    name: Android APK (${{ inputs.mode || (github.ref == 'refs/heads/release/android-apk' && 'apk' || 'test') }})
     runs-on: windows-2022
     timeout-minutes: 360
     defaults:
@@ -150,6 +188,11 @@ jobs:
             $dep = $deps.xenosrecomp_thirdparty.$name
             Get-Checkout "tools/xenosrecomp/thirdparty/$name" $dep.url $dep.revision
           }
+          # libadrenotools, which loads the bundled Turnip driver (tools/android/dependencies.json).
+          $android = Get-Content tools/android/dependencies.json -Raw | ConvertFrom-Json
+          Get-Checkout out/libadrenotools $android.libadrenotools.url $android.libadrenotools.revision
+          git -C out/libadrenotools submodule update -q --init --recursive
+          if ($LASTEXITCODE) { throw 'Fetching the libadrenotools submodules failed' }
 
       - name: Android NDK
         run: |
@@ -214,6 +257,12 @@ jobs:
             if ($LASTEXITCODE) { throw 'Host shader tools failed' }
           } *>&1 | Tee-Object -FilePath build/logs/2-shader-tools.log
           Remove-Item -Recurse -Force game
+
+      - name: Bundle Turnip
+        uses: actions/download-artifact@v4
+        with:
+          name: turnip
+          path: C:\nb\android\app\src\main\assets\gpu
 
       - name: Build the APK (scripts/build-android.ps1)
         working-directory: ${{ env.REPO }}

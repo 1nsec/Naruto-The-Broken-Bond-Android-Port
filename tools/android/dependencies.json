@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "note": "Android-only dependencies: libadrenotools loads the bundled Vulkan driver, built from Mesa (Turnip) by scripts/android/build-turnip.sh.",
+  "libadrenotools": {
+    "url": "https://github.com/bylaws/libadrenotools",
+    "revision": "8fae8ce254dfc1344527e05301e43f37dea2df80",
+    "license": "BSD-2-Clause"
+  },
+  "mesa": {
+    "url": "https://gitlab.freedesktop.org/mesa/mesa.git",
+    "tag": "mesa-25.1.0",
+    "license": "MIT"
+  }
+}

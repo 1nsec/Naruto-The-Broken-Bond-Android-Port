@@ -159,8 +159,9 @@ It is built from the game's executable once, like the PC version's `.exe`: on Wi
 
 ## Reporting problems
 
-[Open an issue](../../issues) with your phone model, Android version and the newest file in
-`logs/` (plus any `logs/crash_*.txt`) from `Android/data/org.brokenbond.port/files/`.
+In the launcher, tap **Save logs for a problem report**: it saves a zip with the game's logs and
+your device's details in **Downloads**. [Open an issue](../../issues) with that zip and a few words
+about what happened.
 
 **Known limitations:** Adreno only; switching away from the app and back is the least tested
 path, so quitting from the back menu is the safest way out; frame rates above 30 FPS depend

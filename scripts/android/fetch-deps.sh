@@ -36,3 +36,12 @@ done
 
 checkout "$root/tools/xenosrecomp/thirdparty/smol-v" "$(json "['xenosrecomp_thirdparty']['smol-v']['url']")" \
          "$(json "['xenosrecomp_thirdparty']['smol-v']['revision']")"
+
+# libadrenotools (and its linkernsbypass submodule): loads the Turnip driver
+# bundled with the app (tools/android/dependencies.json).
+android_deps="$root/tools/android/dependencies.json"
+adrenotools="$root/out/libadrenotools"
+checkout "$adrenotools" \
+  "$(python3 -I -c "import json,sys; print(json.load(open(sys.argv[1]))['libadrenotools']['url'])" "$android_deps")" \
+  "$(python3 -I -c "import json,sys; print(json.load(open(sys.argv[1]))['libadrenotools']['revision'])" "$android_deps")"
+git -C "$adrenotools" submodule update -q --init --recursive
