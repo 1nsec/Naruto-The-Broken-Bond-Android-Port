@@ -44,14 +44,37 @@ def hide_link(text: str, url: str) -> str:
     return text
 
 
+def fetch(url: str, target: Path) -> None:
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(request, timeout=120) as response, open(target, "wb") as out:
+        shutil.copyfileobj(response, out, length=16 << 20)
+
+
+def is_web_page(path: Path) -> bool:
+    with open(path, "rb") as f:
+        return f.read(512).lstrip().lower().startswith((b"<!doctype", b"<html"))
+
+
 def download(url: str, target: Path) -> None:
+    drive_id = None
     if "drive.google.com" in url or "docs.google.com" in url:
-        # Large Drive files need a confirmation step that gdown handles.
+        match = re.search(r"/d/([\w-]{10,})|[?&]id=([\w-]{10,})", url)
+        if not match:
+            raise SystemExit("This Google Drive link has no file id: use the file's share link")
+        drive_id = match.group(1) or match.group(2)
+    if drive_id:
+        # Drive's direct download; confirm=t skips the "too large to scan" page.
+        fetch(f"https://drive.usercontent.google.com/download?id={drive_id}&export=download&confirm=t", target)
+        if not is_web_page(target):
+            return
+        # Drive answered with a page (a quota or sign-in page): try gdown, which
+        # knows Drive's other confirmation steps.
+        print("Drive answered with a page; retrying with gdown", flush=True)
         subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "gdown"], check=True)
         import gdown  # noqa: PLC0415
 
         try:
-            ok = gdown.download(url, str(target), quiet=True, fuzzy=True)
+            ok = gdown.download(id=drive_id, output=str(target), quiet=True)
         except Exception as error:  # gdown raises on files it cannot reach
             raise SystemExit(f"Google Drive download failed: {hide_link(str(error), url)}\n"
                              "Is the file shared as 'Anyone with the link'?") from None
@@ -62,9 +85,7 @@ def download(url: str, target: Path) -> None:
         url = re.sub(r"([?&])dl=0", r"\1dl=1", url)
         if "dl=1" not in url:
             url += ("&" if "?" in url else "?") + "dl=1"
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(request, timeout=120) as response, open(target, "wb") as out:
-        shutil.copyfileobj(response, out, length=16 << 20)
+    fetch(url, target)
 
 
 def from_zip(path: Path, game: Path) -> set[str]:
