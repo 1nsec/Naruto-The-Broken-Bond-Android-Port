@@ -4,8 +4,9 @@
   fetch-game-files.py <url> <game folder> <download folder>
 
 <url> is a direct download link (Google Drive and Dropbox share links work)
-to either your Xbox 360 ISO of the game, or a .zip that holds default.xex and
-xeshader.sdb (anywhere inside). Only those two files are written to
+to either your Xbox 360 ISO of the game, or a .zip, .rar or .7z that holds
+default.xex and xeshader.sdb (anywhere inside; .rar and .7z need 7-Zip, which
+GitHub's Windows machines have). Only those two files are written to
 <game folder>; the download is deleted afterwards. Nothing about the files
 but their names, sizes and the executable's revision check is printed, so the
 public build log shows nothing of the game.
@@ -64,6 +65,20 @@ def from_zip(path: Path, game: Path) -> set[str]:
     return found
 
 
+def find_7zip() -> str:
+    for candidate in (shutil.which("7z"), shutil.which("7za"), r"C:\Program Files\7-Zip\7z.exe"):
+        if candidate and Path(candidate).exists():
+            return candidate
+    raise SystemExit("Extracting a .rar or .7z needs 7-Zip")
+
+
+def from_7zip_archive(path: Path, game: Path) -> set[str]:
+    # e: without folders; -r: the names match in any folder of the archive.
+    subprocess.run([find_7zip(), "e", "-y", "-r", f"-o{game}", str(path), *WANTED],
+                   check=True, stdout=subprocess.DEVNULL)
+    return {name for name in WANTED if (game / name).is_file()}
+
+
 def from_iso(path: Path, game: Path) -> set[str]:
     with open(path, "rb") as iso:
         for partition in PARTITION_OFFSETS:
@@ -120,9 +135,11 @@ def main() -> None:
     print(f"Downloaded {target.stat().st_size / (1 << 20):.0f} MiB", flush=True)
     try:
         with open(target, "rb") as f:
-            magic = f.read(4)
-        if magic == b"PK\x03\x04":
+            magic = f.read(8)
+        if magic.startswith(b"PK\x03\x04"):
             found = from_zip(target, game)
+        elif magic.startswith((b"Rar!\x1a\x07", b"7z\xbc\xaf\x27\x1c")):
+            found = from_7zip_archive(target, game)
         else:
             found = from_iso(target, game)
     finally:

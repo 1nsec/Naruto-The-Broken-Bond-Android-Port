@@ -7,7 +7,7 @@ name: Android APK
 # The game code is generated from your own default.xex and the shader cache
 # from your own xeshader.sdb. The workflow downloads them from a private link
 # that only the repository secret GAME_FILES_URL holds: your Xbox 360 ISO, or
-# a .zip with the two files (docs/android.md, "Cloud build"). They stay on the
+# a .zip, .rar or .7z with the two files (docs/android.md, "Cloud build"). They stay on the
 # build machine, which GitHub deletes after the run; nothing derived from
 # them is committed or cached, and only the APK is uploaded.
 #
@@ -163,7 +163,7 @@ jobs:
         run: |
           if (-not $env:GAME_FILES_URL) {
             throw ('Set the repository secret GAME_FILES_URL (Settings > Secrets and variables > Actions) ' +
-                   'to a link to your ISO, or to a .zip with default.xex and xeshader.sdb.')
+                   'to a link to your ISO, or to a .zip, .rar or .7z with default.xex and xeshader.sdb.')
           }
           # The download goes to the drive with the most room (an ISO is about 7 GB).
           $drive = Get-PSDrive -PSProvider FileSystem | Where-Object Used | Sort-Object Free -Descending | Select-Object -First 1

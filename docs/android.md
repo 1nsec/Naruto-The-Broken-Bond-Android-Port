@@ -90,7 +90,7 @@ anything.
 as `build-android.ps1` on a Windows machine of GitHub's and publishes the APK as a release. It
 needs your game files once, through a private link:
 
-1. Upload **either** your ISO **or** a `.zip` with `default.xex` and `xeshader.sdb` (from the
+1. Upload **either** your ISO **or** a `.zip`, `.rar` or `.7z` with `default.xex` and `xeshader.sdb` (from the
    extracted game) to Google Drive or Dropbox, and share it as "anyone with the link".
 2. In the repository on GitHub: **Settings > Secrets and variables > Actions > New repository
    secret**, name `GAME_FILES_URL`, value: the link. Secrets are hidden, also in the build logs.
