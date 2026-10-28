@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Applies the project's SDK patches (the same list and order as
-# scripts/build-sdk.ps1) and then the Android patch to the sdk submodule.
-# Patches that are already applied are detected and left as they are; a patch
-# that neither applies nor is found applied stops with an error.
+# Applies the project's SDK patches (the list and order of scripts/sdk-patches.ps1,
+# which build-sdk.ps1 and build-android.ps1 use) to the sdk submodule.
+# A later patch can change the lines next to an earlier one, and then the
+# earlier one no longer checks in reverse: the stack is checked from the top,
+# and every patch below the highest one found applied counts as applied. A
+# missing patch that does not apply stops with an error.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -23,15 +25,20 @@ if [[ "$(head -n1 "$sdk/thirdparty/libmspack/cabextract/mspack/lzxd.c")" == "../
   exit 1
 fi
 
-for name in "${patches[@]}"; do
-  patch="$root/patches/$name"
-  if git -C "$sdk" apply --check "$patch" 2>/dev/null; then
-    git -C "$sdk" apply "$patch"
-    echo "Applied $name"
-  elif git -C "$sdk" apply --reverse --check "$patch" 2>/dev/null; then
-    echo "Already applied: $name"
-  else
-    echo "SDK patch $name cannot be applied or verified. Existing SDK changes were preserved." >&2
+applied=0
+for ((i = ${#patches[@]}; i > 0; i--)); do
+  if git -C "$sdk" apply --reverse --check "$root/patches/${patches[i - 1]}" 2>/dev/null; then
+    applied=$i
+    break
+  fi
+done
+for ((i = 0; i < applied; i++)); do echo "Already applied: ${patches[i]}"; done
+for ((i = applied; i < ${#patches[@]}; i++)); do
+  patch="$root/patches/${patches[i]}"
+  if ! git -C "$sdk" apply --check "$patch" 2>/dev/null; then
+    echo "SDK patch ${patches[i]} cannot be applied or verified. Existing SDK changes were preserved." >&2
     exit 1
   fi
+  git -C "$sdk" apply "$patch"
+  echo "Applied ${patches[i]}"
 done

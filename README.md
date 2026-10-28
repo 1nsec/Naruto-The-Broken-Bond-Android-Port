@@ -11,6 +11,10 @@ resolutions, smoother play) are his work. This port adds its own PC features on 
 
 **[▶ Watch the trailer](https://youtu.be/j7WtfO7-Km8)**
 
+> **Android (alpha):** this repository also builds the port as an Android app, with a launcher and
+> on-screen controls, for Snapdragon (Adreno) phones. It is untested on phones so far. See
+> [Android](#android-alpha).
+
 ![Title screen](docs/images/title-screen.jpg)
 
 > **No game files are included.** You need your own copy of the game as an Xbox 360 disc image
@@ -154,6 +158,17 @@ The frame rate holds 60 FPS in most places and drops to about 34 FPS in some bus
 the smoothest play on the Deck, set PC Options > Graphics to 1x render resolution and
 anti-aliasing OFF.
 
+## Android (alpha)
+
+An Android version of this port: the same recompiled game, the native renderer on **Vulkan**, PC
+Options, a launcher to pick your ISO and change settings, and on-screen controls (Bluetooth and
+USB controllers work too). It needs Android 10+, a 64-bit phone and a **Snapdragon (Adreno)** GPU.
+
+It is an **alpha**: CI builds and packages it, but it has not run on a phone yet. The APK is built
+on Windows from your own game files with `scripts/build-android.ps1`; no game files are included
+or downloaded. Build steps, requirements, controls and how to report problems:
+**[docs/android.md](docs/android.md)**.
+
 ## Features
 
 | | |
@@ -268,6 +283,7 @@ you can send a few Ryō my way on Ko-fi. Thank you, believe it!
 | v2.5: weather, free camera, speed up, Hokage skins, live graphics options, Steam Deck fixes (shaders under Proton, crash guard), trap jutsu fix | this port |
 | Menu overlay on the native renderer, Skip Unready Graphics option, Anti-aliasing OFF fix, render-thread speedups, performance log, window close fixes | this port, changes inside his renderer |
 | v1 recompilation and its emulated graphics | this port, on the ReXGlue SDK with patches from naruto-rise-recomp |
+| Android port (alpha): ReXGlue SDK patch for Android, Vulkan on Android, launcher app, on-screen controller | this repository, written with Claude AI |
 
 ## Credits
 
@@ -281,6 +297,7 @@ you can send a few Ryō my way on Ko-fi. Thank you, believe it!
   started from. Thank you!
 - [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) (BSD-3-Clause), built on
   [Xenia](https://github.com/xenia-project/xenia).
+- [SDL3](https://libsdl.org) (zlib license): input, audio and the Android activity of the app.
 - [Titan One](https://fonts.google.com/specimen/Titan+One) font (SIL Open Font License, see `assets/fonts/TitanOne-OFL.txt`) and
   [stb_image](https://github.com/nothings/stb) (public domain).
 
