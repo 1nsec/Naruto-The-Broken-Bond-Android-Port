@@ -1,0 +1,357 @@
+run: https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port/actions/runs/40731140425
+commit: fb3815c704547ad5d02b595e2e73fb1cd3b0a709
+job: turnip
+
+== errors (with context) ==
+1373-[603/635] Compiling C++ object src/freedreno/vulkan/libvulkan_freedreno.so.p/meson-generated_.._tu_entrypoints.cc.o
+1374-[604/635] Compiling C++ object src/freedreno/vulkan/libvulkan_freedreno.so.p/layers_tu_rmv_layer.cc.o
+1375:FAILED: [code=1] src/freedreno/vulkan/libvulkan_freedreno.so.p/layers_tu_rmv_layer.cc.o 
+1376-/usr/local/lib/android/sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++ -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -static-libstdc++ -Isrc/freedreno/vulkan/libvulkan_freedreno.so.p -Isrc/freedreno/vulkan -I../mesa/src/freedreno/vulkan -Iinclude -I../mesa/include -I../mesa/include/android_stub -Isrc -I../mesa/src -Isrc/freedreno -I../mesa/src/freedreno -Isrc/freedreno/registers -I../mesa/src/freedreno/registers -Isrc/freedreno/registers/adreno -I../mesa/src/freedreno/registers/adreno -Isrc/freedreno/common -I../mesa/src/freedreno/common -Isrc/compiler/nir -I../mesa/src/compiler/nir -Isrc/compiler -I../mesa/src/compiler -Isrc/vulkan/util -I../mesa/src/vulkan/util -Isrc/vulkan/runtime -I../mesa/src/vulkan/runtime -Isrc/vulkan/runtime/bvh -I../mesa/src/vulkan/runtime/bvh -Isrc/vulkan/wsi -I../mesa/src/vulkan/wsi -Isrc/util/format -Isrc/freedreno/vulkan/bvh -Isrc/compiler/spirv -fvisibility=hidden -fdiagnostics-color=always -DNDEBUG -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -std=c++17 -O3 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS '-DPACKAGE_VERSION="25.1.0"' '-DPACKAGE_BUGREPORT="https://gitlab.freedesktop.org/mesa/mesa/-/issues"' -DHAVE_OPENGL=0 -DHAVE_OPENGL_ES_1=0 -DHAVE_OPENGL_ES_2=0 -DVK_ENABLE_BETA_EXTENSIONS -DVIDEO_CODEC_VC1DEC=0 -DVIDEO_CODEC_H264DEC=0 -DVIDEO_CODEC_H264ENC=0 -DVIDEO_CODEC_H265DEC=0 -DVIDEO_CODEC_H265ENC=0 -DVIDEO_CODEC_AV1DEC=1 -DVIDEO_CODEC_AV1ENC=1 -DVIDEO_CODEC_VP9DEC=1 -DHAVE_ANDROID_PLATFORM -DUSE_LIBGLVND=0 -DGLAPI_EXPORT_PROTO_ENTRY_POINTS=1 -DANDROID_API_LEVEL=29 -DANDROID_STRICT -DMESA_DEBUG=0 -DENABLE_SHADER_CACHE -DHAVE___BUILTIN_BSWAP32 -DHAVE___BUILTIN_BSWAP64 -DHAVE___BUILTIN_CLZ -DHAVE___BUILTIN_CLZLL -DHAVE___BUILTIN_CTZ -DHAVE___BUILTIN_EXPECT -DHAVE___BUILTIN_FFS -DHAVE___BUILTIN_FFSLL -DHAVE___BUILTIN_POPCOUNT -DHAVE___BUILTIN_POPCOUNTLL -DHAVE___BUILTIN_UNREACHABLE -DHAVE___BUILTIN_TYPES_COMPATIBLE_P -DHAVE_FUNC_ATTRIBUTE_CONST -DHAVE_FUNC_ATTRIBUTE_FLATTEN -DHAVE_FUNC_ATTRIBUTE_MALLOC -DHAVE_FUNC_ATTRIBUTE_PURE -DHAVE_FUNC_ATTRIBUTE_UNUSED -DHAVE_FUNC_ATTRIBUTE_WARN_UNUSED_RESULT -DHAVE_FUNC_ATTRIBUTE_WEAK -DHAVE_FUNC_ATTRIBUTE_FORMAT -DHAVE_FUNC_ATTRIBUTE_PACKED -DHAVE_FUNC_ATTRIBUTE_RETURNS_NONNULL -DHAVE_FUNC_ATTRIBUTE_ALIAS -DHAVE_FUNC_ATTRIBUTE_NORETURN -DHAVE_FUNC_ATTRIBUTE_VISIBILITY -DHAVE_UINT128 -DHAVE_REALLOCARRAY -DHAVE_FMEMOPEN -D_GNU_SOURCE -DUSE_GCC_ATOMIC_BUILTINS -DMAJOR_IN_SYSMACROS -DHAS_SCHED_H -DHAS_SCHED_GETAFFINITY -DHAVE_XLOCALE_H -DHAVE_LINUX_FUTEX_H -DHAVE_ENDIAN_H -DHAVE_DLFCN_H -DHAVE_SYS_SHM_H -DHAVE_CET_H -DHAVE_SYS_INOTIFY_H -DHAVE_LINUX_UDMABUF_H -DHAVE_STRTOF -DHAVE_MKOSTEMP -DHAVE_FLOCK -DHAVE_STRTOK_R -DHAVE_GETRANDOM -DHAVE_POSIX_FALLOCATE -DHAVE_STRUCT_TIMESPEC -DHAVE_THRD_CREATE -DHAVE_POSIX_MEMALIGN -DHAVE_DIRENT_D_TYPE -DHAVE_STRTOD_L -DHAVE_DLADDR -DHAVE_DL_ITERATE_PHDR -DHAVE_ZLIB -DHAVE_COMPRESSION -DHAVE_PTHREAD -DLLVM_AVAILABLE=0 -DDRAW_LLVM_AVAILABLE=0 -DAMD_LLVM_AVAILABLE=0 -DGALLIVM_USE_ORCJIT=0 -DTHREAD_SANITIZER=0 -fno-emulated-tls -Qunused-arguments -fPIC -DVK_USE_PLATFORM_ANDROID_KHR -pthread -DTU_HAS_KGSL -MD -MQ src/freedreno/vulkan/libvulkan_freedreno.so.p/layers_tu_rmv_layer.cc.o -MF src/freedreno/vulkan/libvulkan_freedreno.so.p/layers_tu_rmv_layer.cc.o.d -o src/freedreno/vulkan/libvulkan_freedreno.so.p/layers_tu_rmv_layer.cc.o -c ../mesa/src/freedreno/vulkan/layers/tu_rmv_layer.cc
+1377-In file included from ../mesa/src/freedreno/vulkan/layers/tu_rmv_layer.cc:6:
+1378-In file included from ../mesa/src/freedreno/vulkan/tu_device.h:19:
+1379:../mesa/src/freedreno/vulkan/tu_cs.h:175:15: error: non-constant-expression cannot be narrowed from type 'unsigned long' to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1380-  175 |       .size = entry.size / sizeof(uint32_t),
+1381-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1382-../mesa/src/freedreno/vulkan/tu_cs.h:175:15: note: insert an explicit cast to silence this issue
+1383-  175 |       .size = entry.size / sizeof(uint32_t),
+1384-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1385-      |               static_cast<uint16_t>(       )
+1386:../mesa/src/freedreno/vulkan/tu_cs.h:200:15: error: non-constant-expression cannot be narrowed from type 'uint32_t' (aka 'unsigned int') to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1387-  200 |       .size = size,
+1388-      |               ^~~~
+1389-../mesa/src/freedreno/vulkan/tu_cs.h:200:15: note: insert an explicit cast to silence this issue
+1390-  200 |       .size = size,
+1391-      |               ^~~~
+1392-      |               static_cast<uint16_t>( )
+--
+1407-4 warnings and 2 errors generated.
+1408-[605/635] Compiling C++ object src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_acceleration_structure.cc.o
+1409:FAILED: [code=1] src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_acceleration_structure.cc.o 
+1410-/usr/local/lib/android/sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++ -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -static-libstdc++ -Isrc/freedreno/vulkan/libvulkan_freedreno.so.p -Isrc/freedreno/vulkan -I../mesa/src/freedreno/vulkan -Iinclude -I../mesa/include -I../mesa/include/android_stub -Isrc -I../mesa/src -Isrc/freedreno -I../mesa/src/freedreno -Isrc/freedreno/registers -I../mesa/src/freedreno/registers -Isrc/freedreno/registers/adreno -I../mesa/src/freedreno/registers/adreno -Isrc/freedreno/common -I../mesa/src/freedreno/common -Isrc/compiler/nir -I../mesa/src/compiler/nir -Isrc/compiler -I../mesa/src/compiler -Isrc/vulkan/util -I../mesa/src/vulkan/util -Isrc/vulkan/runtime -I../mesa/src/vulkan/runtime -Isrc/vulkan/runtime/bvh -I../mesa/src/vulkan/runtime/bvh -Isrc/vulkan/wsi -I../mesa/src/vulkan/wsi -Isrc/util/format -Isrc/freedreno/vulkan/bvh -Isrc/compiler/spirv -fvisibility=hidden -fdiagnostics-color=always -DNDEBUG -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -std=c++17 -O3 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS '-DPACKAGE_VERSION="25.1.0"' '-DPACKAGE_BUGREPORT="https://gitlab.freedesktop.org/mesa/mesa/-/issues"' -DHAVE_OPENGL=0 -DHAVE_OPENGL_ES_1=0 -DHAVE_OPENGL_ES_2=0 -DVK_ENABLE_BETA_EXTENSIONS -DVIDEO_CODEC_VC1DEC=0 -DVIDEO_CODEC_H264DEC=0 -DVIDEO_CODEC_H264ENC=0 -DVIDEO_CODEC_H265DEC=0 -DVIDEO_CODEC_H265ENC=0 -DVIDEO_CODEC_AV1DEC=1 -DVIDEO_CODEC_AV1ENC=1 -DVIDEO_CODEC_VP9DEC=1 -DHAVE_ANDROID_PLATFORM -DUSE_LIBGLVND=0 -DGLAPI_EXPORT_PROTO_ENTRY_POINTS=1 -DANDROID_API_LEVEL=29 -DANDROID_STRICT -DMESA_DEBUG=0 -DENABLE_SHADER_CACHE -DHAVE___BUILTIN_BSWAP32 -DHAVE___BUILTIN_BSWAP64 -DHAVE___BUILTIN_CLZ -DHAVE___BUILTIN_CLZLL -DHAVE___BUILTIN_CTZ -DHAVE___BUILTIN_EXPECT -DHAVE___BUILTIN_FFS -DHAVE___BUILTIN_FFSLL -DHAVE___BUILTIN_POPCOUNT -DHAVE___BUILTIN_POPCOUNTLL -DHAVE___BUILTIN_UNREACHABLE -DHAVE___BUILTIN_TYPES_COMPATIBLE_P -DHAVE_FUNC_ATTRIBUTE_CONST -DHAVE_FUNC_ATTRIBUTE_FLATTEN -DHAVE_FUNC_ATTRIBUTE_MALLOC -DHAVE_FUNC_ATTRIBUTE_PURE -DHAVE_FUNC_ATTRIBUTE_UNUSED -DHAVE_FUNC_ATTRIBUTE_WARN_UNUSED_RESULT -DHAVE_FUNC_ATTRIBUTE_WEAK -DHAVE_FUNC_ATTRIBUTE_FORMAT -DHAVE_FUNC_ATTRIBUTE_PACKED -DHAVE_FUNC_ATTRIBUTE_RETURNS_NONNULL -DHAVE_FUNC_ATTRIBUTE_ALIAS -DHAVE_FUNC_ATTRIBUTE_NORETURN -DHAVE_FUNC_ATTRIBUTE_VISIBILITY -DHAVE_UINT128 -DHAVE_REALLOCARRAY -DHAVE_FMEMOPEN -D_GNU_SOURCE -DUSE_GCC_ATOMIC_BUILTINS -DMAJOR_IN_SYSMACROS -DHAS_SCHED_H -DHAS_SCHED_GETAFFINITY -DHAVE_XLOCALE_H -DHAVE_LINUX_FUTEX_H -DHAVE_ENDIAN_H -DHAVE_DLFCN_H -DHAVE_SYS_SHM_H -DHAVE_CET_H -DHAVE_SYS_INOTIFY_H -DHAVE_LINUX_UDMABUF_H -DHAVE_STRTOF -DHAVE_MKOSTEMP -DHAVE_FLOCK -DHAVE_STRTOK_R -DHAVE_GETRANDOM -DHAVE_POSIX_FALLOCATE -DHAVE_STRUCT_TIMESPEC -DHAVE_THRD_CREATE -DHAVE_POSIX_MEMALIGN -DHAVE_DIRENT_D_TYPE -DHAVE_STRTOD_L -DHAVE_DLADDR -DHAVE_DL_ITERATE_PHDR -DHAVE_ZLIB -DHAVE_COMPRESSION -DHAVE_PTHREAD -DLLVM_AVAILABLE=0 -DDRAW_LLVM_AVAILABLE=0 -DAMD_LLVM_AVAILABLE=0 -DGALLIVM_USE_ORCJIT=0 -DTHREAD_SANITIZER=0 -fno-emulated-tls -Qunused-arguments -fPIC -DVK_USE_PLATFORM_ANDROID_KHR -pthread -DTU_HAS_KGSL -MD -MQ src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_acceleration_structure.cc.o -MF src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_acceleration_structure.cc.o.d -o src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_acceleration_structure.cc.o -c ../mesa/src/freedreno/vulkan/tu_acceleration_structure.cc
+1411-In file included from ../mesa/src/freedreno/vulkan/tu_acceleration_structure.cc:26:
+1412-In file included from ../mesa/src/freedreno/vulkan/tu_device.h:19:
+1413:../mesa/src/freedreno/vulkan/tu_cs.h:175:15: error: non-constant-expression cannot be narrowed from type 'unsigned long' to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1414-  175 |       .size = entry.size / sizeof(uint32_t),
+1415-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1416-../mesa/src/freedreno/vulkan/tu_cs.h:175:15: note: insert an explicit cast to silence this issue
+1417-  175 |       .size = entry.size / sizeof(uint32_t),
+1418-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1419-      |               static_cast<uint16_t>(       )
+1420:../mesa/src/freedreno/vulkan/tu_cs.h:200:15: error: non-constant-expression cannot be narrowed from type 'uint32_t' (aka 'unsigned int') to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1421-  200 |       .size = size,
+1422-      |               ^~~~
+1423-../mesa/src/freedreno/vulkan/tu_cs.h:200:15: note: insert an explicit cast to silence this issue
+1424-  200 |       .size = size,
+1425-      |               ^~~~
+1426-      |               static_cast<uint16_t>( )
+--
+1454-  814 |    unsigned num_views = MAX2(cmd->state.pass->num_views, 1);
+1455-      |             ^
+1456:../mesa/src/freedreno/vulkan/tu_acceleration_structure.cc:209:28: error: non-constant-expression cannot be narrowed from type 'uint64_t' (aka 'unsigned long') to 'uint32_t' (aka 'unsigned int') in initializer list [-Wc++11-narrowing]
+1457-  209 |       .output_bvh_offset = bvh_layout.bvh_offset,
+1458-      |                            ^~~~~~~~~~~~~~~~~~~~~
+1459-../mesa/src/freedreno/vulkan/tu_acceleration_structure.cc:209:28: note: insert an explicit cast to silence this issue
+1460-  209 |       .output_bvh_offset = bvh_layout.bvh_offset,
+1461-      |                            ^~~~~~~~~~~~~~~~~~~~~
+1462-      |                            static_cast<uint32_t>( )
+1463:../mesa/src/freedreno/vulkan/tu_acceleration_structure.cc:310:24: error: non-constant-expression cannot be narrowed from type 'uint64_t' (aka 'unsigned long') to 'uint32_t' (aka 'unsigned int') in initializer list [-Wc++11-narrowing]
+1464-  310 |          .bvh_offset = bvh_layout.bvh_offset,
+1465-      |                        ^~~~~~~~~~~~~~~~~~~~~
+1466-../mesa/src/freedreno/vulkan/tu_acceleration_structure.cc:310:24: note: insert an explicit cast to silence this issue
+1467-  310 |          .bvh_offset = bvh_layout.bvh_offset,
+1468-      |                        ^~~~~~~~~~~~~~~~~~~~~
+1469-      |                        static_cast<uint32_t>( )
+1470-6 warnings and 4 errors generated.
+1471-[606/635] Compiling C++ object src/freedreno/vulkan/libvulkan_freedreno.so.p/meson-generated_.._tu_tracepoints.cc.o
+1472:FAILED: [code=1] src/freedreno/vulkan/libvulkan_freedreno.so.p/meson-generated_.._tu_tracepoints.cc.o 
+1473-/usr/local/lib/android/sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++ -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -static-libstdc++ -Isrc/freedreno/vulkan/libvulkan_freedreno.so.p -Isrc/freedreno/vulkan -I../mesa/src/freedreno/vulkan -Iinclude -I../mesa/include -I../mesa/include/android_stub -Isrc -I../mesa/src -Isrc/freedreno -I../mesa/src/freedreno -Isrc/freedreno/registers -I../mesa/src/freedreno/registers -Isrc/freedreno/registers/adreno -I../mesa/src/freedreno/registers/adreno -Isrc/freedreno/common -I../mesa/src/freedreno/common -Isrc/compiler/nir -I../mesa/src/compiler/nir -Isrc/compiler -I../mesa/src/compiler -Isrc/vulkan/util -I../mesa/src/vulkan/util -Isrc/vulkan/runtime -I../mesa/src/vulkan/runtime -Isrc/vulkan/runtime/bvh -I../mesa/src/vulkan/runtime/bvh -Isrc/vulkan/wsi -I../mesa/src/vulkan/wsi -Isrc/util/format -Isrc/freedreno/vulkan/bvh -Isrc/compiler/spirv -fvisibility=hidden -fdiagnostics-color=always -DNDEBUG -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -std=c++17 -O3 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS '-DPACKAGE_VERSION="25.1.0"' '-DPACKAGE_BUGREPORT="https://gitlab.freedesktop.org/mesa/mesa/-/issues"' -DHAVE_OPENGL=0 -DHAVE_OPENGL_ES_1=0 -DHAVE_OPENGL_ES_2=0 -DVK_ENABLE_BETA_EXTENSIONS -DVIDEO_CODEC_VC1DEC=0 -DVIDEO_CODEC_H264DEC=0 -DVIDEO_CODEC_H264ENC=0 -DVIDEO_CODEC_H265DEC=0 -DVIDEO_CODEC_H265ENC=0 -DVIDEO_CODEC_AV1DEC=1 -DVIDEO_CODEC_AV1ENC=1 -DVIDEO_CODEC_VP9DEC=1 -DHAVE_ANDROID_PLATFORM -DUSE_LIBGLVND=0 -DGLAPI_EXPORT_PROTO_ENTRY_POINTS=1 -DANDROID_API_LEVEL=29 -DANDROID_STRICT -DMESA_DEBUG=0 -DENABLE_SHADER_CACHE -DHAVE___BUILTIN_BSWAP32 -DHAVE___BUILTIN_BSWAP64 -DHAVE___BUILTIN_CLZ -DHAVE___BUILTIN_CLZLL -DHAVE___BUILTIN_CTZ -DHAVE___BUILTIN_EXPECT -DHAVE___BUILTIN_FFS -DHAVE___BUILTIN_FFSLL -DHAVE___BUILTIN_POPCOUNT -DHAVE___BUILTIN_POPCOUNTLL -DHAVE___BUILTIN_UNREACHABLE -DHAVE___BUILTIN_TYPES_COMPATIBLE_P -DHAVE_FUNC_ATTRIBUTE_CONST -DHAVE_FUNC_ATTRIBUTE_FLATTEN -DHAVE_FUNC_ATTRIBUTE_MALLOC -DHAVE_FUNC_ATTRIBUTE_PURE -DHAVE_FUNC_ATTRIBUTE_UNUSED -DHAVE_FUNC_ATTRIBUTE_WARN_UNUSED_RESULT -DHAVE_FUNC_ATTRIBUTE_WEAK -DHAVE_FUNC_ATTRIBUTE_FORMAT -DHAVE_FUNC_ATTRIBUTE_PACKED -DHAVE_FUNC_ATTRIBUTE_RETURNS_NONNULL -DHAVE_FUNC_ATTRIBUTE_ALIAS -DHAVE_FUNC_ATTRIBUTE_NORETURN -DHAVE_FUNC_ATTRIBUTE_VISIBILITY -DHAVE_UINT128 -DHAVE_REALLOCARRAY -DHAVE_FMEMOPEN -D_GNU_SOURCE -DUSE_GCC_ATOMIC_BUILTINS -DMAJOR_IN_SYSMACROS -DHAS_SCHED_H -DHAS_SCHED_GETAFFINITY -DHAVE_XLOCALE_H -DHAVE_LINUX_FUTEX_H -DHAVE_ENDIAN_H -DHAVE_DLFCN_H -DHAVE_SYS_SHM_H -DHAVE_CET_H -DHAVE_SYS_INOTIFY_H -DHAVE_LINUX_UDMABUF_H -DHAVE_STRTOF -DHAVE_MKOSTEMP -DHAVE_FLOCK -DHAVE_STRTOK_R -DHAVE_GETRANDOM -DHAVE_POSIX_FALLOCATE -DHAVE_STRUCT_TIMESPEC -DHAVE_THRD_CREATE -DHAVE_POSIX_MEMALIGN -DHAVE_DIRENT_D_TYPE -DHAVE_STRTOD_L -DHAVE_DLADDR -DHAVE_DL_ITERATE_PHDR -DHAVE_ZLIB -DHAVE_COMPRESSION -DHAVE_PTHREAD -DLLVM_AVAILABLE=0 -DDRAW_LLVM_AVAILABLE=0 -DAMD_LLVM_AVAILABLE=0 -DGALLIVM_USE_ORCJIT=0 -DTHREAD_SANITIZER=0 -fno-emulated-tls -Qunused-arguments -fPIC -DVK_USE_PLATFORM_ANDROID_KHR -pthread -DTU_HAS_KGSL -MD -MQ src/freedreno/vulkan/libvulkan_freedreno.so.p/meson-generated_.._tu_tracepoints.cc.o -MF src/freedreno/vulkan/libvulkan_freedreno.so.p/meson-generated_.._tu_tracepoints.cc.o.d -o src/freedreno/vulkan/libvulkan_freedreno.so.p/meson-generated_.._tu_tracepoints.cc.o -c src/freedreno/vulkan/tu_tracepoints.cc
+1474-In file included from src/freedreno/vulkan/tu_tracepoints.cc:26:
+1475-In file included from ../mesa/src/freedreno/vulkan/tu_cmd_buffer.h:15:
+1476:../mesa/src/freedreno/vulkan/tu_cs.h:175:15: error: non-constant-expression cannot be narrowed from type 'unsigned long' to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1477-  175 |       .size = entry.size / sizeof(uint32_t),
+1478-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1479-../mesa/src/freedreno/vulkan/tu_cs.h:175:15: note: insert an explicit cast to silence this issue
+1480-  175 |       .size = entry.size / sizeof(uint32_t),
+1481-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1482-      |               static_cast<uint16_t>(       )
+1483:../mesa/src/freedreno/vulkan/tu_cs.h:200:15: error: non-constant-expression cannot be narrowed from type 'uint32_t' (aka 'unsigned int') to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1484-  200 |       .size = size,
+1485-      |               ^~~~
+1486-../mesa/src/freedreno/vulkan/tu_cs.h:200:15: note: insert an explicit cast to silence this issue
+1487-  200 |       .size = size,
+1488-      |               ^~~~
+1489-      |               static_cast<uint16_t>( )
+--
+1520-6 warnings and 2 errors generated.
+1521-[607/635] Compiling C++ object src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer.cc.o
+1522:FAILED: [code=1] src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer.cc.o 
+1523-/usr/local/lib/android/sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++ -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -static-libstdc++ -Isrc/freedreno/vulkan/libvulkan_freedreno.so.p -Isrc/freedreno/vulkan -I../mesa/src/freedreno/vulkan -Iinclude -I../mesa/include -I../mesa/include/android_stub -Isrc -I../mesa/src -Isrc/freedreno -I../mesa/src/freedreno -Isrc/freedreno/registers -I../mesa/src/freedreno/registers -Isrc/freedreno/registers/adreno -I../mesa/src/freedreno/registers/adreno -Isrc/freedreno/common -I../mesa/src/freedreno/common -Isrc/compiler/nir -I../mesa/src/compiler/nir -Isrc/compiler -I../mesa/src/compiler -Isrc/vulkan/util -I../mesa/src/vulkan/util -Isrc/vulkan/runtime -I../mesa/src/vulkan/runtime -Isrc/vulkan/runtime/bvh -I../mesa/src/vulkan/runtime/bvh -Isrc/vulkan/wsi -I../mesa/src/vulkan/wsi -Isrc/util/format -Isrc/freedreno/vulkan/bvh -Isrc/compiler/spirv -fvisibility=hidden -fdiagnostics-color=always -DNDEBUG -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -std=c++17 -O3 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS '-DPACKAGE_VERSION="25.1.0"' '-DPACKAGE_BUGREPORT="https://gitlab.freedesktop.org/mesa/mesa/-/issues"' -DHAVE_OPENGL=0 -DHAVE_OPENGL_ES_1=0 -DHAVE_OPENGL_ES_2=0 -DVK_ENABLE_BETA_EXTENSIONS -DVIDEO_CODEC_VC1DEC=0 -DVIDEO_CODEC_H264DEC=0 -DVIDEO_CODEC_H264ENC=0 -DVIDEO_CODEC_H265DEC=0 -DVIDEO_CODEC_H265ENC=0 -DVIDEO_CODEC_AV1DEC=1 -DVIDEO_CODEC_AV1ENC=1 -DVIDEO_CODEC_VP9DEC=1 -DHAVE_ANDROID_PLATFORM -DUSE_LIBGLVND=0 -DGLAPI_EXPORT_PROTO_ENTRY_POINTS=1 -DANDROID_API_LEVEL=29 -DANDROID_STRICT -DMESA_DEBUG=0 -DENABLE_SHADER_CACHE -DHAVE___BUILTIN_BSWAP32 -DHAVE___BUILTIN_BSWAP64 -DHAVE___BUILTIN_CLZ -DHAVE___BUILTIN_CLZLL -DHAVE___BUILTIN_CTZ -DHAVE___BUILTIN_EXPECT -DHAVE___BUILTIN_FFS -DHAVE___BUILTIN_FFSLL -DHAVE___BUILTIN_POPCOUNT -DHAVE___BUILTIN_POPCOUNTLL -DHAVE___BUILTIN_UNREACHABLE -DHAVE___BUILTIN_TYPES_COMPATIBLE_P -DHAVE_FUNC_ATTRIBUTE_CONST -DHAVE_FUNC_ATTRIBUTE_FLATTEN -DHAVE_FUNC_ATTRIBUTE_MALLOC -DHAVE_FUNC_ATTRIBUTE_PURE -DHAVE_FUNC_ATTRIBUTE_UNUSED -DHAVE_FUNC_ATTRIBUTE_WARN_UNUSED_RESULT -DHAVE_FUNC_ATTRIBUTE_WEAK -DHAVE_FUNC_ATTRIBUTE_FORMAT -DHAVE_FUNC_ATTRIBUTE_PACKED -DHAVE_FUNC_ATTRIBUTE_RETURNS_NONNULL -DHAVE_FUNC_ATTRIBUTE_ALIAS -DHAVE_FUNC_ATTRIBUTE_NORETURN -DHAVE_FUNC_ATTRIBUTE_VISIBILITY -DHAVE_UINT128 -DHAVE_REALLOCARRAY -DHAVE_FMEMOPEN -D_GNU_SOURCE -DUSE_GCC_ATOMIC_BUILTINS -DMAJOR_IN_SYSMACROS -DHAS_SCHED_H -DHAS_SCHED_GETAFFINITY -DHAVE_XLOCALE_H -DHAVE_LINUX_FUTEX_H -DHAVE_ENDIAN_H -DHAVE_DLFCN_H -DHAVE_SYS_SHM_H -DHAVE_CET_H -DHAVE_SYS_INOTIFY_H -DHAVE_LINUX_UDMABUF_H -DHAVE_STRTOF -DHAVE_MKOSTEMP -DHAVE_FLOCK -DHAVE_STRTOK_R -DHAVE_GETRANDOM -DHAVE_POSIX_FALLOCATE -DHAVE_STRUCT_TIMESPEC -DHAVE_THRD_CREATE -DHAVE_POSIX_MEMALIGN -DHAVE_DIRENT_D_TYPE -DHAVE_STRTOD_L -DHAVE_DLADDR -DHAVE_DL_ITERATE_PHDR -DHAVE_ZLIB -DHAVE_COMPRESSION -DHAVE_PTHREAD -DLLVM_AVAILABLE=0 -DDRAW_LLVM_AVAILABLE=0 -DAMD_LLVM_AVAILABLE=0 -DGALLIVM_USE_ORCJIT=0 -DTHREAD_SANITIZER=0 -fno-emulated-tls -Qunused-arguments -fPIC -DVK_USE_PLATFORM_ANDROID_KHR -pthread -DTU_HAS_KGSL -MD -MQ src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer.cc.o -MF src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer.cc.o.d -o src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer.cc.o -c ../mesa/src/freedreno/vulkan/tu_buffer.cc
+1524-In file included from ../mesa/src/freedreno/vulkan/tu_buffer.cc:14:
+1525-In file included from ../mesa/src/freedreno/vulkan/tu_device.h:19:
+1526:../mesa/src/freedreno/vulkan/tu_cs.h:175:15: error: non-constant-expression cannot be narrowed from type 'unsigned long' to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1527-  175 |       .size = entry.size / sizeof(uint32_t),
+1528-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1529-../mesa/src/freedreno/vulkan/tu_cs.h:175:15: note: insert an explicit cast to silence this issue
+1530-  175 |       .size = entry.size / sizeof(uint32_t),
+1531-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1532-      |               static_cast<uint16_t>(       )
+1533:../mesa/src/freedreno/vulkan/tu_cs.h:200:15: error: non-constant-expression cannot be narrowed from type 'uint32_t' (aka 'unsigned int') to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1534-  200 |       .size = size,
+1535-      |               ^~~~
+1536-../mesa/src/freedreno/vulkan/tu_cs.h:200:15: note: insert an explicit cast to silence this issue
+1537-  200 |       .size = size,
+1538-      |               ^~~~
+1539-      |               static_cast<uint16_t>( )
+--
+1552-  323 |       [VK_SAMPLER_ADDRESS_MODE_REPEAT]                = A6XX_TEX_REPEAT,
+1553-      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1554:../mesa/src/freedreno/vulkan/tu_buffer.cc:81:25: error: non-constant-expression cannot be narrowed from type 'int' to 'uint32_t' (aka 'unsigned int') in initializer list [-Wc++11-narrowing]
+1555-   81 |       .memoryTypeBits = (1 << device->physical_device->memory.type_count) - 1,
+1556-      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1557-../mesa/src/freedreno/vulkan/tu_buffer.cc:81:25: note: insert an explicit cast to silence this issue
+1558-   81 |       .memoryTypeBits = (1 << device->physical_device->memory.type_count) - 1,
+1559-      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1560-      |                         static_cast<uint32_t>(                               )
+1561-4 warnings and 3 errors generated.
+1562-[608/635] Compiling C++ object src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer_view.cc.o
+1563:FAILED: [code=1] src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer_view.cc.o 
+1564-/usr/local/lib/android/sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++ -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -static-libstdc++ -Isrc/freedreno/vulkan/libvulkan_freedreno.so.p -Isrc/freedreno/vulkan -I../mesa/src/freedreno/vulkan -Iinclude -I../mesa/include -I../mesa/include/android_stub -Isrc -I../mesa/src -Isrc/freedreno -I../mesa/src/freedreno -Isrc/freedreno/registers -I../mesa/src/freedreno/registers -Isrc/freedreno/registers/adreno -I../mesa/src/freedreno/registers/adreno -Isrc/freedreno/common -I../mesa/src/freedreno/common -Isrc/compiler/nir -I../mesa/src/compiler/nir -Isrc/compiler -I../mesa/src/compiler -Isrc/vulkan/util -I../mesa/src/vulkan/util -Isrc/vulkan/runtime -I../mesa/src/vulkan/runtime -Isrc/vulkan/runtime/bvh -I../mesa/src/vulkan/runtime/bvh -Isrc/vulkan/wsi -I../mesa/src/vulkan/wsi -Isrc/util/format -Isrc/freedreno/vulkan/bvh -Isrc/compiler/spirv -fvisibility=hidden -fdiagnostics-color=always -DNDEBUG -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -std=c++17 -O3 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS '-DPACKAGE_VERSION="25.1.0"' '-DPACKAGE_BUGREPORT="https://gitlab.freedesktop.org/mesa/mesa/-/issues"' -DHAVE_OPENGL=0 -DHAVE_OPENGL_ES_1=0 -DHAVE_OPENGL_ES_2=0 -DVK_ENABLE_BETA_EXTENSIONS -DVIDEO_CODEC_VC1DEC=0 -DVIDEO_CODEC_H264DEC=0 -DVIDEO_CODEC_H264ENC=0 -DVIDEO_CODEC_H265DEC=0 -DVIDEO_CODEC_H265ENC=0 -DVIDEO_CODEC_AV1DEC=1 -DVIDEO_CODEC_AV1ENC=1 -DVIDEO_CODEC_VP9DEC=1 -DHAVE_ANDROID_PLATFORM -DUSE_LIBGLVND=0 -DGLAPI_EXPORT_PROTO_ENTRY_POINTS=1 -DANDROID_API_LEVEL=29 -DANDROID_STRICT -DMESA_DEBUG=0 -DENABLE_SHADER_CACHE -DHAVE___BUILTIN_BSWAP32 -DHAVE___BUILTIN_BSWAP64 -DHAVE___BUILTIN_CLZ -DHAVE___BUILTIN_CLZLL -DHAVE___BUILTIN_CTZ -DHAVE___BUILTIN_EXPECT -DHAVE___BUILTIN_FFS -DHAVE___BUILTIN_FFSLL -DHAVE___BUILTIN_POPCOUNT -DHAVE___BUILTIN_POPCOUNTLL -DHAVE___BUILTIN_UNREACHABLE -DHAVE___BUILTIN_TYPES_COMPATIBLE_P -DHAVE_FUNC_ATTRIBUTE_CONST -DHAVE_FUNC_ATTRIBUTE_FLATTEN -DHAVE_FUNC_ATTRIBUTE_MALLOC -DHAVE_FUNC_ATTRIBUTE_PURE -DHAVE_FUNC_ATTRIBUTE_UNUSED -DHAVE_FUNC_ATTRIBUTE_WARN_UNUSED_RESULT -DHAVE_FUNC_ATTRIBUTE_WEAK -DHAVE_FUNC_ATTRIBUTE_FORMAT -DHAVE_FUNC_ATTRIBUTE_PACKED -DHAVE_FUNC_ATTRIBUTE_RETURNS_NONNULL -DHAVE_FUNC_ATTRIBUTE_ALIAS -DHAVE_FUNC_ATTRIBUTE_NORETURN -DHAVE_FUNC_ATTRIBUTE_VISIBILITY -DHAVE_UINT128 -DHAVE_REALLOCARRAY -DHAVE_FMEMOPEN -D_GNU_SOURCE -DUSE_GCC_ATOMIC_BUILTINS -DMAJOR_IN_SYSMACROS -DHAS_SCHED_H -DHAS_SCHED_GETAFFINITY -DHAVE_XLOCALE_H -DHAVE_LINUX_FUTEX_H -DHAVE_ENDIAN_H -DHAVE_DLFCN_H -DHAVE_SYS_SHM_H -DHAVE_CET_H -DHAVE_SYS_INOTIFY_H -DHAVE_LINUX_UDMABUF_H -DHAVE_STRTOF -DHAVE_MKOSTEMP -DHAVE_FLOCK -DHAVE_STRTOK_R -DHAVE_GETRANDOM -DHAVE_POSIX_FALLOCATE -DHAVE_STRUCT_TIMESPEC -DHAVE_THRD_CREATE -DHAVE_POSIX_MEMALIGN -DHAVE_DIRENT_D_TYPE -DHAVE_STRTOD_L -DHAVE_DLADDR -DHAVE_DL_ITERATE_PHDR -DHAVE_ZLIB -DHAVE_COMPRESSION -DHAVE_PTHREAD -DLLVM_AVAILABLE=0 -DDRAW_LLVM_AVAILABLE=0 -DAMD_LLVM_AVAILABLE=0 -DGALLIVM_USE_ORCJIT=0 -DTHREAD_SANITIZER=0 -fno-emulated-tls -Qunused-arguments -fPIC -DVK_USE_PLATFORM_ANDROID_KHR -pthread -DTU_HAS_KGSL -MD -MQ src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer_view.cc.o -MF src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer_view.cc.o.d -o src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_buffer_view.cc.o -c ../mesa/src/freedreno/vulkan/tu_buffer_view.cc
+1565-In file included from ../mesa/src/freedreno/vulkan/tu_buffer_view.cc:9:
+1566-In file included from ../mesa/src/freedreno/vulkan/tu_device.h:19:
+1567:../mesa/src/freedreno/vulkan/tu_cs.h:175:15: error: non-constant-expression cannot be narrowed from type 'unsigned long' to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1568-  175 |       .size = entry.size / sizeof(uint32_t),
+1569-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1570-../mesa/src/freedreno/vulkan/tu_cs.h:175:15: note: insert an explicit cast to silence this issue
+1571-  175 |       .size = entry.size / sizeof(uint32_t),
+1572-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1573-      |               static_cast<uint16_t>(       )
+1574:../mesa/src/freedreno/vulkan/tu_cs.h:200:15: error: non-constant-expression cannot be narrowed from type 'uint32_t' (aka 'unsigned int') to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1575-  200 |       .size = size,
+1576-      |               ^~~~
+1577-../mesa/src/freedreno/vulkan/tu_cs.h:200:15: note: insert an explicit cast to silence this issue
+1578-  200 |       .size = size,
+1579-      |               ^~~~
+1580-      |               static_cast<uint16_t>( )
+--
+1595-4 warnings and 2 errors generated.
+1596-[609/635] Compiling C++ object src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_autotune.cc.o
+1597:FAILED: [code=1] src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_autotune.cc.o 
+1598-/usr/local/lib/android/sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++ -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -static-libstdc++ -Isrc/freedreno/vulkan/libvulkan_freedreno.so.p -Isrc/freedreno/vulkan -I../mesa/src/freedreno/vulkan -Iinclude -I../mesa/include -I../mesa/include/android_stub -Isrc -I../mesa/src -Isrc/freedreno -I../mesa/src/freedreno -Isrc/freedreno/registers -I../mesa/src/freedreno/registers -Isrc/freedreno/registers/adreno -I../mesa/src/freedreno/registers/adreno -Isrc/freedreno/common -I../mesa/src/freedreno/common -Isrc/compiler/nir -I../mesa/src/compiler/nir -Isrc/compiler -I../mesa/src/compiler -Isrc/vulkan/util -I../mesa/src/vulkan/util -Isrc/vulkan/runtime -I../mesa/src/vulkan/runtime -Isrc/vulkan/runtime/bvh -I../mesa/src/vulkan/runtime/bvh -Isrc/vulkan/wsi -I../mesa/src/vulkan/wsi -Isrc/util/format -Isrc/freedreno/vulkan/bvh -Isrc/compiler/spirv -fvisibility=hidden -fdiagnostics-color=always -DNDEBUG -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -std=c++17 -O3 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS '-DPACKAGE_VERSION="25.1.0"' '-DPACKAGE_BUGREPORT="https://gitlab.freedesktop.org/mesa/mesa/-/issues"' -DHAVE_OPENGL=0 -DHAVE_OPENGL_ES_1=0 -DHAVE_OPENGL_ES_2=0 -DVK_ENABLE_BETA_EXTENSIONS -DVIDEO_CODEC_VC1DEC=0 -DVIDEO_CODEC_H264DEC=0 -DVIDEO_CODEC_H264ENC=0 -DVIDEO_CODEC_H265DEC=0 -DVIDEO_CODEC_H265ENC=0 -DVIDEO_CODEC_AV1DEC=1 -DVIDEO_CODEC_AV1ENC=1 -DVIDEO_CODEC_VP9DEC=1 -DHAVE_ANDROID_PLATFORM -DUSE_LIBGLVND=0 -DGLAPI_EXPORT_PROTO_ENTRY_POINTS=1 -DANDROID_API_LEVEL=29 -DANDROID_STRICT -DMESA_DEBUG=0 -DENABLE_SHADER_CACHE -DHAVE___BUILTIN_BSWAP32 -DHAVE___BUILTIN_BSWAP64 -DHAVE___BUILTIN_CLZ -DHAVE___BUILTIN_CLZLL -DHAVE___BUILTIN_CTZ -DHAVE___BUILTIN_EXPECT -DHAVE___BUILTIN_FFS -DHAVE___BUILTIN_FFSLL -DHAVE___BUILTIN_POPCOUNT -DHAVE___BUILTIN_POPCOUNTLL -DHAVE___BUILTIN_UNREACHABLE -DHAVE___BUILTIN_TYPES_COMPATIBLE_P -DHAVE_FUNC_ATTRIBUTE_CONST -DHAVE_FUNC_ATTRIBUTE_FLATTEN -DHAVE_FUNC_ATTRIBUTE_MALLOC -DHAVE_FUNC_ATTRIBUTE_PURE -DHAVE_FUNC_ATTRIBUTE_UNUSED -DHAVE_FUNC_ATTRIBUTE_WARN_UNUSED_RESULT -DHAVE_FUNC_ATTRIBUTE_WEAK -DHAVE_FUNC_ATTRIBUTE_FORMAT -DHAVE_FUNC_ATTRIBUTE_PACKED -DHAVE_FUNC_ATTRIBUTE_RETURNS_NONNULL -DHAVE_FUNC_ATTRIBUTE_ALIAS -DHAVE_FUNC_ATTRIBUTE_NORETURN -DHAVE_FUNC_ATTRIBUTE_VISIBILITY -DHAVE_UINT128 -DHAVE_REALLOCARRAY -DHAVE_FMEMOPEN -D_GNU_SOURCE -DUSE_GCC_ATOMIC_BUILTINS -DMAJOR_IN_SYSMACROS -DHAS_SCHED_H -DHAS_SCHED_GETAFFINITY -DHAVE_XLOCALE_H -DHAVE_LINUX_FUTEX_H -DHAVE_ENDIAN_H -DHAVE_DLFCN_H -DHAVE_SYS_SHM_H -DHAVE_CET_H -DHAVE_SYS_INOTIFY_H -DHAVE_LINUX_UDMABUF_H -DHAVE_STRTOF -DHAVE_MKOSTEMP -DHAVE_FLOCK -DHAVE_STRTOK_R -DHAVE_GETRANDOM -DHAVE_POSIX_FALLOCATE -DHAVE_STRUCT_TIMESPEC -DHAVE_THRD_CREATE -DHAVE_POSIX_MEMALIGN -DHAVE_DIRENT_D_TYPE -DHAVE_STRTOD_L -DHAVE_DLADDR -DHAVE_DL_ITERATE_PHDR -DHAVE_ZLIB -DHAVE_COMPRESSION -DHAVE_PTHREAD -DLLVM_AVAILABLE=0 -DDRAW_LLVM_AVAILABLE=0 -DAMD_LLVM_AVAILABLE=0 -DGALLIVM_USE_ORCJIT=0 -DTHREAD_SANITIZER=0 -fno-emulated-tls -Qunused-arguments -fPIC -DVK_USE_PLATFORM_ANDROID_KHR -pthread -DTU_HAS_KGSL -MD -MQ src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_autotune.cc.o -MF src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_autotune.cc.o.d -o src/freedreno/vulkan/libvulkan_freedreno.so.p/tu_autotune.cc.o -c ../mesa/src/freedreno/vulkan/tu_autotune.cc
+1599-In file included from ../mesa/src/freedreno/vulkan/tu_autotune.cc:8:
+1600-In file included from ../mesa/src/freedreno/vulkan/tu_cmd_buffer.h:15:
+1601:../mesa/src/freedreno/vulkan/tu_cs.h:175:15: error: non-constant-expression cannot be narrowed from type 'unsigned long' to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1602-  175 |       .size = entry.size / sizeof(uint32_t),
+1603-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1604-../mesa/src/freedreno/vulkan/tu_cs.h:175:15: note: insert an explicit cast to silence this issue
+1605-  175 |       .size = entry.size / sizeof(uint32_t),
+1606-      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1607-      |               static_cast<uint16_t>(       )
+1608:../mesa/src/freedreno/vulkan/tu_cs.h:200:15: error: non-constant-expression cannot be narrowed from type 'uint32_t' (aka 'unsigned int') to 'uint16_t' (aka 'unsigned short') in initializer list [-Wc++11-narrowing]
+1609-  200 |       .size = size,
+1610-      |               ^~~~
+1611-../mesa/src/freedreno/vulkan/tu_cs.h:200:15: note: insert an explicit cast to silence this issue
+1612-  200 |       .size = size,
+1613-      |               ^~~~
+1614-      |               static_cast<uint16_t>( )
+
+== last 200 lines ==
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:581:18: note: expanded from macro 'tu_cs_emit_regs'
+  581 |    __ONE_REG(14, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:540:23: note: expanded from macro '__ONE_REG'
+  540 |                *p++ = regs[i].value >> 32;                      \
+      |                       ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:527:35: note: expanded from macro '__ONE_REG'
+  527 |       if (i < ARRAY_SIZE(regs) && regs[i].reg > 0) {            \
+      |                                   ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:528:39: note: expanded from macro '__ONE_REG'
+  528 |          __assert_eq(regs[0].reg + i, regs[i].reg);             \
+      |                                       ^    ~
+../mesa/src/freedreno/vulkan/tu_cs.h:519:19: note: expanded from macro '__assert_eq'
+  519 |       if ((a) != (b)) {                                                 \
+      |                   ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:528:39: note: expanded from macro '__ONE_REG'
+  528 |          __assert_eq(regs[0].reg + i, regs[i].reg);             \
+      |                                       ^    ~
+../mesa/src/freedreno/vulkan/tu_cs.h:520:80: note: expanded from macro '__assert_eq'
+  520 |          fprintf(stderr, "assert failed: " #a " (0x%x) != " #b " (0x%x)\n", a, b); \
+      |                                                                                ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:529:14: note: expanded from macro '__ONE_REG'
+  529 |          if (regs[i].bo) {                                      \
+      |              ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:530:26: note: expanded from macro '__ONE_REG'
+  530 |             uint64_t v = regs[i].bo->iova + regs[i].bo_offset;  \
+      |                          ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:530:45: note: expanded from macro '__ONE_REG'
+  530 |             uint64_t v = regs[i].bo->iova + regs[i].bo_offset;  \
+      |                                             ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:531:19: note: expanded from macro '__ONE_REG'
+  531 |             v >>= regs[i].bo_shift;                             \
+      |                   ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:532:19: note: expanded from macro '__ONE_REG'
+  532 |             v <<= regs[i].bo_low;                               \
+      |                   ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:533:18: note: expanded from macro '__ONE_REG'
+  533 |             v |= regs[i].value;                                 \
+      |                  ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:538:20: note: expanded from macro '__ONE_REG'
+  538 |             *p++ = regs[i].value;                               \
+      |                    ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:539:17: note: expanded from macro '__ONE_REG'
+  539 |             if (regs[i].is_address)                             \
+      |                 ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: warning: array index 15 is past the end of the array (that has type 'const struct tu_reg_value[2]') [-Warray-bounds]
+  740 |       tu_cs_emit_regs(cs,
+      |       ^~~~~~~~~~~~~~~~~~~
+  741 |                         A6XX_RB_SAMPLE_COUNT_ADDR(.qword = result_iova));
+      |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../mesa/src/freedreno/vulkan/tu_cs.h:582:18: note: expanded from macro 'tu_cs_emit_regs'
+  582 |    __ONE_REG(15, regs);                                 \
+      |              ~~  ^
+../mesa/src/freedreno/vulkan/tu_cs.h:540:23: note: expanded from macro '__ONE_REG'
+  540 |                *p++ = regs[i].value >> 32;                      \
+      |                       ^    ~
+../mesa/src/freedreno/vulkan/tu_autotune.cc:740:7: note: array 'regs' declared here
+../mesa/src/freedreno/vulkan/tu_cs.h:559:4: note: expanded from macro 'tu_cs_emit_regs'
+  559 |    const struct fd_reg_pair regs[] = { __VA_ARGS__ };   \
+      |    ^
+2095 warnings and 2 errors generated.
+ninja: build stopped: subcommand failed.
