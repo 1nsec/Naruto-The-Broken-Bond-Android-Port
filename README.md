@@ -129,8 +129,9 @@ levels. Those come from your ISO, the same way the PC version works.
 <summary><b>Will it run on my phone?</b></summary>
 
 If it has a Snapdragon chip with an Adreno 6xx or newer GPU and Android 10+, it should start; how
-well it runs depends on the phone. Mali and PowerVR GPUs are not supported yet. The launcher warns
-when a phone lacks Vulkan 1.1.
+well it runs depends on the phone. When the phone's own Qualcomm driver lacks a feature the
+renderer needs (as on the Snapdragon 865), the app switches to **Turnip**, the open-source Adreno
+driver it carries (Settings > GPU driver). Mali and PowerVR GPUs are not supported yet.
 </details>
 
 <details>
@@ -183,6 +184,7 @@ Everything about building the APK, from your PC or in the cloud, signing, and ho
 | Static recompilation runtime | [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) (BSD-3-Clause), built on [Xenia](https://github.com/xenia-project/xenia) |
 | Input, audio and the app's game activity | [SDL3](https://libsdl.org) (zlib license) |
 | Icons of the on-screen controls | [Material Symbols](https://github.com/google/material-design-icons) (Apache License 2.0) |
+| Turnip, the bundled Adreno Vulkan driver | [Mesa](https://mesa3d.org) (MIT), loaded with [libadrenotools](https://github.com/bylaws/libadrenotools) (BSD-2-Clause) |
 
 Thanks to everyone credited in the [PC port](docs/pc-port.md#credits), including **tylerl567**
 for testing on the Steam Deck. The style of the on-screen controls is inspired by
