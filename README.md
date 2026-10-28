@@ -14,7 +14,9 @@ Unofficial fan port · bring your own game
 
 [Install](#install) · [Requirements](#requirements) · [Controls](#controls) · [FAQ](#faq) · [Build it yourself](docs/android.md)
 
-<img src="docs/images/title-screen.jpg" width="760" alt="Title screen">
+<img src="docs/images/fight-kyuubi.jpg" width="760" alt="Gameplay">
+
+<sub>Screenshots from the PC version: the Android port runs the same game and renderer.</sub>
 
 </div>
 
@@ -33,6 +35,14 @@ The Android version of the [Naruto: The Broken Bond PC Port v2.5](docs/pc-port.m
 Xbox 360 code is recompiled ahead of time with the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk),
 so it runs natively instead of being emulated, and its graphics go through a native **Vulkan**
 renderer.
+
+<table>
+<tr>
+<td width="33%"><img src="docs/images/story.jpg" alt="Story"></td>
+<td width="33%"><img src="docs/images/fight-kakashi-itachi.jpg" alt="Fight"></td>
+<td width="33%"><img src="docs/images/title-screen.jpg" alt="Title screen"></td>
+</tr>
+</table>
 
 <table>
 <tr>
