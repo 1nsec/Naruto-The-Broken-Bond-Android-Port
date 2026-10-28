@@ -1,5 +1,7 @@
 # Documentation
 
+- [Android port](android.md)
+- [PC port v2.5 (its README)](pc-port.md)
 - [Build and run](build-and-run.md)
 - [Configuration](configuration.md)
 - [Launcher features and parity](../launcher/README.md)

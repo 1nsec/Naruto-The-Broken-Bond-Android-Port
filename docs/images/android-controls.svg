@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 440" width="880" height="440" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" role="img" aria-label="On-screen controller layout of the Android app">
+<defs><linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2b3140"/><stop offset="1" stop-color="#161a22"/></linearGradient></defs>
+<rect x="10" y="10" width="860" height="420" rx="56" fill="#0d0f13" stroke="#3a3f4b" stroke-width="3"/>
+<rect x="50.0" y="40.0" width="780.0" height="360.0" rx="18" fill="url(#screen)"/>
+<circle cx="30" cy="220" r="5" fill="#2a2e38"/>
+<rect x="56.0" y="224.0" width="315.6" height="170.0" rx="14" fill="#f28c28" fill-opacity="0.07" stroke="#f28c28" stroke-opacity="0.75" stroke-width="2" stroke-dasharray="8 7"/>
+<text x="213.8" y="248.0" text-anchor="middle" font-size="15" font-weight="700" fill="#f2b06a">Left stick</text>
+<text x="213.8" y="265.0" text-anchor="middle" font-size="11.5" fill="#c9d1d9" fill-opacity="0.8">appears where you touch</text>
+<circle cx="293.8" cy="350.3" r="31.7" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2"/>
+<circle cx="302.8" cy="343.3" r="14.3" fill="#ffffff" fill-opacity="0.35"/>
+<rect x="383.6" y="206.0" width="190.8" height="188.0" rx="14" fill="#f28c28" fill-opacity="0.07" stroke="#f28c28" stroke-opacity="0.75" stroke-width="2" stroke-dasharray="8 7"/>
+<text x="479.0" y="230.0" text-anchor="middle" font-size="15" font-weight="700" fill="#f2b06a">Camera</text>
+<text x="479.0" y="247.0" text-anchor="middle" font-size="11.5" fill="#c9d1d9" fill-opacity="0.8">appears where you touch</text>
+<circle cx="479.0" cy="350.3" r="31.7" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2"/>
+<circle cx="488.0" cy="343.3" r="14.3" fill="#ffffff" fill-opacity="0.35"/>
+<circle cx="731.0" cy="301.0" r="27.0" fill="#3fb950" fill-opacity="0.85" stroke="#ffffff" stroke-opacity="0.9" stroke-width="2"/>
+<text x="731.0" y="308.9" text-anchor="middle" font-size="22" font-weight="700" fill="#ffffff">A</text>
+<circle cx="774.2" cy="254.2" r="27.0" fill="#f85149" fill-opacity="0.85" stroke="#ffffff" stroke-opacity="0.9" stroke-width="2"/>
+<text x="774.2" y="262.1" text-anchor="middle" font-size="22" font-weight="700" fill="#ffffff">B</text>
+<circle cx="687.8" cy="254.2" r="27.0" fill="#4493f8" fill-opacity="0.85" stroke="#ffffff" stroke-opacity="0.9" stroke-width="2"/>
+<text x="687.8" y="262.1" text-anchor="middle" font-size="22" font-weight="700" fill="#ffffff">X</text>
+<circle cx="731.0" cy="207.4" r="27.0" fill="#e3b341" fill-opacity="0.85" stroke="#ffffff" stroke-opacity="0.9" stroke-width="2"/>
+<text x="731.0" y="215.3" text-anchor="middle" font-size="22" font-weight="700" fill="#ffffff">Y</text>
+<circle cx="794.0" cy="76.0" r="25.2" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="794.0" y="81.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">RT</text>
+<circle cx="732.8" cy="76.0" r="25.2" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="732.8" y="81.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">RB</text>
+<circle cx="86.0" cy="76.0" r="25.2" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="86.0" y="81.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">LT</text>
+<circle cx="147.2" cy="76.0" r="25.2" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="147.2" y="81.4" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">LB</text>
+<circle cx="624.8" cy="360.4" r="18.0" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="624.8" y="364.7" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">R3</text>
+<circle cx="212.0" cy="360.4" r="18.0" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="212.0" y="364.7" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">L3</text>
+<circle cx="382.4" cy="68.8" r="18.0" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="382.4" y="72.6" text-anchor="middle" font-size="10.5" font-weight="700" fill="#ffffff">Back</text>
+<circle cx="497.6" cy="68.8" r="18.0" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="497.6" y="72.6" text-anchor="middle" font-size="10.5" font-weight="700" fill="#ffffff">Start</text>
+<circle cx="440.0" cy="68.8" r="18.0" fill="#f28c28" stroke="#ffffff" stroke-width="2"/>
+<text x="440.0" y="76.0" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">⚙</text>
+<circle cx="111.2" cy="137.2" r="18.0" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="111.2" y="142.2" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">▲</text>
+<circle cx="111.2" cy="212.8" r="18.0" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="111.2" y="217.8" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">▼</text>
+<circle cx="71.6" cy="175.0" r="18.0" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="71.6" y="180.0" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">◀</text>
+<circle cx="150.8" cy="175.0" r="18.0" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2"/>
+<text x="150.8" y="180.0" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">▶</text>
+<text x="440.0" y="106.8" text-anchor="middle" font-size="12.5" font-weight="700" fill="#f2b06a">PC Options</text>
+</svg>
