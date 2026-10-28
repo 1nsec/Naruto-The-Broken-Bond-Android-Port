@@ -1,0 +1,207 @@
+run: https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port/actions/runs/40704692180
+commit: 322eae4a0e2e0af41787edad908d2ecad092db3b
+job: android-apk-test
+
+== errors (with context) ==
+
+== last 200 lines ==
+In file included from C:/nb/src/gpu/common/guest_memory.h:16:
+In file included from C:/nb/sdk/include/rex/ppc/context.h:20:
+C:/nb/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+C:/nb/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[712/740] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/overlay.cpp.o
+[713/740] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/shaders/shader_cache_data.cpp.o
+[714/740] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/settings.cpp.o
+[715/740] Building CXX object CMakeFiles/broken_bond.dir/src/studies/rand_trace.cpp.o
+In file included from C:/nb/src/studies/rand_trace.cpp:23:
+In file included from C:/nb/sdk/include/rex/hook.h:21:
+In file included from C:/nb/sdk/include/rex/ppc/context.h:20:
+C:/nb/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+C:/nb/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[716/740] Building CXX object CMakeFiles/broken_bond.dir/src/studies/export_trace.cpp.o
+In file included from C:/nb/src/studies/export_trace.cpp:16:
+In file included from C:/nb/src/studies/export_trace.h:8:
+In file included from C:/nb/sdk/include/rex/ppc/context.h:20:
+C:/nb/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+C:/nb/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[717/740] Building CXX object CMakeFiles/broken_bond.dir/src/studies/xma_stream_trace.cpp.o
+In file included from C:/nb/src/studies/xma_stream_trace.cpp:26:
+In file included from C:/nb/sdk/include/rex/hook.h:21:
+In file included from C:/nb/sdk/include/rex/ppc/context.h:20:
+C:/nb/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+C:/nb/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[718/740] Building CXX object CMakeFiles/broken_bond.dir/src/studies/audio_trace.cpp.o
+In file included from C:/nb/src/studies/audio_trace.cpp:24:
+In file included from C:/nb/sdk/include/rex/hook.h:21:
+In file included from C:/nb/sdk/include/rex/ppc/context.h:20:
+C:/nb/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+C:/nb/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[719/740] Building CXX object CMakeFiles/broken_bond.dir/src/studies/kernel_io_exports.cpp.o
+In file included from C:/nb/src/studies/kernel_io_exports.cpp:7:
+In file included from C:/nb/src/gpu/host/kernel_exports.h:2:
+In file included from C:/nb/sdk/include/rex/hook.h:21:
+In file included from C:/nb/sdk/include/rex/ppc/context.h:20:
+C:/nb/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+C:/nb/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[720/740] Building CXX object CMakeFiles/broken_bond.dir/src/studies/kernel_xma_exports.cpp.o
+In file included from C:/nb/src/studies/kernel_xma_exports.cpp:7:
+In file included from C:/nb/src/gpu/host/kernel_exports.h:2:
+In file included from C:/nb/sdk/include/rex/hook.h:21:
+In file included from C:/nb/sdk/include/rex/ppc/context.h:20:
+C:/nb/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+C:/nb/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[721/740] Building CXX object CMakeFiles/broken_bond.dir/src/pc/pad_input_sdl.cpp.o
+[722/740] Building CXX object CMakeFiles/broken_bond.dir/src/pc/crash_handler_posix.cpp.o
+[723/740] Building CXX object CMakeFiles/broken_bond.dir/src/platform/win32_posix.cpp.o
+[724/740] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/diagnostics/diagnostics_posix.cpp.o
+[725/740] Building CXX object CMakeFiles/broken_bond.dir/resources_posix.cpp.o
+[726/740] Building CXX object CMakeFiles/broken_bond.dir/sdk/src/ui/windowed_app_main_sdl.cpp.o
+[727/740] Building CXX object CMakeFiles/broken_bond.dir/src/android/touch_controller.cpp.o
+[728/740] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/backend/vulkan/backend.cpp.o
+[729/740] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/backend/vulkan/shader_contract.cpp.o
+[730/740] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/backend/vulkan/completion.cpp.o
+[731/740] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_init.cpp.o
+[732/740] Linking CXX static library libnative_renderer_plume_vulkan.a
+[733/740] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_register.cpp.o
+[734/740] Linking CXX static library libbroken_bond_smolv.a
+[735/740] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.0.cpp.o
+[736/740] Linking CXX shared library C:\nb\sdk\out\android-arm64\librexruntime.so
+[737/740] Building CXX object CMakeFiles/broken_bond.dir/sdk/src/ui/rex_app.cpp.o
+In file included from C:/nb/sdk/src/ui/rex_app.cpp:12:
+In file included from C:/nb/sdk/include/rex/rex_app.h:24:
+In file included from C:/nb/sdk/include/rex/runtime.h:30:
+In file included from C:/nb/sdk/include/rex/system/kernel_state.h:30:
+In file included from C:/nb/sdk/include/rex/system/thread_state.h:17:
+In file included from C:/nb/sdk/include/rex/ppc/context.h:20:
+C:/nb/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+C:/nb/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[738/740] Linking CXX shared library libmain.so
+[739/740] Native libraries of the Android app -> C:/nb/android/app/src/main/jniLibs/arm64-v8a
+Downloading https://services.gradle.org/distributions/gradle-8.14.3-bin.zip
+.............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%..............100%
+
+Welcome to Gradle 8.14.3!
+
+Here are the highlights of this release:
+ - Java 24 support
+ - GraalVM Native Image toolchain selection
+ - Enhancements to test reporting
+ - Build Authoring improvements
+
+For more details see https://docs.gradle.org/8.14.3/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:checkNativeLibraries
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:javaPreCompileRelease
+> Task :app:checkReleaseAarMetadata
+> Task :app:generateReleaseResValues
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:mergeReleaseNativeLibs
+> Task :app:generateReleaseResources
+> Task :app:stripReleaseDebugSymbols
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:packageReleaseResources
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:mergeReleaseArtProfile
+> Task :app:processReleaseManifestForPackage
+> Task :app:mergeExtDexRelease
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:processReleaseJavaRes NO-SOURCE
+> Task :app:collectReleaseDependencies
+> Task :app:mergeReleaseJavaResource
+> Task :app:processReleaseResources
+> Task :app:sdkReleaseDependencyData
+
+> Task :app:compileReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:dexBuilderRelease
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:optimizeReleaseResources
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+
+[Incubating] Problems report is available at: file:///C:/nb/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 1m 7s
+42 actionable tasks: 42 executed
+APK: C:\nb\dist\NarutoBrokenBond-Android-2.5-android-alpha-test.apk
