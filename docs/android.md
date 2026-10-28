@@ -67,12 +67,14 @@ Options: `-PlumeSource` and `-XenosRecompThirdparty` (defaults `out/plume` and
 
 ### Signing
 
-Without a keystore the APK is signed with the Android debug key, which is enough to install it.
-For a release key, set `BROKENBOND_KEYSTORE`, `BROKENBOND_KEYSTORE_PASSWORD`,
-`BROKENBOND_KEY_ALIAS` and `BROKENBOND_KEY_PASSWORD` before running the script. Keep the
-keystore out of Git (keep it outside the repository; `android/*.keystore` is ignored). An update must be signed with the same
-key as the installed APK, or Android asks to uninstall it first (which deletes the saves in the
-app's folder: back them up).
+Without a private keystore, release APKs are signed with the alpha key in
+`android/signing/public-alpha.keystore`. It is public on purpose: every build made without a
+private key, on your PC or in the cloud, has the same signature, so a newer APK installs over an
+older one and keeps the saves. Since anyone can sign with it, switch to a private key for stable
+releases: set `BROKENBOND_KEYSTORE`, `BROKENBOND_KEYSTORE_PASSWORD`, `BROKENBOND_KEY_ALIAS` and
+`BROKENBOND_KEY_PASSWORD` before running the script, and keep that keystore out of Git. An APK
+signed with another key does not install over the old one: Android asks to uninstall it first,
+which deletes the saves in the app's folder (back them up).
 
 ### CI
 
@@ -81,6 +83,27 @@ on every push: the SDK, the port's sources and the app, against stand-ins for th
 and the shader cache (`scripts/android/make-stub-generated.py`). Its APK
 (`ci-apk-stub-game-code-NOT-PLAYABLE`) shows that the build and packaging work; it cannot play
 anything.
+
+## Cloud build (without your PC)
+
+[`.github/workflows/android-apk.yml`](../.github/workflows/android-apk.yml) runs the same steps
+as `build-android.ps1` on a Windows machine of GitHub's and publishes the APK as a release. It
+needs your game files once, through a private link:
+
+1. Upload **either** your ISO **or** a `.zip` with `default.xex` and `xeshader.sdb` (from the
+   extracted game) to Google Drive or Dropbox, and share it as "anyone with the link".
+2. In the repository on GitHub: **Settings > Secrets and variables > Actions > New repository
+   secret**, name `GAME_FILES_URL`, value: the link. Secrets are hidden, also in the build logs.
+3. **Actions > Android APK > Run workflow**: choose `apk`, the version, and `draft` (only you see
+   the release until you publish it) or `prerelease` (public right away).
+
+The build takes one to a few hours. The workflow takes only `default.xex` and `xeshader.sdb`
+(from the ISO without extracting the rest), checks that `default.xex` is the supported revision,
+and builds with them on a machine that GitHub deletes after the run. Nothing derived from them is
+committed or cached; only the APK is uploaded. You can delete the link and the secret afterwards.
+
+The `test` mode builds the same way against stand-ins, without the secret, to check the
+workflow; its APK cannot play anything.
 
 ## Using the app
 

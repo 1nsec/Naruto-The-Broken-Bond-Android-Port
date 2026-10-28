@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Fetches the two game files the Android build needs, for the cloud build.
+
+  fetch-game-files.py <url> <game folder> <download folder>
+
+<url> is a direct download link (Google Drive and Dropbox share links work)
+to either your Xbox 360 ISO of the game, or a .zip that holds default.xex and
+xeshader.sdb (anywhere inside). Only those two files are written to
+<game folder>; the download is deleted afterwards. Nothing about the files
+but their names, sizes and the executable's revision check is printed, so the
+public build log shows nothing of the game.
+
+The ISO is read in place (XDVDFS): only the two files are copied out of it,
+instead of extracting all 7 GB.
+"""
+from __future__ import annotations
+
+import hashlib
+import re
+import shutil
+import struct
+import subprocess
+import sys
+import urllib.request
+import zipfile
+from pathlib import Path
+
+WANTED = ("default.xex", "xeshader.sdb")
+XEX_SHA256 = "8F70E79443E36B38E44B6A105DAD51FB8909FB615D982753CABAAC9B15F0D576"
+SECTOR = 2048
+XDVDFS_MAGIC = b"MICROSOFT*XBOX*MEDIA"
+# Where the game partition starts: Xbox 360 discs (XGD2, XGD3), original Xbox
+# discs (XGD1), and images that only hold the game partition (extract-xiso).
+PARTITION_OFFSETS = (0xFD90000, 0x2080000, 0x18300000, 0)
+
+
+def download(url: str, target: Path) -> None:
+    if "drive.google.com" in url or "docs.google.com" in url:
+        # Large Drive files need a confirmation step that gdown handles.
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "gdown"], check=True)
+        import gdown  # noqa: PLC0415
+
+        if not gdown.download(url, str(target), quiet=True, fuzzy=True):
+            raise SystemExit("Google Drive download failed: is the file shared with 'Anyone with the link'?")
+        return
+    if "dropbox.com" in url:
+        url = re.sub(r"([?&])dl=0", r"\1dl=1", url)
+        if "dl=1" not in url:
+            url += ("&" if "?" in url else "?") + "dl=1"
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(request, timeout=120) as response, open(target, "wb") as out:
+        shutil.copyfileobj(response, out, length=16 << 20)
+
+
+def from_zip(path: Path, game: Path) -> set[str]:
+    found = set()
+    with zipfile.ZipFile(path) as archive:
+        for info in archive.infolist():
+            name = Path(info.filename).name.lower()
+            if name in WANTED and name not in found:
+                with archive.open(info) as src, open(game / name, "wb") as out:
+                    shutil.copyfileobj(src, out, length=16 << 20)
+                found.add(name)
+    return found
+
+
+def from_iso(path: Path, game: Path) -> set[str]:
+    with open(path, "rb") as iso:
+        for partition in PARTITION_OFFSETS:
+            iso.seek(partition + 32 * SECTOR)
+            header = iso.read(28)
+            if header[:20] == XDVDFS_MAGIC:
+                break
+        else:
+            raise SystemExit("Not an Xbox 360 disc image (no XDVDFS volume found)")
+        root_sector, root_size = struct.unpack_from("<II", header, 20)
+        iso.seek(partition + root_sector * SECTOR)
+        table = iso.read(root_size)
+        # The root directory is a binary tree of entries: left and right
+        # offsets (in 4-byte units), first sector, size, attributes, name.
+        entries: dict[str, tuple[int, int]] = {}
+        pending, seen = [0], set()
+        while pending:
+            offset = pending.pop()
+            if offset in seen or offset + 14 > len(table):
+                continue
+            seen.add(offset)
+            left, right, sector, size, _attributes, name_length = struct.unpack_from("<HHIIBB", table, offset)
+            if left == 0xFFFF and right == 0xFFFF and sector == 0xFFFFFFFF:
+                continue  # Padding.
+            name = table[offset + 14:offset + 14 + name_length].decode("latin-1").lower()
+            entries[name] = (sector, size)
+            for child in (left, right):
+                if child not in (0, 0xFFFF):
+                    pending.append(child * 4)
+        found = set()
+        for name in WANTED:
+            if name in entries:
+                sector, size = entries[name]
+                iso.seek(partition + sector * SECTOR)
+                with open(game / name, "wb") as out:
+                    remaining = size
+                    while remaining:
+                        chunk = iso.read(min(remaining, 16 << 20))
+                        if not chunk:
+                            raise SystemExit(f"The disc image ends inside {name}")
+                        out.write(chunk)
+                        remaining -= len(chunk)
+                found.add(name)
+        return found
+
+
+def main() -> None:
+    url, game, downloads = sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])
+    game.mkdir(parents=True, exist_ok=True)
+    downloads.mkdir(parents=True, exist_ok=True)
+    target = downloads / "game-files.bin"
+    print("Downloading the game files (link from the repository secret)...", flush=True)
+    download(url, target)
+    print(f"Downloaded {target.stat().st_size / (1 << 20):.0f} MiB", flush=True)
+    try:
+        with open(target, "rb") as f:
+            magic = f.read(4)
+        if magic == b"PK\x03\x04":
+            found = from_zip(target, game)
+        else:
+            found = from_iso(target, game)
+    finally:
+        target.unlink(missing_ok=True)
+    missing = [name for name in WANTED if name not in found]
+    if missing:
+        raise SystemExit(f"The download does not contain {', '.join(missing)}")
+    digest = hashlib.sha256((game / "default.xex").read_bytes()).hexdigest().upper()
+    if digest != XEX_SHA256:
+        raise SystemExit("default.xex is not the supported revision of the game "
+                         "(the recompilation only supports one disc revision)")
+    for name in WANTED:
+        print(f"{name}: {(game / name).stat().st_size / (1 << 20):.1f} MiB", flush=True)
+    print("default.xex: supported revision", flush=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -18,3 +18,4 @@ LICENSE text eol=lf
 gradlew text eol=lf
 *.jar binary
 *.png binary
+*.keystore binary
