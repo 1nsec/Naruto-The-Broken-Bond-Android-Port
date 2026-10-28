@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NDK_VERSION: "28.2.13676358"  # NDK r28c, Clang 19 (scripts/build-android.ps1 uses the same)
+  NDK_VERSION: "29.0.14206865"  # NDK r29: its Clang has #embed (scripts/build-android.ps1 uses the same)
   ANDROID_PLATFORM: android-29
 
 jobs:

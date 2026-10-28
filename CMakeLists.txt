@@ -156,6 +156,13 @@ if(NOT WIN32)
         "SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/msvc_compat.h")
     target_include_directories(broken_bond PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 endif()
+if(TARGET imgui)
+    # The SDK built in the tree (REXSDK_DIR, the Android build): the imgui
+    # headers come from its source tree, as the installed SDK has them in
+    # include/. Only the headers: ImGui itself is in librexruntime, and a
+    # second copy here would have its own context.
+    target_include_directories(broken_bond PRIVATE $<TARGET_PROPERTY:imgui,INTERFACE_INCLUDE_DIRECTORIES>)
+endif()
 
 if(BROKENBOND_NATIVE_RENDERER)
     rexglue_setup_target(broken_bond)

@@ -7,7 +7,7 @@
 # Each "<id> RCDATA "<file>"" line of the given .rc files (paths relative to
 # the .rc file) becomes an entry; .rc files and resource files that do not
 # exist are skipped (the title screen extra and the Hokage portraits are local
-# additions). The data is embedded with #embed (Clang 19+).
+# additions). The data is embedded with #embed (the Clang of NDK r29 or newer).
 include_guard(GLOBAL)
 
 function(brokenbond_resource_table output)
