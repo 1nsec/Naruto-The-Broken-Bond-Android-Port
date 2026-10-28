@@ -2,7 +2,7 @@
 #include "gpu/shaders/package.h"
 #include <cstring>
 #include <mutex>
-#include <windows.h>
+#include "platform/win32.h"
 #include <fmt/format.h>
 #include "gpu/common/sha256.h"
 // The inflate of stb_image (its zlib decoder), for the zlib containers.

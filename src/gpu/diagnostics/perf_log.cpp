@@ -8,9 +8,13 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
-#include <windows.h>
+#include "platform/win32.h"
+#ifdef _WIN32
 #include <dxgi1_6.h>
+#endif
+#ifdef _WIN32
 #include <wrl/client.h>
+#endif
 #include <fmt/format.h>
 #include <rex/cvar.h>
 
@@ -38,6 +42,7 @@ std::string Narrow(const wchar_t* text) {
   return s;
 }
 
+#ifdef _WIN32
 std::string CpuName() {
   char name[256]{};
   DWORD size = sizeof(name);
@@ -47,8 +52,34 @@ std::string CpuName() {
   return name;
 }
 
+#else
+// /proc/cpuinfo: "Hardware" names the SoC on Android, "model name" the CPU elsewhere.
+std::string CpuName() {
+  std::string name = "unknown";
+  if (FILE* f = std::fopen("/proc/cpuinfo", "r")) {
+    char line[256];
+    while (std::fgets(line, sizeof(line), f)) {
+      std::string text(line);
+      for (const char* key : {"Hardware", "model name"}) {
+        if (text.rfind(key, 0) == 0) {
+          const auto colon = text.find(':');
+          if (colon != std::string::npos) {
+            name = text.substr(colon + 1);
+            while (!name.empty() && (name.front() == ' ' || name.front() == '\t')) name.erase(name.begin());
+            while (!name.empty() && (name.back() == '\n' || name.back() == ' ')) name.pop_back();
+          }
+        }
+      }
+    }
+    std::fclose(f);
+  }
+  return name;
+}
+#endif
+
 void WriteHeader() {
   std::fprintf(out, "# cpu,%s,logical processors,%u\n", CpuName().c_str(), GetActiveProcessorCount(ALL_PROCESSOR_GROUPS));
+#ifdef _WIN32
   Microsoft::WRL::ComPtr<IDXGIFactory1> factory;
   if (SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&factory)))) {
     Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
@@ -74,6 +105,19 @@ void WriteHeader() {
                static_cast<unsigned long long>(memory.ullTotalPhys >> 20),
                power.ACLineStatus == 1 ? "yes" : power.ACLineStatus == 0 ? "no" : "unknown",
                power.SystemStatusFlag ? "on" : "off");
+#else
+  // The memory of the device (the GPU shares it); no power status here.
+  unsigned long long total_mb = 0;
+  if (FILE* f = std::fopen("/proc/meminfo", "r")) {
+    char line[256];
+    while (std::fgets(line, sizeof(line), f)) {
+      unsigned long long kb = 0;
+      if (std::sscanf(line, "MemTotal: %llu kB", &kb) == 1) total_mb = kb >> 10;
+    }
+    std::fclose(f);
+  }
+  std::fprintf(out, "# ram MB,%llu,plugged in,unknown,battery saver,unknown\n", total_mb);
+#endif
   std::string settings;
   for (const char* name : {"frame_rate", "internal_resolution_scale", "msaa_samples", "transparency_antialiasing",
                            "swap_post_effect", "upscaling", "anisotropic_override", "vsync", "fullscreen",

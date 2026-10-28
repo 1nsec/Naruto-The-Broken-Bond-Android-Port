@@ -9,7 +9,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <windows.h>
+#include "platform/win32.h"
 #include <rex/ppc/context.h>
 #include "gpu/d3d/d3d.h"
 

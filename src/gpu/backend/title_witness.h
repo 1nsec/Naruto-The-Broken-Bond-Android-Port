@@ -4,7 +4,7 @@
 #include <atomic>
 #include <cstdint>
 #include <mutex>
-#include <windows.h>
+#include "platform/win32.h"
 
 namespace gpu {
 

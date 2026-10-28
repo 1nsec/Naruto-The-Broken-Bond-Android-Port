@@ -9,7 +9,7 @@
 // chunk of the dump with the free that released it.
 #include "gpu/diagnostics/crash_dump.h"
 #include "gpu/diagnostics/heap_watch.h"
-#include <windows.h>
+#include "platform/win32.h"
 #include <dbghelp.h>
 #include <rex/hook.h>
 #include <rex/ppc/context.h>

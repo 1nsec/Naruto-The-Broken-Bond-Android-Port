@@ -117,4 +117,8 @@ if(BROKENBOND_NATIVE_VULKAN)
         "${NATIVE_RENDERER_PLUME_SOURCE}/contrib/VulkanMemoryAllocator/include")
     target_compile_features(native_renderer_plume_vulkan PUBLIC cxx_std_17)
     target_compile_definitions(native_renderer_plume_vulkan PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
+    if(ANDROID)
+        # volk opens libvulkan.so with dlopen; the surface is an ANativeWindow.
+        target_link_libraries(native_renderer_plume_vulkan PUBLIC dl android)
+    endif()
 endif()

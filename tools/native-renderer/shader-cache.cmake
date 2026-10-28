@@ -29,10 +29,51 @@ include_guard(GLOBAL)
 include(ExternalProject)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+# BROKENBOND_PREBUILT_SHADER_CACHE: a folder with the outputs of the chain
+# from a host build (shader_cache.bin for D3D12; shader_cache_spirv.bin and
+# shader_manifest.json for SPIRV). A cross build (Android) embeds it
+# instead of running the chain, whose tools (XenosRecomp, DXC, spirv-val,
+# smolv-encode) only run on the build machine. The cache is platform
+# independent; scripts/build-android.ps1 makes it with a host build.
+set(BROKENBOND_PREBUILT_SHADER_CACHE "" CACHE PATH "Shader cache folder from a host build (cross builds)")
+
 function(brokenbond_shader_cache target source)
   cmake_parse_arguments(PARSE_ARGV 2 arg "SPIRV" "PASSES" "")
   set(tools "${CMAKE_CURRENT_FUNCTION_LIST_DIR}")
   get_filename_component(fork "${tools}/../xenosrecomp" ABSOLUTE)
+  if(BROKENBOND_PREBUILT_SHADER_CACHE)
+    get_filename_component(prebuilt "${BROKENBOND_PREBUILT_SHADER_CACHE}" ABSOLUTE)
+    set(prebuilt_files "")
+    if(BROKENBOND_NATIVE_D3D12)
+      list(APPEND prebuilt_files "${prebuilt}/shader_cache.bin")  # DXIL, for the D3D12 backend.
+    endif()
+    if(arg_SPIRV)
+      list(APPEND prebuilt_files "${prebuilt}/shader_cache_spirv.bin" "${prebuilt}/shader_manifest.json")
+    endif()
+    foreach(input IN LISTS prebuilt_files)
+      if(NOT EXISTS "${input}")
+        message(FATAL_ERROR "The prebuilt shader cache needs ${input}")
+      endif()
+    endforeach()
+    if(arg_SPIRV)
+      # The renderer decodes the smol-v modules: only the decoder is built here.
+      set(BROKENBOND_XENOS_RECOMP_THIRDPARTY "${fork}/thirdparty"
+          CACHE PATH "thirdparty directory with the XenosRecomp dependencies")
+      get_filename_component(thirdparty "${BROKENBOND_XENOS_RECOMP_THIRDPARTY}" ABSOLUTE)
+      if(NOT EXISTS "${thirdparty}/smol-v/source/smolv.cpp")
+        message(FATAL_ERROR "The SPIR-V shader cache needs smol-v in ${thirdparty}/smol-v")
+      endif()
+      add_library(${target}_smolv STATIC "${thirdparty}/smol-v/source/smolv.cpp")
+      target_include_directories(${target}_smolv PUBLIC "${thirdparty}/smol-v/source")
+      target_link_libraries(${target} PRIVATE ${target}_smolv)
+      target_compile_definitions(${target} PRIVATE BROKENBOND_SHADER_CACHE_SPIRV=1)
+    endif()
+    set_source_files_properties("${source}" PROPERTIES
+        COMPILE_OPTIONS "-Wno-c23-extensions;--embed-dir=${prebuilt}"
+        OBJECT_DEPENDS "${prebuilt_files}")
+    message(STATUS "Shader cache: prebuilt, ${prebuilt}")
+    return()
+  endif()
   set(BROKENBOND_GAME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/game" CACHE PATH "Local game files (xeshader.sdb)")
   set(BROKENBOND_XENOS_RECOMP_THIRDPARTY "${fork}/thirdparty"
       CACHE PATH "thirdparty directory with the XenosRecomp dependencies")

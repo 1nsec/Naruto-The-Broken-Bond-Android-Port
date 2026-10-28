@@ -7,6 +7,10 @@ project(broken_bond LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(ANDROID)
+    # The game is a shared library (libmain.so) that SDL's Java activity loads.
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # The isolated host build has no dependency on generated guest code or the SDK.
 # It is also available through tools/native-renderer/isolated as a standalone build.
@@ -98,6 +102,20 @@ if(BROKENBOND_NATIVE_RENDERER)
          src/studies/kernel_io_exports.cpp src/studies/kernel_xma_exports.cpp)
 endif()
 
+# Windows-only parts of the PC features and diagnostics, and their stand-ins
+# on the other platforms (Android): XInput -> SDL gamepads, the minidump crash
+# handler -> a signal handler, the Windows diagnostics -> inert, and the
+# Win32 API subset over POSIX and SDL (src/platform).
+if(NOT WIN32)
+    list(REMOVE_ITEM BROKENBOND_SOURCES src/pc/pad_input.cpp src/pc/crash_handler.cpp
+         src/gpu/diagnostics/crash_dump.cpp src/gpu/diagnostics/sampler.cpp src/gpu/diagnostics/heap_watch.cpp)
+    list(APPEND BROKENBOND_SOURCES src/pc/pad_input_sdl.cpp src/pc/crash_handler_posix.cpp
+         src/platform/win32_posix.cpp)
+    if(BROKENBOND_NATIVE_RENDERER)
+        list(APPEND BROKENBOND_SOURCES src/gpu/diagnostics/diagnostics_posix.cpp)
+    endif()
+endif()
+
 if(WIN32)
     # The executable's icon (the launcher's), for the taskbar and Explorer.
     enable_language(RC)
@@ -114,8 +132,36 @@ if(WIN32)
         list(APPEND BROKENBOND_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/assets/portraits/portraits.rc")
     endif()
     add_executable(broken_bond WIN32 ${BROKENBOND_SOURCES} ${BROKENBOND_RESOURCES})
+elseif(ANDROID)
+    # The resources of the Windows .rc files (title pictures, menu font), as a
+    # table of embedded files for FindResource/LoadResource (src/platform).
+    include(${CMAKE_CURRENT_SOURCE_DIR}/tools/android/resources.cmake)
+    brokenbond_resource_table("${CMAKE_CURRENT_BINARY_DIR}/resources_posix.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/naruto.rc"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/secret/secret.rc"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/portraits/portraits.rc")
+    add_library(broken_bond SHARED ${BROKENBOND_SOURCES} "${CMAKE_CURRENT_BINARY_DIR}/resources_posix.cpp")
+    # SDLActivity loads libmain.so and calls its SDL_main.
+    set_target_properties(broken_bond PROPERTIES OUTPUT_NAME main)
+    # The app's on-screen controller (an SDL virtual gamepad, called through JNI).
+    target_sources(broken_bond PRIVATE src/android/touch_controller.cpp)
+    target_link_libraries(broken_bond PRIVATE android log)
 else()
     add_executable(broken_bond ${BROKENBOND_SOURCES})
+endif()
+if(NOT WIN32)
+    # MSVC's keywords and intrinsics (_byteswap_ulong, __declspec, ...) that the
+    # port's sources use without an include on Windows.
+    target_compile_options(broken_bond PRIVATE
+        "SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/msvc_compat.h")
+    target_include_directories(broken_bond PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+endif()
+if(TARGET imgui)
+    # The SDK built in the tree (REXSDK_DIR, the Android build): the imgui
+    # headers come from its source tree, as the installed SDK has them in
+    # include/. Only the headers: ImGui itself is in librexruntime, and a
+    # second copy here would have its own context.
+    target_include_directories(broken_bond PRIVATE $<TARGET_PROPERTY:imgui,INTERFACE_INCLUDE_DIRECTORIES>)
 endif()
 
 if(BROKENBOND_NATIVE_RENDERER)
@@ -130,8 +176,12 @@ if(WIN32)
 endif()
 
 if(BROKENBOND_NATIVE_RENDERER)
-    if(NOT WIN32)
-        message(FATAL_ERROR "The native renderer requires Windows")
+    if(NOT WIN32 AND NOT ANDROID)
+        message(FATAL_ERROR "The native renderer requires Windows or Android")
+    endif()
+    if(ANDROID AND (BROKENBOND_NATIVE_D3D12 OR NOT BROKENBOND_NATIVE_VULKAN))
+        message(FATAL_ERROR "Android builds use the Vulkan backend only: "
+                            "-DBROKENBOND_NATIVE_D3D12=OFF -DBROKENBOND_NATIVE_VULKAN=ON")
     endif()
     include(${CMAKE_CURRENT_SOURCE_DIR}/tools/native-renderer/plume-engine.cmake)
     target_include_directories(broken_bond PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -170,6 +220,30 @@ endif()
 
 if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_link_options(broken_bond PRIVATE -Xlinker /DEBUG)
+endif()
+
+if(ANDROID)
+    # cmake --build <dir> --target android_jnilibs: the app's native libraries,
+    # stripped, into the Gradle project (the unstripped ones stay in the build
+    # folder for crash symbolication).
+    set(BROKENBOND_ANDROID_JNILIBS "${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/jniLibs/${ANDROID_ABI}"
+        CACHE PATH "jniLibs folder of the Android app for this ABI")
+    set(android_libcxx "${CMAKE_SYSROOT}/usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}/libc++_shared.so")
+    if(NOT EXISTS "${android_libcxx}")
+        file(GLOB android_libcxx "${CMAKE_SYSROOT}/usr/lib/*-linux-android*/libc++_shared.so")
+        list(FILTER android_libcxx INCLUDE REGEX "aarch64")
+    endif()
+    set(android_jnilibs_commands COMMAND "${CMAKE_COMMAND}" -E make_directory "${BROKENBOND_ANDROID_JNILIBS}")
+    foreach(lib "$<TARGET_FILE:broken_bond>" "$<TARGET_FILE:rexruntime>" "$<TARGET_FILE:SDL3-shared>" "${android_libcxx}")
+        list(APPEND android_jnilibs_commands COMMAND "${CMAKE_COMMAND}" -E copy "${lib}" "${BROKENBOND_ANDROID_JNILIBS}")
+    endforeach()
+    foreach(name libmain.so librexruntime.so libSDL3.so libc++_shared.so)
+        list(APPEND android_jnilibs_commands COMMAND "${CMAKE_STRIP}" --strip-unneeded "${BROKENBOND_ANDROID_JNILIBS}/${name}")
+    endforeach()
+    add_custom_target(android_jnilibs ${android_jnilibs_commands}
+        DEPENDS broken_bond
+        COMMENT "Native libraries of the Android app -> ${BROKENBOND_ANDROID_JNILIBS}"
+        VERBATIM)
 endif()
 
 option(BROKENBOND_BUILD_LAUNCHER "Build the Windows launcher" ${WIN32})

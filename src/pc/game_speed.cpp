@@ -5,7 +5,7 @@
 
 #include "pc/game_speed.h"
 
-#include <windows.h>
+#include "platform/win32.h"
 
 #include <cstdlib>
 #include <string>

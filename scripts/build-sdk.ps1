@@ -10,20 +10,8 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $sdkBuild = Join-Path $projectRoot 'build/sdk'
 $sdkInstall = Join-Path $projectRoot 'build/sdk-install'
-$sdkSource = Join-Path $projectRoot 'sdk'
-foreach ($patchName in @('rexglue-enable-usbcam.patch', 'rexglue-discovery.patch', 'rexglue-xma-decoder.patch', 'rexglue-mnk-modifiers.patch', 'rexglue-pc-features.patch', 'rexglue-direct-mouse.patch')) {
-    $sdkPatch = Join-Path $projectRoot "patches/$patchName"
-    & git -C $sdkSource apply --check $sdkPatch 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        & git -C $sdkSource apply $sdkPatch
-        if ($LASTEXITCODE -ne 0) { throw "Applying SDK patch $patchName failed." }
-    } else {
-        & git -C $sdkSource apply --reverse --check $sdkPatch 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            throw "SDK patch $patchName cannot be applied or verified. Existing SDK changes were preserved."
-        }
-    }
-}
+. (Join-Path $PSScriptRoot 'sdk-patches.ps1')
+Sync-SdkPatches -ProjectRoot $projectRoot
 
 $mspackSource = Join-Path $projectRoot 'sdk/thirdparty/libmspack/cabextract/mspack/lzxd.c'
 if ((Get-Content -LiteralPath $mspackSource -TotalCount 1) -eq '../../libmspack/mspack/lzxd.c') {

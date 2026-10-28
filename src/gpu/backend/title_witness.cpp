@@ -1,6 +1,6 @@
 #include "gpu/backend/title_witness.h"
 #include <cstdlib>
-#include <windows.h>
+#include "platform/win32.h"
 #include <rex/system/xthread.h>
 
 extern "C" __declspec(dllexport) uint32_t NativeTitleWitnessArm(uint32_t version, uint32_t hooks) {

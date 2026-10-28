@@ -7,7 +7,11 @@
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
+#ifdef _WIN32
 #include <tlhelp32.h>
+#else
+#include <link.h>
+#endif
 #include <fmt/format.h>
 #include <rex/system/thread_state.h>
 #include <rex/system/xthread.h>
@@ -71,6 +75,7 @@ void Record(std::string_view kind, std::string_view name, PPCContext* ctx,
       address, value));
 }
 
+#ifdef _WIN32
 void Modules() {
   if (events == INVALID_HANDLE_VALUE) return;
   HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32,
@@ -93,6 +98,25 @@ void Modules() {
   } while (Module32NextW(snapshot, &entry));
   CloseHandle(snapshot);
 }
+
+#else
+// The loaded libraries, from the dynamic linker.
+void Modules() {
+  if (events == INVALID_HANDLE_VALUE) return;
+  dl_iterate_phdr(
+      [](dl_phdr_info* info, size_t, void*) -> int {
+        std::string path;
+        for (const char* c = info->dlpi_name ? info->dlpi_name : ""; *c; ++c) {
+          if (*c == '\\' || *c == '"') path += '\\';
+          if (static_cast<unsigned char>(*c) >= 32) path += *c;
+        }
+        if (!path.empty())
+          Write(fmt::format("{{\"sequence\":{},\"kind\":\"module\",\"path\":\"{}\"}}\n", ++sequence, path));
+        return 0;
+      },
+      nullptr);
+}
+#endif
 
 void Record(std::string_view kind, std::string_view fields) {
   if (events == INVALID_HANDLE_VALUE) return;

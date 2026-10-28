@@ -16,7 +16,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#ifdef _WIN32
 #include <dxgiformat.h>
+#endif
 #include <array>
 #include <chrono>
 #include <atomic>
@@ -32,9 +34,13 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <windows.h>
+#include "platform/win32.h"
+#ifdef _WIN32
 #include <wrl/client.h>
+#endif
+#ifdef _WIN32
 #include <dxcapi.h>
+#endif
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <rex/cvar.h>
@@ -126,7 +132,7 @@ uint64_t PresentCaptures() {
   static const uint64_t value = [] {
     if (!Diagnostics()) return uint64_t(0);
     const char* text = std::getenv("REX_NATIVE_PRESENT_CAPTURES");
-    return text && *text ? std::strtoull(text, nullptr, 10) : 0;
+    return text && *text ? uint64_t(std::strtoull(text, nullptr, 10)) : uint64_t(0);
   }();
   return value;
 }
@@ -138,7 +144,7 @@ uint64_t CloseAfterSwaps() {
   static const uint64_t value = [] {
     if (!Diagnostics()) return uint64_t(0);
     const char* text = std::getenv("REX_NATIVE_CLOSE_AFTER_SWAPS");
-    return text && *text ? std::strtoull(text, nullptr, 10) : 0;
+    return text && *text ? uint64_t(std::strtoull(text, nullptr, 10)) : uint64_t(0);
   }();
   return value;
 }

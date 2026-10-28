@@ -20,9 +20,21 @@ bool Backend::State::RetireSwapchain(std::string& evidence) {
   const uint64_t last = next_sequence - 1;
   if (completion->Completed() < last && !completion->WaitFor(last, kWaitBudget))
     return GraphicsError(evidence, "native-vulkan-swapchain-render-pending", VK_TIMEOUT);
-  for (auto& back : back_images) if (back.pending) {
-    if (!WaitPresent(back.presented, evidence)) return false;
-    back.pending = false;
+  if (present_fences) {
+    for (auto& back : back_images) if (back.pending) {
+      if (!WaitPresent(back.presented, evidence)) return false;
+      back.pending = false;
+    }
+  } else {
+    // No present fences: the presentation work is done once the queue is idle.
+    auto* queue = static_cast<plume::VulkanCommandQueue*>(this->queue.get())->queue;
+    std::lock_guard lock(*queue->mutex);
+    const VkResult idle = vkQueueWaitIdle(queue->vk);
+    if (idle != VK_SUCCESS && idle != VK_ERROR_SURFACE_LOST_KHR && idle != VK_ERROR_OUT_OF_DATE_KHR) {
+      Observe(idle);
+      return GraphicsError(evidence, "native-vulkan-swapchain-queue-idle", idle);
+    }
+    for (auto& back : back_images) back.pending = false;
   }
   Reclaim(completion->Completed()); // Framebuffers and image views first.
   for (auto& back : back_images) {
@@ -44,10 +56,16 @@ bool Backend::State::CreateSwapchain(uint32_t width, uint32_t height, std::strin
   std::vector<VkSurfaceFormatKHR> formats(count);
   if ((result = vkGetPhysicalDeviceSurfaceFormatsKHR(vulkan->physicalDevice, window_surface, &count, formats.data())) != VK_SUCCESS)
     return GraphicsError(evidence, "native-vulkan-surface-formats", result);
-  bool bgra = false;
-  for (const auto& format : formats) bgra |= format.format == VK_FORMAT_B8G8R8A8_UNORM &&
-      format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-  if (!bgra) return GraphicsError(evidence, "native-vulkan-surface-bgra8-unavailable", VK_ERROR_FORMAT_NOT_SUPPORTED);
+  // B8G8R8A8 as on Windows, else R8G8B8A8 (what Android surfaces offer). The
+  // output passes write either; their pipelines are keyed by format.
+  const auto offered = [&](VkFormat wanted) {
+    for (const auto& format : formats)
+      if (format.format == wanted && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) return true;
+    return false;
+  };
+  if (offered(VK_FORMAT_B8G8R8A8_UNORM)) swap_format = VK_FORMAT_B8G8R8A8_UNORM;
+  else if (offered(VK_FORMAT_R8G8B8A8_UNORM)) swap_format = VK_FORMAT_R8G8B8A8_UNORM;
+  else return GraphicsError(evidence, "native-vulkan-surface-8888-unavailable", VK_ERROR_FORMAT_NOT_SUPPORTED);
   if ((result = vkGetPhysicalDeviceSurfacePresentModesKHR(vulkan->physicalDevice, window_surface, &count, nullptr)) != VK_SUCCESS)
     return GraphicsError(evidence, "native-vulkan-present-modes", result);
   std::vector<VkPresentModeKHR> modes(count);
@@ -59,20 +77,39 @@ bool Backend::State::CreateSwapchain(uint32_t width, uint32_t height, std::strin
     if (present_mode.allow_tearing && has(VK_PRESENT_MODE_IMMEDIATE_KHR)) swap_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
     else if (has(VK_PRESENT_MODE_MAILBOX_KHR)) swap_mode = VK_PRESENT_MODE_MAILBOX_KHR;
   }
+#ifdef __ANDROID__
+  // The window's own size, in the Activity's orientation, with an identity
+  // transform: the compositor turns the image when the panel's natural
+  // orientation differs (currentExtent and currentTransform describe the
+  // panel, which would ask the renderer to pre-rotate every frame).
+  swap_extent = VkExtent2D{std::clamp(width, caps.minImageExtent.width, caps.maxImageExtent.width),
+                           std::clamp(height, caps.minImageExtent.height, caps.maxImageExtent.height)};
+#else
   swap_extent = caps.currentExtent.width != UINT32_MAX ? caps.currentExtent :
       VkExtent2D{std::clamp(width, caps.minImageExtent.width, caps.maxImageExtent.width),
                   std::clamp(height, caps.minImageExtent.height, caps.maxImageExtent.height)};
+#endif
   VkSwapchainCreateInfoKHR info{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
   info.surface = window_surface;
   info.minImageCount = std::max(present_mode.buffers, caps.minImageCount);
   if (caps.maxImageCount) info.minImageCount = std::min(info.minImageCount, caps.maxImageCount);
-  info.imageFormat = VK_FORMAT_B8G8R8A8_UNORM; info.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+  info.imageFormat = swap_format; info.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
   info.imageExtent = swap_extent; info.imageArrayLayers = 1;
   info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
   if ((caps.supportedUsageFlags & info.imageUsage) != info.imageUsage)
     return GraphicsError(evidence, "native-vulkan-swapchain-image-usage", VK_ERROR_FORMAT_NOT_SUPPORTED);
   info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE; info.preTransform = caps.currentTransform;
+#ifdef __ANDROID__
+  if (caps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
+    info.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+#endif
   info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; info.presentMode = swap_mode; info.clipped = VK_TRUE;
+  if (!(caps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)) {
+    // Android surfaces may offer only inherit or pre-multiplied.
+    for (VkCompositeAlphaFlagBitsKHR alpha : {VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+                                              VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR})
+      if (caps.supportedCompositeAlpha & alpha) { info.compositeAlpha = alpha; break; }
+  }
   if ((result = vkCreateSwapchainKHR(vulkan->vk, &info, nullptr, &swapchain)) != VK_SUCCESS)
     return GraphicsError(evidence, "native-vulkan-create-swapchain", result);
   if ((result = vkGetSwapchainImagesKHR(vulkan->vk, swapchain, &count, nullptr)) != VK_SUCCESS)
@@ -103,7 +140,33 @@ void Backend::State::ReleaseOutput() {
   for (auto set : output_sets) if (set) vkDestroyDescriptorSetLayout(vulkan->vk, set, nullptr);
   output_layouts = {}; output_sets = {};
   if (window_surface) vkDestroySurfaceKHR(static_cast<plume::VulkanInterface*>(render.get())->instance, window_surface, nullptr);
-  window_surface = VK_NULL_HANDLE; window = nullptr;
+  window_surface = VK_NULL_HANDLE; window = nullptr; native_window = nullptr;
+}
+// The presentation surface of the attached window (window must be set).
+bool Backend::State::CreateWindowSurface(std::string& evidence) {
+  auto* instance = static_cast<plume::VulkanInterface*>(render.get())->instance;
+  if (window_surface) vkDestroySurfaceKHR(instance, window_surface, nullptr);
+  window_surface = VK_NULL_HANDLE;
+#ifdef _WIN32
+  VkWin32SurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
+  info.hinstance = GetModuleHandleW(nullptr); info.hwnd = HWND(window);
+  VkResult result = vkCreateWin32SurfaceKHR(instance, &info, nullptr, &window_surface);
+#elif defined(__ANDROID__)
+  // window is the SDL_Window (rex::ui::Window's native handle on Android).
+  native_window = SDL_GetPointerProperty(SDL_GetWindowProperties(static_cast<SDL_Window*>(window)),
+                                         SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
+  if (!native_window) return GraphicsError(evidence, "native-vulkan-window-surface-no-native-window");
+  VkAndroidSurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR};
+  info.window = static_cast<ANativeWindow*>(native_window);
+  VkResult result = vkCreateAndroidSurfaceKHR(instance, &info, nullptr, &window_surface);
+#else
+  VkResult result = VK_ERROR_EXTENSION_NOT_PRESENT;
+#endif
+  if (result != VK_SUCCESS) return GraphicsError(evidence, "native-vulkan-window-surface", result);
+  VkBool32 supported = VK_FALSE;
+  result = vkGetPhysicalDeviceSurfaceSupportKHR(vulkan->physicalDevice, vulkan->queueFamilyIndices[0], window_surface, &supported);
+  if (result != VK_SUCCESS || !supported) return GraphicsError(evidence, "native-vulkan-window-present-support", result);
+  return true;
 }
 bool Backend::AttachWindow(void* window, std::string& evidence, const PresentMode& mode) {
   auto& s = *state_;
@@ -113,23 +176,24 @@ bool Backend::AttachWindow(void* window, std::string& evidence, const PresentMod
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
   VkPhysicalDeviceFeatures2 features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &maintenance};
   vkGetPhysicalDeviceFeatures2(s.vulkan->physicalDevice, &features);
+#ifdef __ANDROID__
+  // Android has present fences only from version 14 (its own WSI layer); the
+  // swapchain then retires through a queue drain instead (RetireSwapchain).
+  s.present_fences = maintenance.swapchainMaintenance1 == VK_TRUE;
+#else
   if (!maintenance.swapchainMaintenance1)
     return GraphicsError(evidence, "native-vulkan-swapchain-maintenance1-required", VK_ERROR_FEATURE_NOT_PRESENT);
-  VkWin32SurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
-  info.hinstance = GetModuleHandleW(nullptr); info.hwnd = HWND(window);
-  VkResult result = vkCreateWin32SurfaceKHR(static_cast<plume::VulkanInterface*>(s.render.get())->instance,
-      &info, nullptr, &s.window_surface);
-  if (result != VK_SUCCESS) return GraphicsError(evidence, "native-vulkan-window-surface", result);
-  VkBool32 supported = VK_FALSE;
-  result = vkGetPhysicalDeviceSurfaceSupportKHR(s.vulkan->physicalDevice, s.vulkan->queueFamilyIndices[0], s.window_surface, &supported);
-  if (result != VK_SUCCESS || !supported) return GraphicsError(evidence, "native-vulkan-window-present-support", result);
-  s.window = HWND(window); s.present_mode = mode;
+#endif
+  s.window = HWND(window);
+  if (!s.CreateWindowSurface(evidence)) { s.window = nullptr; return false; }
+  s.present_mode = mode;
   RECT rect{}; GetClientRect(s.window, &rect);
   if (rect.right > 0 && rect.bottom > 0 && !s.CreateSwapchain(rect.right, rect.bottom, evidence)) return false;
   if (!s.EnsureOutput(evidence)) return false;
-  evidence = fmt::format("{{\"attached\":true,\"backend\":\"vulkan\",\"retirement\":\"swapchain_maintenance1 (KHR/EXT)\","
+  evidence = fmt::format("{{\"attached\":true,\"backend\":\"vulkan\",\"retirement\":\"{}\","
       "\"present_mode\":{},\"buffers\":{},\"effective_frame_latency\":1,\"generation\":{}}}",
-      int(s.swap_mode), s.back_images.size(), s.swap_generation);
+      s.present_fences ? "swapchain_maintenance1 (KHR/EXT)" : "queue idle", int(s.swap_mode), s.back_images.size(),
+      s.swap_generation);
   return true;
 }
 bool Backend::DetachWindow(std::string& evidence) {

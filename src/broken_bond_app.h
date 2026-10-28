@@ -25,6 +25,9 @@
 #include <rex/ui/window.h>
 
 #include "graphics_device.h"
+#ifndef _WIN32
+#include "platform/win32.h"  // _wputenv_s
+#endif
 #include "input_replay.h"
 #ifdef BROKENBOND_NATIVE_RENDERER_BOOTSTRAP
 #include "gpu/host/app.h"

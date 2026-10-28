@@ -1,5 +1,5 @@
 #include "gpu/backend/dispatcher.h"
-#include <windows.h>
+#include "platform/win32.h"
 #include <chrono>
 #include <condition_variable>
 #include <cstdlib>

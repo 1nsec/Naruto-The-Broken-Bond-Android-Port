@@ -22,7 +22,7 @@
 #pragma once
 
 #include <plume_vulkan.h>  // Vulkan through volk, with the platform defines of Plume.
-#include <windows.h>
+#include "platform/win32.h"
 
 #include <atomic>
 #include <chrono>

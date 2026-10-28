@@ -27,9 +27,13 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <windows.h>
+#include "platform/win32.h"
+#ifdef _WIN32
 #include <wrl/client.h>
+#endif
+#ifdef _WIN32
 #include <dxcapi.h>
+#endif
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <rex/cvar.h>

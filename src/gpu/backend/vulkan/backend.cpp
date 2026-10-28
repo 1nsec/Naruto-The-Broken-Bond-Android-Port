@@ -35,6 +35,9 @@
 #include <unordered_map>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
+#ifdef __ANDROID__
+#include <SDL3/SDL.h>  // The ANativeWindow of the SDL window (present.inc, output.inc).
+#endif
 
 namespace plume { std::unique_ptr<RenderInterface> CreateVulkanInterface(); }
 
@@ -515,6 +518,17 @@ struct Backend::State {
   VkSurfaceKHR window_surface{};
   VkSwapchainKHR swapchain{};
   VkExtent2D swap_extent{};
+  // The swapchain's format: B8G8R8A8 where the surface offers it (Windows),
+  // else R8G8B8A8 (Android surfaces).
+  VkFormat swap_format = VK_FORMAT_B8G8R8A8_UNORM;
+  // VK_*_swapchain_maintenance1 present fences prove each present retired.
+  // Without them (Android before 14) the queue is drained before a swapchain
+  // is destroyed instead.
+  bool present_fences = true;
+  // Android: the ANativeWindow the surface was created from; the Activity
+  // replaces it after a pause, and the surface follows.
+  void* native_window = nullptr;
+  bool CreateWindowSurface(std::string& evidence);
   VkPresentModeKHR swap_mode = VK_PRESENT_MODE_FIFO_KHR;
   bool recreate_swapchain = false;
   uint64_t swap_generation = 0, staged_frames = 0, presents = 0;

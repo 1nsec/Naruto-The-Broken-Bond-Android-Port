@@ -1,7 +1,7 @@
 // Write watch of the title's freed heap chunks (heap_watch.h).
 #include "gpu/diagnostics/heap_watch.h"
 #include "gpu/common/guest_memory.h"
-#include <windows.h>
+#include "platform/win32.h"
 #include <rex/hook.h>
 #include <rex/ppc/context.h>
 #include <rex/system/thread_state.h>
