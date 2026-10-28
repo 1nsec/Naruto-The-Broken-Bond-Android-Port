@@ -1,0 +1,69 @@
+name: Android
+
+# Compile check of the Android port. The game code is generated from your own
+# default.xex, which never goes into this repository, so CI builds everything
+# except the generated code: the ReXGlue SDK for Android (arm64-v8a, NDK) and,
+# in later jobs, the port's own sources and the launcher APK.
+
+on:
+  push:
+    branches: [main, develop, "android/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NDK_VERSION: "28.2.13676358"  # NDK r28c, Clang 19
+  ANDROID_PLATFORM: android-29
+
+jobs:
+  sdk:
+    name: ReXGlue SDK (arm64-v8a)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build
+
+      - name: Install the Android NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;${NDK_VERSION}" > /dev/null
+          echo "ANDROID_NDK=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: android-sdk-${{ env.NDK_VERSION }}
+          max-size: 2G
+
+      - name: Apply SDK patches
+        run: bash scripts/android/apply-sdk-patches.sh
+
+      - name: Configure
+        run: |
+          cmake -S sdk -B build/sdk-android -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM="$ANDROID_PLATFORM" -DANDROID_STL=c++_shared \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DREXGLUE_ENABLE_TRACY=OFF -DREXGLUE_BUILD_TESTS=OFF
+
+      - name: Build
+        run: cmake --build build/sdk-android --target rexruntime -- -k 0
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-android-ninja-log
+          path: build/sdk-android/.ninja_log
+          if-no-files-found: ignore

@@ -1,0 +1,552 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9b3cdf5..9ec361b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -158,6 +158,16 @@ if(WIN32)
+         message(FATAL_ERROR "Unsupported Windows architecture: ${REX_TARGET_PROCESSOR}")
+     endif()
+     add_compile_definitions(REX_PLATFORM_WINDOWS=1)
++elseif(ANDROID)
++    # Android (NDK): Linux kernel with Bionic. platform.h defines both
++    # REX_PLATFORM_ANDROID and REX_PLATFORM_LINUX from __ANDROID__.
++    if(REX_TARGET_PROCESSOR MATCHES "aarch64|ARM64|arm64")
++        set(REX_PLATFORM "android-arm64")
++    elseif(REX_TARGET_PROCESSOR MATCHES "AMD64|x86_64")
++        set(REX_PLATFORM "android-amd64")
++    else()
++        message(FATAL_ERROR "Unsupported Android ABI: ${REX_TARGET_PROCESSOR}")
++    endif()
+ elseif(UNIX AND NOT APPLE)
+     if(REX_TARGET_PROCESSOR MATCHES "AMD64|x86_64")
+         set(REX_PLATFORM "linux-amd64")
+@@ -177,7 +187,7 @@ elseif(APPLE)
+     endif()
+     add_compile_definitions(REX_PLATFORM_MAC=1)
+ else()
+-    message(FATAL_ERROR "Unsupported platform. ReXGlue supports Windows, Linux, and macOS only.")
++    message(FATAL_ERROR "Unsupported platform. ReXGlue supports Windows, Linux, Android, and macOS only.")
+ endif()
+ 
+ # Build config as compile definition (multi-config generators don't know config at configure time)
+@@ -259,8 +269,27 @@ add_subdirectory(src/audio)
+ add_subdirectory(src/graphics)
+ add_subdirectory(src/system)
+ add_subdirectory(src/kernel)
+-add_subdirectory(src/codegen)
+-add_subdirectory(src/rexglue)
++if(ANDROID)
++    # The code generator is a host tool: it never runs on the device. Generated
++    # projects still reference rex::rexglue for their codegen step, so it names
++    # a host executable (REXGLUE_HOST_TOOL, for example the rexglue of a host
++    # SDK install) instead of an Android binary that the build machine cannot run.
++    set(REXGLUE_HOST_TOOL "" CACHE FILEPATH "Host rexglue executable for the codegen step")
++    if(NOT REXGLUE_HOST_TOOL)
++        find_program(REXGLUE_HOST_TOOL rexglue NO_CMAKE_FIND_ROOT_PATH)
++    endif()
++    add_executable(rex::rexglue IMPORTED GLOBAL)
++    if(REXGLUE_HOST_TOOL)
++        set_target_properties(rex::rexglue PROPERTIES IMPORTED_LOCATION "${REXGLUE_HOST_TOOL}")
++    else()
++        message(WARNING "REXGLUE_HOST_TOOL is not set: the codegen step cannot run in this build. "
++                        "Run codegen with the host SDK first.")
++        set_target_properties(rex::rexglue PROPERTIES IMPORTED_LOCATION "rexglue-host-tool-not-set")
++    endif()
++else()
++    add_subdirectory(src/codegen)
++    add_subdirectory(src/rexglue)
++endif()
+ 
+ # Add tests subdirectory if tests are enabled
+ if(REXGLUE_BUILD_TESTS)
+@@ -286,9 +315,13 @@ message(STATUS "  Perf Counters: ${REXGLUE_ENABLE_PERF_COUNTERS}")
+ message(STATUS "===========================================")
+ 
+ # SDK install/export rules (skipped when consumed as a subdirectory)
+-if(PROJECT_IS_TOP_LEVEL)
++if(PROJECT_IS_TOP_LEVEL AND NOT ANDROID)
+     include(cmake/rexglue_devenv.cmake)
+     include(cmake/rexglue_install.cmake)
++elseif(PROJECT_IS_TOP_LEVEL)
++    # Android: the runtime is consumed in-tree (REXSDK_DIR) by the app build.
++    set(REXGLUE_SHARE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/ui")
++    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/rexglue_helpers.cmake)
+ else()
+     # When consumed via add_subdirectory(), provide the same interface as find_package().
+     # This sets REXGLUE_SHARE_DIR and makes rexglue_configure_target() available.
+diff --git a/include/rex/main_android.h b/include/rex/main_android.h
+new file mode 100644
+index 0000000..62825dd
+--- /dev/null
++++ b/include/rex/main_android.h
+@@ -0,0 +1,40 @@
++/**
++ * @file        main_android.h
++ * @brief       Android process-level helpers (API level, one-time setup)
++ *
++ * @license     BSD 3-Clause License
++ *              See LICENSE file in the project root for full license text.
++ *
++ * @remarks     On Android the app runs inside the Java process started by the
++ *              system. SDL's SDLActivity loads the native libraries and calls
++ *              SDL_main on its own thread; InitializeAndroid() is called from
++ *              there, before the runtime creates memory mappings or threads.
++ */
++
++#pragma once
++
++#include <filesystem>
++
++#include <rex/platform.h>
++
++#if REX_PLATFORM_ANDROID
++
++namespace rex {
++
++// The API level of the device (android_get_device_api_level()).
++int GetAndroidApiLevel();
++
++// Resolves the optional, dynamically loaded functions of the memory, thread
++// and filesystem layers. Safe to call more than once.
++void InitializeAndroid();
++void ShutdownAndroid();
++
++// The folder that plays the role of the executable's folder on desktop
++// platforms: settings (<app>.toml), saves (hdd/), logs and caches live there.
++// Set by the Java side through the REX_ANDROID_DATA_DIR environment variable;
++// falls back to the current directory.
++std::filesystem::path GetAndroidDataFolder();
++
++}  // namespace rex
++
++#endif  // REX_PLATFORM_ANDROID
+diff --git a/include/rex/ui/surface_android.h b/include/rex/ui/surface_android.h
+new file mode 100644
+index 0000000..b644f19
+--- /dev/null
++++ b/include/rex/ui/surface_android.h
+@@ -0,0 +1,40 @@
++/**
++ * @file        ui/surface_android.h
++ * @brief       Android native window surface (ANativeWindow) for presenters
++ *
++ * @license     BSD 3-Clause License
++ *              See LICENSE file in the project root for full license text.
++ *
++ * @remarks     The ANativeWindow comes from SDL's Android video driver
++ *              (SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER). It is owned by SDL
++ *              and stays valid until the Activity's surface is destroyed.
++ */
++
++#pragma once
++
++#include <android/native_window.h>
++
++#include <rex/ui/surface.h>
++
++struct SDL_Window;
++
++namespace rex {
++namespace ui {
++
++class AndroidNativeWindowSurface final : public Surface {
++ public:
++  explicit AndroidNativeWindowSurface(ANativeWindow* window, SDL_Window* sdl_window = nullptr)
++      : window_(window), sdl_window_(sdl_window) {}
++  TypeIndex GetType() const override { return kTypeIndex_AndroidNativeWindow; }
++  ANativeWindow* window() const { return window_; }
++
++ protected:
++  bool GetSizeImpl(uint32_t& width_out, uint32_t& height_out) const override;
++
++ private:
++  ANativeWindow* window_;
++  SDL_Window* sdl_window_;
++};
++
++}  // namespace ui
++}  // namespace rex
+diff --git a/include/rex/ui/windowed_app.h b/include/rex/ui/windowed_app.h
+index 50638d6..12387bd 100644
+--- a/include/rex/ui/windowed_app.h
++++ b/include/rex/ui/windowed_app.h
+@@ -24,10 +24,9 @@
+ #include <rex/platform.h>
+ #include <rex/ui/windowed_app_context.h>
+ 
+-#if REX_PLATFORM_ANDROID
+-// Multiple apps in a single library instead of separate executables.
+-#define XE_UI_WINDOWED_APPS_IN_LIBRARY 1
+-#endif
++// Android runs through SDL3 (SDLActivity calls SDL_main in the app's library),
++// so it uses the single-app entry point of the other platforms. Xenia's
++// multi-app library mode (XE_UI_WINDOWED_APPS_IN_LIBRARY) is not used.
+ 
+ namespace rex {
+ namespace ui {
+diff --git a/src/core/CMakeLists.txt b/src/core/CMakeLists.txt
+index 1ddafd0..a9a29ec 100644
+--- a/src/core/CMakeLists.txt
++++ b/src/core/CMakeLists.txt
+@@ -100,6 +100,10 @@ target_include_directories(rexcore PRIVATE
+ 
+ if(APPLE)
+     target_link_libraries(rexcore PRIVATE pthread)
++elseif(ANDROID)
++    # Bionic has pthreads and the realtime functions in libc.
++    target_link_libraries(rexcore PRIVATE dl log android)
++    target_sources(rexcore PRIVATE main_android.cpp)
+ elseif(UNIX)
+     target_link_libraries(rexcore PRIVATE pthread rt dl)
+ endif()
+diff --git a/src/core/filesystem_posix.cpp b/src/core/filesystem_posix.cpp
+index ef5bdf4..087b798 100644
+--- a/src/core/filesystem_posix.cpp
++++ b/src/core/filesystem_posix.cpp
+@@ -30,6 +30,10 @@
+ #include <rex/platform/env.h>
+ #include <rex/string.h>
+ 
++#if REX_PLATFORM_ANDROID
++#include <rex/main_android.h>
++#endif
++
+ #include <dirent.h>
+ #include <ftw.h>
+ #include <libgen.h>
+@@ -91,6 +95,10 @@ std::filesystem::path GetExecutablePath() {
+   std::error_code ec;
+   std::filesystem::path canonical_path = std::filesystem::weakly_canonical(executable_path, ec);
+   return ec ? std::filesystem::path(executable_path) : canonical_path;
++#elif REX_PLATFORM_ANDROID
++  // /proc/self/exe is app_process64 (the Java runtime). The app's data folder
++  // plays the role of the executable's folder, so the path names a file in it.
++  return rex::GetAndroidDataFolder() / "app";
+ #else
+   char buff[FILENAME_MAX] = "";
+   readlink("/proc/self/exe", buff, FILENAME_MAX);
+@@ -302,5 +310,37 @@ std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
+   return result;
+ }
+ 
++#if REX_PLATFORM_ANDROID
++void AndroidInitialize() {}
++void AndroidShutdown() {}
++
++// The launcher hands files picked through the Storage Access Framework over as
++// file descriptors that it opened (fd:<n>, or the /proc/self/fd/<n> path, which
++// is usable as a plain path too). content:// URIs themselves need the Java
++// ContentResolver and are not opened here.
++bool IsAndroidContentUri(const std::string_view source) {
++  return source.starts_with("content://") || source.starts_with("fd:");
++}
++
++int OpenAndroidContentFileDescriptor(const std::string_view uri, const char* mode) {
++  if (!uri.starts_with("fd:")) {
++    return -1;
++  }
++  int fd = -1;
++  try {
++    fd = std::stoi(std::string(uri.substr(3)));
++  } catch (...) {
++    return -1;
++  }
++  if (fd < 0) {
++    return -1;
++  }
++  // The caller owns the returned descriptor.
++  int flags = O_CLOEXEC;
++  flags |= (mode && std::string_view(mode).find('w') != std::string_view::npos) ? O_RDWR : O_RDONLY;
++  return open(("/proc/self/fd/" + std::to_string(fd)).c_str(), flags);
++}
++#endif  // REX_PLATFORM_ANDROID
++
+ }  // namespace filesystem
+ }  // namespace rex
+diff --git a/src/core/logging.cpp b/src/core/logging.cpp
+index 3c2368e..cb1c664 100644
+--- a/src/core/logging.cpp
++++ b/src/core/logging.cpp
+@@ -29,6 +29,8 @@
+ 
+ #if REX_PLATFORM_WIN32
+ #include <spdlog/sinks/msvc_sink.h>
++#elif REX_PLATFORM_ANDROID
++#include <spdlog/sinks/android_sink.h>
+ #else
+ #include <spdlog/sinks/stdout_sinks.h>
+ #endif
+@@ -152,6 +154,9 @@ void InitLoggingEarly() {
+ 
+ #if REX_PLATFORM_WIN32
+   auto sink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
++#elif REX_PLATFORM_ANDROID
++  // logcat (adb logcat -s rexglue), the only console an Android app has.
++  auto sink = std::make_shared<spdlog::sinks::android_sink_mt>("rexglue");
+ #else
+   auto sink = std::make_shared<spdlog::sinks::stdout_sink_mt>();
+ #endif
+@@ -200,7 +205,7 @@ void InitLogging(const LogConfig& config) {
+   //     apps and does not conflict with the stdout console sink, so keep it.
+   //   Non-Windows: drop the early stdout sink unconditionally so file-only
+   //     configs don't leak to stdout and console configs don't duplicate.
+-#if !REX_PLATFORM_WIN32
++#if !REX_PLATFORM_WIN32 && !REX_PLATFORM_ANDROID
+   if (g_early_sink) {
+     for (auto& entry : g_registry) {
+       if (entry.logger)
+diff --git a/src/core/main_android.cpp b/src/core/main_android.cpp
+new file mode 100644
+index 0000000..11c83e0
+--- /dev/null
++++ b/src/core/main_android.cpp
+@@ -0,0 +1,55 @@
++/**
++ * @file        core/main_android.cpp
++ * @brief       Android process-level helpers
++ *
++ * @license     BSD 3-Clause License
++ *              See LICENSE file in the project root for full license text.
++ */
++
++#include <rex/main_android.h>
++
++#include <android/api-level.h>
++
++#include <cstdlib>
++#include <mutex>
++#include <system_error>
++
++#include <rex/filesystem.h>
++#include <rex/memory/utils.h>
++#include <rex/thread.h>
++
++namespace rex {
++
++int GetAndroidApiLevel() {
++  static const int api_level = android_get_device_api_level();
++  return api_level;
++}
++
++namespace {
++std::once_flag android_initialized;
++}  // namespace
++
++void InitializeAndroid() {
++  std::call_once(android_initialized, [] {
++    rex::memory::AndroidInitialize();
++    rex::thread::AndroidInitialize();
++    rex::filesystem::AndroidInitialize();
++  });
++}
++
++void ShutdownAndroid() {
++  rex::filesystem::AndroidShutdown();
++  rex::thread::AndroidShutdown();
++  rex::memory::AndroidShutdown();
++}
++
++std::filesystem::path GetAndroidDataFolder() {
++  if (const char* dir = std::getenv("REX_ANDROID_DATA_DIR"); dir && *dir) {
++    return std::filesystem::path(dir);
++  }
++  std::error_code ec;
++  auto cwd = std::filesystem::current_path(ec);
++  return ec ? std::filesystem::path(".") : cwd;
++}
++
++}  // namespace rex
+diff --git a/src/core/memory_posix.cpp b/src/core/memory_posix.cpp
+index b52bf39..863f858 100644
+--- a/src/core/memory_posix.cpp
++++ b/src/core/memory_posix.cpp
+@@ -53,8 +53,7 @@
+ 
+ #include <linux/ashmem.h>
+ 
+-// TODO(tomc): Android or maybe na. idk
+-// #include "xenia/base/main_android.h"
++#include <rex/main_android.h>
+ #endif
+ 
+ namespace rex {
+@@ -432,6 +431,8 @@ bool QueryProtect(void* base_address, size_t& length, PageAccess& access_out) {
+ FileMappingHandle CreateFileMappingHandle(const std::filesystem::path& path, size_t length,
+                                           PageAccess access, bool commit) {
+ #if REX_PLATFORM_ANDROID
++  // The first mapping can come before anything called rex::InitializeAndroid().
++  rex::InitializeAndroid();
+   // TODO(Triang3l): Check if memfd can be used instead on API 30+.
+   if (android_ASharedMemory_create_) {
+     int sharedmem_fd = android_ASharedMemory_create_(path.c_str(), length);
+diff --git a/src/core/system_posix.cpp b/src/core/system_posix.cpp
+index 1655695..05df6d2 100644
+--- a/src/core/system_posix.cpp
++++ b/src/core/system_posix.cpp
+@@ -10,6 +10,10 @@
+ 
+ #include <rex/system.h>
+ 
++#if REX_PLATFORM_ANDROID
++#include <android/log.h>
++#endif
++
+ namespace rex {
+ 
+ // TODO(tomc): add linux support for showing a native message box
+@@ -28,6 +32,13 @@ void ShowSimpleMessageBox(SimpleMessageBoxType type, std::string_view message) {
+   }
+   std::fprintf(stderr, "[%s] %.*s\n", level, static_cast<int>(message.size()), message.data());
+   std::fflush(stderr);
++#if REX_PLATFORM_ANDROID
++  // stderr goes nowhere on Android; logcat is where the message is visible.
++  __android_log_print(type == SimpleMessageBoxType::Error     ? ANDROID_LOG_ERROR
++                      : type == SimpleMessageBoxType::Warning ? ANDROID_LOG_WARN
++                                                               : ANDROID_LOG_INFO,
++                      "rexglue", "%.*s", static_cast<int>(message.size()), message.data());
++#endif
+ }
+ 
+ }  // namespace rex
+diff --git a/src/ui/CMakeLists.txt b/src/ui/CMakeLists.txt
+index 5bd3dc5..d51e1b8 100644
+--- a/src/ui/CMakeLists.txt
++++ b/src/ui/CMakeLists.txt
+@@ -72,6 +72,10 @@ elseif(APPLE)
+     set(REXUI_PLATFORM_SOURCES
+         surface_mac.cpp
+     )
++elseif(ANDROID)
++    set(REXUI_PLATFORM_SOURCES
++        surface_android.cpp
++    )
+ else()
+     set(REXUI_PLATFORM_SOURCES
+         surface_gnulinux.cpp
+@@ -146,7 +150,10 @@ if(REXGLUE_USE_VULKAN)
+ endif()
+ 
+ # Platform-specific dependencies
+-if(UNIX AND NOT APPLE)
++if(ANDROID)
++    # ANativeWindow (libandroid) and logcat (liblog).
++    target_link_libraries(rexui PUBLIC android log)
++elseif(UNIX AND NOT APPLE)
+     find_package(PkgConfig REQUIRED)
+     pkg_check_modules(X11_XCB REQUIRED x11-xcb)
+     # Required, not optional: vulkan/api.h pulls in <wayland-client.h> on every
+diff --git a/src/ui/surface_android.cpp b/src/ui/surface_android.cpp
+new file mode 100644
+index 0000000..e68957d
+--- /dev/null
++++ b/src/ui/surface_android.cpp
+@@ -0,0 +1,39 @@
++/**
++ * @file        ui/surface_android.cpp
++ * @brief       Android native window surface
++ *
++ * @license     BSD 3-Clause License
++ *              See LICENSE file in the project root for full license text.
++ */
++
++#include <SDL3/SDL.h>
++
++#include <rex/ui/surface_android.h>
++
++namespace rex {
++namespace ui {
++
++bool AndroidNativeWindowSurface::GetSizeImpl(uint32_t& width_out, uint32_t& height_out) const {
++  if (!window_) {
++    return false;
++  }
++  // The buffer size of the window is what the swapchain must match.
++  int32_t width = ANativeWindow_getWidth(window_);
++  int32_t height = ANativeWindow_getHeight(window_);
++  if ((width <= 0 || height <= 0) && sdl_window_) {
++    int w = 0, h = 0;
++    if (SDL_GetWindowSizeInPixels(sdl_window_, &w, &h)) {
++      width = w;
++      height = h;
++    }
++  }
++  if (width <= 0 || height <= 0) {
++    return false;
++  }
++  width_out = uint32_t(width);
++  height_out = uint32_t(height);
++  return true;
++}
++
++}  // namespace ui
++}  // namespace rex
+diff --git a/src/ui/window_sdl.cpp b/src/ui/window_sdl.cpp
+index 2251429..d55d1ec 100644
+--- a/src/ui/window_sdl.cpp
++++ b/src/ui/window_sdl.cpp
+@@ -35,6 +35,8 @@
+ #include <SDL3/SDL_metal.h>
+ 
+ #include <rex/ui/surface_mac.h>
++#elif REX_PLATFORM_ANDROID
++#include <rex/ui/surface_android.h>
+ #else
+ #include <X11/Xlib-xcb.h>
+ #include <rex/ui/surface_gnulinux.h>
+@@ -398,6 +400,15 @@ std::unique_ptr<Surface> WindowSDL::CreateSurfaceImpl(Surface::TypeFlags allowed
+       SDL_Metal_DestroyView(metal_view);
+     }
+   }
++#elif REX_PLATFORM_ANDROID
++  SDL_PropertiesID props = SDL_GetWindowProperties(sdl_window_);
++  if (allowed_types & Surface::kTypeFlag_AndroidNativeWindow) {
++    auto* native_window = static_cast<ANativeWindow*>(
++        SDL_GetPointerProperty(props, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr));
++    if (native_window) {
++      return std::make_unique<AndroidNativeWindowSurface>(native_window, sdl_window_);
++    }
++  }
+ #else
+   SDL_PropertiesID props = SDL_GetWindowProperties(sdl_window_);
+   if (allowed_types & Surface::kTypeFlag_WaylandSurface) {
+diff --git a/src/ui/windowed_app_main_sdl.cpp b/src/ui/windowed_app_main_sdl.cpp
+index 77bb1dc..1a141cd 100644
+--- a/src/ui/windowed_app_main_sdl.cpp
++++ b/src/ui/windowed_app_main_sdl.cpp
+@@ -11,6 +11,7 @@
+ 
+ #include <algorithm>
+ #include <cstdlib>
++#include <filesystem>
+ #include <map>
+ #include <memory>
+ #include <string>
+@@ -22,6 +23,13 @@
+ #include <rex/ui/windowed_app.h>
+ #include <rex/ui/windowed_app_context_sdl.h>
+ 
++#if REX_PLATFORM_ANDROID
++// Renames main to SDL_main and exports it: SDLActivity looks SDL_main up in the
++// app's library (libmain.so) and runs it on its own thread.
++#include <SDL3/SDL_main.h>
++#include <rex/main_android.h>
++#endif
++
+ #if REX_PLATFORM_WIN32
+ #ifndef WIN32_LEAN_AND_MEAN
+ #define WIN32_LEAN_AND_MEAN
+@@ -37,6 +45,15 @@
+ namespace {
+ 
+ int RunWindowedApp(int argc, char** argv) {
++#if REX_PLATFORM_ANDROID
++  rex::InitializeAndroid();
++  // Relative paths (logs, caches) resolve in the app's data folder, the
++  // stand-in for the executable's folder.
++  {
++    std::error_code ec;
++    std::filesystem::current_path(rex::GetAndroidDataFolder(), ec);
++  }
++#endif
+   auto remaining = rex::cvar::Init(argc, argv);
+   rex::cvar::ApplyEnvironment();
+   rex::InitLoggingEarly();
