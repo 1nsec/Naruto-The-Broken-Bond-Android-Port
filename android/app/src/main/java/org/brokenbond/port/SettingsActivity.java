@@ -184,7 +184,7 @@ public class SettingsActivity extends Activity {
 
         header(R.string.settings_touch);
         prefToggle(R.string.setting_touch, Storage.KEY_TOUCH, true);
-        prefSlider(R.string.setting_touch_opacity, Storage.KEY_TOUCH_OPACITY, 0.6f, 0.15f, 1.0f);
+        prefSlider(R.string.setting_touch_opacity, Storage.KEY_TOUCH_OPACITY, 0.85f, 0.15f, 1.0f);
         prefSlider(R.string.setting_touch_scale, Storage.KEY_TOUCH_SCALE, 1.0f, 0.7f, 1.4f);
 
         header(R.string.settings_debug);

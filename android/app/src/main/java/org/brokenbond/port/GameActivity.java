@@ -53,7 +53,7 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
 
         SharedPreferences prefs = Storage.prefs(this);
         touchWanted = prefs.getBoolean(Storage.KEY_TOUCH, true);
-        touch = new TouchControllerView(this, prefs.getFloat(Storage.KEY_TOUCH_OPACITY, 0.6f),
+        touch = new TouchControllerView(this, prefs.getFloat(Storage.KEY_TOUCH_OPACITY, 0.85f),
                 prefs.getFloat(Storage.KEY_TOUCH_SCALE, 1.0f));
         mLayout.addView(touch, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));

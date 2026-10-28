@@ -2,8 +2,14 @@ package org.brokenbond.port;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RadialGradient;
 import android.graphics.RectF;
+import android.graphics.Shader;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.util.SparseArray;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -19,6 +25,10 @@ import java.util.List;
  * so the game and the PC Options menu see it as a controller, like a Bluetooth
  * pad. Sticks are floating: they center where the thumb lands in their area.
  * The gear button presses Back + Start, which opens PC Options.
+ *
+ * <p>The buttons are parchment discs with the game's action on them (attack,
+ * kick, jump, block, kunai, sprint, jutsu, inventory) and the pad button in a
+ * small badge, so the layout reads at a glance in a fight.
  */
 public class TouchControllerView extends View {
     // SDL_GamepadButton.
@@ -32,28 +42,46 @@ public class TouchControllerView extends View {
     static native void nativeButton(int button, boolean pressed);
     static native void nativeAxis(int axis, int value);
 
-    /** A round button; id is an SDL button, or GEAR / LT / RT. */
+    // Where a button's center is measured from.
+    private static final int TOP_LEFT = 0, TOP_CENTER = 1, BOTTOM_LEFT = 2, BOTTOM_RIGHT = 3;
+    // How a button is drawn.
+    private static final int ROUND = 0, HEXAGON = 1, SMALL = 2, OPTIONS = 3, DPAD = 4;
+
+    // Colors of the parchment theme.
+    private static final int PARCHMENT_LIGHT = 0xFFF4E7C9, PARCHMENT_DARK = 0xFFD8C096;
+    private static final int PRESSED_LIGHT = 0xFFE2CC9F, PRESSED_DARK = 0xFFB8955F;
+    private static final int RING = 0xFF7A5A34, INK = 0xFF4A3420, INK_PRESSED = 0xFF2B1D10;
+    private static final int BADGE = 0xFF2B2118, ACCENT = 0xFFF28C28;
+
+    /** A button; id is an SDL button, or GEAR / LT / RT. */
     private static final class Button {
-        final int id;
-        final String label;
-        float cx, cy, r;  // In pixels, set by layout().
-        final float fx, fy, fr;  // Fractions of the height, from the given anchor.
-        final boolean right, top;
+        final int id, anchor, shape, icon;
+        final String badge;
+        final float dx, dy, size;  // Center from the anchor, and radius (tile size for the D-pad), in units.
+        final float rotation;      // Of the D-pad arrow.
+        float cx, cy, r;           // In pixels, set by onSizeChanged().
+        Drawable drawable;
+        Shader shader, pressedShader;
+        final Path outline = new Path();
         boolean down;
 
-        Button(int id, String label, float fx, float fy, float fr, boolean right, boolean top) {
+        Button(int id, int anchor, float dx, float dy, float size, int shape, int icon, String badge, float rotation) {
             this.id = id;
-            this.label = label;
-            this.fx = fx;
-            this.fy = fy;
-            this.fr = fr;
-            this.right = right;
-            this.top = top;
+            this.anchor = anchor;
+            this.dx = dx;
+            this.dy = dy;
+            this.size = size;
+            this.shape = shape;
+            this.icon = icon;
+            this.badge = badge;
+            this.rotation = rotation;
         }
 
         boolean hit(float x, float y) {
-            float dx = x - cx, dy = y - cy;
-            return dx * dx + dy * dy <= (r * 1.25f) * (r * 1.25f);
+            float ddx = x - cx, ddy = y - cy;
+            if (shape == DPAD) return Math.abs(ddx) <= r * 1.15f && Math.abs(ddy) <= r * 1.15f;
+            float reach = r * 1.2f;
+            return ddx * ddx + ddy * ddy <= reach * reach;
         }
     }
 
@@ -61,7 +89,7 @@ public class TouchControllerView extends View {
     private static final class Stick {
         final int axisX, axisY;
         final RectF area = new RectF();
-        float baseX, baseY, knobX, knobY, radius;
+        float baseX, baseY, knobX, knobY, radius, restX, restY;
         int pointer = -1;
 
         Stick(int axisX, int axisY) {
@@ -77,36 +105,55 @@ public class TouchControllerView extends View {
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path arrow = new Path();
     private final float scale;
-    private int alpha;
+    private final float opacity;
     private boolean attached;
 
     public TouchControllerView(Context context, float opacity, float scale) {
         super(context);
         this.scale = scale;
-        this.alpha = Math.round(255 * Math.max(0.15f, Math.min(1f, opacity)));
-        // Face buttons (right), shoulders and triggers (top corners), menu buttons (top middle).
-        buttons.add(new Button(A, "A", 0.20f, 0.20f, 0.075f, true, false));
-        buttons.add(new Button(B, "B", 0.08f, 0.33f, 0.075f, true, false));
-        buttons.add(new Button(X, "X", 0.32f, 0.33f, 0.075f, true, false));
-        buttons.add(new Button(Y, "Y", 0.20f, 0.46f, 0.075f, true, false));
-        buttons.add(new Button(RT, "RT", 0.03f, 0.03f, 0.07f, true, true));
-        buttons.add(new Button(RB, "RB", 0.20f, 0.03f, 0.07f, true, true));
-        buttons.add(new Button(LT, "LT", 0.03f, 0.03f, 0.07f, false, true));
-        buttons.add(new Button(LB, "LB", 0.20f, 0.03f, 0.07f, false, true));
-        buttons.add(new Button(R3, "R3", 0.52f, 0.06f, 0.05f, true, false));
-        buttons.add(new Button(L3, "L3", 0.40f, 0.06f, 0.05f, false, false));
-        buttons.add(new Button(BACK, "Back", -0.16f, 0.03f, 0.05f, false, true));
-        buttons.add(new Button(START, "Start", 0.16f, 0.03f, 0.05f, false, true));
-        buttons.add(new Button(GEAR, "\u2699", 0.0f, 0.03f, 0.05f, false, true));
-        buttons.add(new Button(DPAD_UP, "\u25B2", 0.12f, 0.22f, 0.05f, false, true));
-        buttons.add(new Button(DPAD_DOWN, "\u25BC", 0.12f, 0.43f, 0.05f, false, true));
-        buttons.add(new Button(DPAD_LEFT, "\u25C0", 0.01f, 0.325f, 0.05f, false, true));
-        buttons.add(new Button(DPAD_RIGHT, "\u25B6", 0.23f, 0.325f, 0.05f, false, true));
+        this.opacity = Math.max(0.15f, Math.min(1f, opacity));
+        // Right hand: the attacks around the big basic attack (X), the sprint trigger above.
+        add(X, BOTTOM_RIGHT, 0.155f, 0.165f, 0.115f, ROUND, R.drawable.ic_touch_attack, "X");
+        add(A, BOTTOM_RIGHT, 0.37f, 0.10f, 0.085f, ROUND, R.drawable.ic_touch_jump, "A");
+        add(Y, BOTTOM_RIGHT, 0.33f, 0.33f, 0.085f, ROUND, R.drawable.ic_touch_heavy_attack, "Y");
+        add(B, BOTTOM_RIGHT, 0.13f, 0.42f, 0.08f, ROUND, R.drawable.ic_touch_block, "B");
+        add(RB, BOTTOM_RIGHT, 0.58f, 0.12f, 0.075f, ROUND, R.drawable.ic_touch_kunai, "RB");
+        add(RT, BOTTOM_RIGHT, 0.12f, 0.66f, 0.085f, HEXAGON, R.drawable.ic_touch_sprint, "RT");
+        add(R3, BOTTOM_RIGHT, 0.30f, 0.62f, 0.045f, SMALL, 0, "R3");
+        // Left hand: jutsus and the inventory under the health bar, the D-pad below them.
+        add(LT, TOP_LEFT, 0.12f, 0.30f, 0.085f, HEXAGON, R.drawable.ic_touch_jutsu, "LT");
+        add(LB, TOP_LEFT, 0.32f, 0.27f, 0.075f, ROUND, R.drawable.ic_touch_inventory, "LB");
+        add(L3, BOTTOM_LEFT, 0.065f, 0.065f, 0.045f, SMALL, 0, "L3");
+        float padX = 0.20f, padY = 0.56f, arm = 0.10f, tile = 0.0475f;
+        buttons.add(new Button(DPAD_UP, TOP_LEFT, padX, padY - arm, tile, DPAD, 0, null, 0f));
+        buttons.add(new Button(DPAD_DOWN, TOP_LEFT, padX, padY + arm, tile, DPAD, 0, null, 180f));
+        buttons.add(new Button(DPAD_LEFT, TOP_LEFT, padX - arm, padY, tile, DPAD, 0, null, 270f));
+        buttons.add(new Button(DPAD_RIGHT, TOP_LEFT, padX + arm, padY, tile, DPAD, 0, null, 90f));
+        // Menu row, top middle.
+        add(BACK, TOP_CENTER, -0.13f, 0.08f, 0.05f, SMALL, 0, "BACK");
+        add(GEAR, TOP_CENTER, 0f, 0.08f, 0.05f, OPTIONS, R.drawable.ic_touch_options, null);
+        add(START, TOP_CENTER, 0.13f, 0.08f, 0.05f, SMALL, 0, "START");
+
+        for (Button b : buttons) {
+            if (b.icon != 0) {
+                Drawable d = context.getDrawable(b.icon);
+                if (d != null) b.drawable = d.mutate();
+            }
+        }
         stroke.setStyle(Paint.Style.STROKE);
         text.setTextAlign(Paint.Align.CENTER);
-        text.setFakeBoldText(true);
+        text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
         setHapticFeedbackEnabled(true);
+    }
+
+    private void add(int id, int anchor, float dx, float dy, float radius, int shape, int icon, String badge) {
+        buttons.add(new Button(id, anchor, dx, dy, radius, shape, icon, badge, 0f));
+    }
+
+    private int alpha(float a) {
+        return Math.round(255 * Math.max(0f, Math.min(1f, a * opacity)));
     }
 
     @Override
@@ -114,20 +161,44 @@ public class TouchControllerView extends View {
         super.onSizeChanged(w, h, oldw, oldh);
         float unit = h * scale;
         for (Button b : buttons) {
-            b.r = b.fr * unit;
-            if (b.id == GEAR || b.id == BACK || b.id == START) {
-                b.cx = w / 2f + b.fx * unit;  // Centered menu row.
-            } else {
-                b.cx = b.right ? w - b.fx * unit - b.r : b.fx * unit + b.r;
+            b.r = b.size * unit;
+            switch (b.anchor) {
+                case TOP_LEFT: b.cx = b.dx * unit; b.cy = b.dy * unit; break;
+                case TOP_CENTER: b.cx = w / 2f + b.dx * unit; b.cy = b.dy * unit; break;
+                case BOTTOM_LEFT: b.cx = b.dx * unit; b.cy = h - b.dy * unit; break;
+                default: b.cx = w - b.dx * unit; b.cy = h - b.dy * unit; break;
             }
-            b.cy = b.top ? b.fy * unit + b.r : h - b.fy * unit - b.r;
+            float r = b.r;
+            b.outline.reset();
+            if (b.shape == HEXAGON) {
+                for (int i = 0; i < 6; ++i) {
+                    double a = Math.PI / 3 * i - Math.PI / 2;
+                    float px = b.cx + (float) (r * 1.08 * Math.cos(a)), py = b.cy + (float) (r * 1.08 * Math.sin(a));
+                    if (i == 0) b.outline.moveTo(px, py); else b.outline.lineTo(px, py);
+                }
+                b.outline.close();
+            } else if (b.shape == DPAD) {
+                b.outline.addRoundRect(b.cx - r, b.cy - r, b.cx + r, b.cy + r, r * 0.44f, r * 0.44f, Path.Direction.CW);
+            } else {
+                b.outline.addCircle(b.cx, b.cy, r, Path.Direction.CW);
+            }
+            if (b.shape == DPAD) {
+                b.shader = new LinearGradient(b.cx, b.cy - r, b.cx, b.cy + r, PARCHMENT_LIGHT, PARCHMENT_DARK, Shader.TileMode.CLAMP);
+                b.pressedShader = new LinearGradient(b.cx, b.cy - r, b.cx, b.cy + r, PRESSED_LIGHT, PRESSED_DARK, Shader.TileMode.CLAMP);
+            } else {
+                b.shader = new RadialGradient(b.cx - r * 0.3f, b.cy - r * 0.35f, r * 1.2f, PARCHMENT_LIGHT, PARCHMENT_DARK, Shader.TileMode.CLAMP);
+                b.pressedShader = new RadialGradient(b.cx - r * 0.3f, b.cy - r * 0.35f, r * 1.2f, PRESSED_LIGHT, PRESSED_DARK, Shader.TileMode.CLAMP);
+            }
         }
-        // Left stick: the lower left, under the D-pad; right stick (camera): the lower middle-right.
-        left.area.set(0, h * 0.5f, w * 0.42f, h);
-        right.area.set(w * 0.42f, h * 0.45f, w * 0.68f, h);
+        // Left stick: the lower left, under the D-pad. Camera: between it and the attack buttons.
+        float cameraRight = Math.max(w * 0.55f, w - 0.70f * unit);
+        left.area.set(0, h * 0.60f, w * 0.45f, h);
+        right.area.set(w * 0.45f, h * 0.40f, cameraRight, h);
         left.radius = right.radius = 0.16f * unit;
-        stroke.setStrokeWidth(Math.max(2f, unit * 0.006f));
-        text.setTextSize(unit * 0.045f);
+        left.restX = w * 0.22f;
+        right.restX = right.area.centerX();
+        left.restY = right.restY = h - 0.20f * unit;
+        stroke.setStrokeWidth(Math.max(2f, unit * 0.007f));
     }
 
     private boolean ensureAttached() {
@@ -271,24 +342,46 @@ public class TouchControllerView extends View {
         invalidate();
     }
 
+    /** A parchment disc: shaded fill with a soft shadow, and a dark rim. */
+    private void drawDisc(Canvas canvas, float cx, float cy, float r, boolean pressed, float a) {
+        fill.setShader(new RadialGradient(cx - r * 0.3f, cy - r * 0.35f, r * 1.2f,
+                pressed ? PRESSED_LIGHT : PARCHMENT_LIGHT, pressed ? PRESSED_DARK : PARCHMENT_DARK, Shader.TileMode.CLAMP));
+        fill.setAlpha(alpha(a));
+        fill.setShadowLayer(r * 0.25f, 0, r * 0.06f, 0x73000000);
+        canvas.drawCircle(cx, cy, r, fill);
+        fill.clearShadowLayer();
+        fill.setShader(null);
+        stroke.setColor(RING);
+        stroke.setAlpha(alpha(a));
+        canvas.drawCircle(cx, cy, r, stroke);
+    }
+
     private void drawStick(Canvas canvas, Stick s) {
-        if (s.pointer < 0) {
-            // A hint of where the stick lives.
-            float cx = s.area.centerX(), cy = s.area.bottom - s.radius * 1.4f;
-            stroke.setColor(0xFFFFFFFF);
-            stroke.setAlpha(alpha / 3);
-            canvas.drawCircle(cx, cy, s.radius, stroke);
-            return;
+        boolean active = s.pointer >= 0;
+        float cx = active ? s.baseX : s.restX, cy = active ? s.baseY : s.restY;
+        float kx = active ? s.knobX : cx, ky = active ? s.knobY : cy;
+        float a = active ? 1f : 0.55f, r = s.radius;
+        fill.setColor(0xFF1E140A);
+        fill.setAlpha(alpha(a * 0.25f));
+        canvas.drawCircle(cx, cy, r, fill);
+        stroke.setColor(PARCHMENT_LIGHT);
+        stroke.setAlpha(alpha(a));
+        canvas.drawCircle(cx, cy, r, stroke);
+        // Four direction marks on the ring.
+        fill.setColor(PARCHMENT_LIGHT);
+        fill.setAlpha(alpha(a));
+        for (int i = 0; i < 4; ++i) {
+            canvas.save();
+            canvas.rotate(90f * i, cx, cy);
+            arrow.reset();
+            arrow.moveTo(cx, cy - r * 0.86f);
+            arrow.lineTo(cx + r * 0.07f, cy - r * 0.74f);
+            arrow.lineTo(cx - r * 0.07f, cy - r * 0.74f);
+            arrow.close();
+            canvas.drawPath(arrow, fill);
+            canvas.restore();
         }
-        fill.setColor(0xFF000000);
-        fill.setAlpha(alpha / 3);
-        canvas.drawCircle(s.baseX, s.baseY, s.radius, fill);
-        stroke.setColor(0xFFFFFFFF);
-        stroke.setAlpha(alpha);
-        canvas.drawCircle(s.baseX, s.baseY, s.radius, stroke);
-        fill.setColor(0xFFFFFFFF);
-        fill.setAlpha(alpha);
-        canvas.drawCircle(s.knobX, s.knobY, s.radius * 0.45f, fill);
+        drawDisc(canvas, kx, ky, r * 0.42f, false, a);
     }
 
     @Override
@@ -297,23 +390,66 @@ public class TouchControllerView extends View {
         drawStick(canvas, left);
         drawStick(canvas, right);
         for (Button b : buttons) {
-            int color;
-            switch (b.id) {
-                case A: color = 0xFF3CB043; break;
-                case B: color = 0xFFD9342B; break;
-                case X: color = 0xFF2F6FDB; break;
-                case Y: color = 0xFFF2B705; break;
-                default: color = 0xFF202020; break;
+            float r = b.r, cx = b.cx, cy = b.cy;
+            canvas.save();
+            if (b.down) canvas.scale(0.94f, 0.94f, cx, cy);
+            // Body.
+            fill.setShader(b.down ? b.pressedShader : b.shader);
+            fill.setAlpha(alpha(1f));
+            fill.setShadowLayer(r * 0.25f, 0, r * 0.06f, 0x73000000);
+            canvas.drawPath(b.outline, fill);
+            fill.clearShadowLayer();
+            fill.setShader(null);
+            stroke.setColor(b.shape == OPTIONS ? ACCENT : RING);
+            stroke.setAlpha(alpha(1f));
+            canvas.drawPath(b.outline, stroke);
+            int ink = b.down ? INK_PRESSED : INK;
+            if (b.shape == DPAD) {
+                // An arrow pointing away from the pad's center.
+                canvas.save();
+                canvas.rotate(b.rotation, cx, cy);
+                float s = r * 1.0f;
+                arrow.reset();
+                arrow.moveTo(cx, cy - s * 0.55f);
+                arrow.lineTo(cx + s * 0.5f, cy + s * 0.35f);
+                arrow.lineTo(cx - s * 0.5f, cy + s * 0.35f);
+                arrow.close();
+                fill.setColor(ink);
+                fill.setAlpha(alpha(1f));
+                canvas.drawPath(arrow, fill);
+                canvas.restore();
+            } else if (b.drawable != null) {
+                float size = r * (b.shape == OPTIONS ? 1.15f : 1.05f);
+                int half = Math.round(size / 2);
+                b.drawable.setBounds(Math.round(cx) - half, Math.round(cy) - half, Math.round(cx) + half, Math.round(cy) + half);
+                b.drawable.setTint(ink);
+                b.drawable.setAlpha(alpha(1f));
+                b.drawable.draw(canvas);
+            } else if (b.badge != null) {
+                // Small buttons: their name on the disc.
+                text.setColor(ink);
+                text.setAlpha(alpha(1f));
+                text.setTextSize(r * (b.badge.length() > 2 ? 0.42f : 0.62f));
+                canvas.drawText(b.badge, cx, cy - (text.descent() + text.ascent()) / 2, text);
             }
-            fill.setColor(color);
-            fill.setAlpha(b.down ? Math.min(255, alpha + 80) : alpha / 2);
-            canvas.drawCircle(b.cx, b.cy, b.r, fill);
-            stroke.setColor(0xFFFFFFFF);
-            stroke.setAlpha(alpha);
-            canvas.drawCircle(b.cx, b.cy, b.r, stroke);
-            text.setColor(0xFFFFFFFF);
-            text.setAlpha(Math.min(255, alpha + 40));
-            canvas.drawText(b.label, b.cx, b.cy - (text.descent() + text.ascent()) / 2, text);
+            // The pad button, in a badge at the lower right of the icon buttons.
+            if (b.drawable != null && b.badge != null) {
+                float br = r * 0.34f, bx = cx + r * 0.70f, by = cy + r * 0.70f;
+                fill.setColor(BADGE);
+                fill.setAlpha(alpha(1f));
+                canvas.drawCircle(bx, by, br, fill);
+                float width = stroke.getStrokeWidth();
+                stroke.setStrokeWidth(Math.max(1.5f, width * 0.6f));
+                stroke.setColor(PARCHMENT_LIGHT);
+                stroke.setAlpha(alpha(1f));
+                canvas.drawCircle(bx, by, br, stroke);
+                stroke.setStrokeWidth(width);
+                text.setColor(0xFFFFFFFF);
+                text.setAlpha(alpha(1f));
+                text.setTextSize(br * (b.badge.length() > 1 ? 0.95f : 1.25f));
+                canvas.drawText(b.badge, bx, by - (text.descent() + text.ascent()) / 2, text);
+            }
+            canvas.restore();
         }
     }
 }
