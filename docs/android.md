@@ -19,10 +19,21 @@ and graphics problems. Logs from real devices are what moves it forward (see
 | Memory | 6 GB RAM or more recommended |
 | Storage | The ISO (about 7 GB) plus about 1 GB for the app, saves and caches |
 
-The renderer uses Xbox 360 texture formats as BC1-BC5 compressed textures and a 32-bit depth
-buffer with stencil, which Adreno drivers support. **Mali (Exynos, most MediaTek) and PowerVR
-GPUs are not supported yet**: they lack BC textures in Vulkan, so the game would draw wrong or not
-start. The launcher warns when the phone does not report Vulkan 1.1.
+The renderer needs Vulkan 1.2 with 64-bit integers in shaders (the shader cache reads its data
+through buffer addresses), BC1-BC5 compressed textures (the Xbox 360 formats) and a 32-bit depth
+buffer with stencil. The Qualcomm driver of older Adreno GPUs, such as the Adreno 650 of the
+Snapdragon 865 (Retroid Pocket 5, Galaxy S20...), lacks some of these, so the app bundles
+**Turnip**, Mesa's open-source Vulkan driver for Adreno 6xx and 7xx GPUs, and loads it with
+[libadrenotools](https://github.com/bylaws/libadrenotools) when the system driver falls short.
+Turnip is a driver, not an emulator: the game still runs natively.
+
+**Settings > GPU driver**: *Automatic* (default) checks the system driver and takes Turnip on a
+Qualcomm GPU that lacks a feature; *System* or *Turnip* force one. The game's log says which
+driver ran and what the system driver offered.
+
+**Mali (Exynos, most MediaTek) and PowerVR GPUs are not supported yet**: they lack BC textures in
+Vulkan, and Turnip only runs on Adreno. The launcher warns when the phone does not report
+Vulkan 1.1.
 
 ## Build the APK (Windows)
 

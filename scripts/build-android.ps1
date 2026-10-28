@@ -7,6 +7,8 @@ param(
     [string]$SpirvVal,
     [string]$Version = '2.5-android-alpha',
     [string]$ShaderCache,
+    [string]$AdrenotoolsSource,
+    [string]$TurnipDriver,
     [switch]$StandInGameCode,
     [switch]$Install,
     [ValidateRange(1, 128)]
@@ -28,6 +30,13 @@ param(
 #
 # -ShaderCache <folder>: use the shader cache of an earlier build (its
 # shader_cache_spirv.bin and shader_manifest.json) instead of building it.
+# -AdrenotoolsSource <folder>: libadrenotools (default out/libadrenotools,
+# fetched at the revision of tools/android/dependencies.json when missing), which
+# loads a Vulkan driver bundled with the app.
+# -TurnipDriver <libvulkan_freedreno.so>: Turnip to bundle (scripts/android/
+# build-turnip.sh on Linux, or the "turnip" artifact of the Android workflows);
+# without it the app runs on the system driver only, which on older Adreno
+# GPUs (Snapdragon 865 and earlier) lacks what the renderer needs.
 # -StandInGameCode: CI only. Builds against the stand-ins of
 # scripts/android/make-stub-generated.py instead of your game files (needs
 # -ShaderCache); the APK cannot play anything.
@@ -112,6 +121,27 @@ foreach ($submodule in 'contrib/volk', 'contrib/Vulkan-Headers', 'contrib/Vulkan
     }
 }
 
+# libadrenotools, with its linkernsbypass submodule.
+if (-not $AdrenotoolsSource) { $AdrenotoolsSource = Join-Path $projectRoot 'out/libadrenotools' }
+if (-not (Test-Path -LiteralPath (Join-Path $AdrenotoolsSource 'CMakeLists.txt'))) {
+    $android = Get-Content -Raw (Join-Path $projectRoot 'tools/android/dependencies.json') | ConvertFrom-Json
+    & git clone -q $android.libadrenotools.url $AdrenotoolsSource
+    if ($LASTEXITCODE -ne 0) { throw 'Cloning libadrenotools failed.' }
+    & git -C $AdrenotoolsSource checkout -q $android.libadrenotools.revision
+    if ($LASTEXITCODE -ne 0) { throw 'Checking out libadrenotools failed.' }
+}
+& git -C $AdrenotoolsSource submodule update -q --init --recursive
+if ($LASTEXITCODE -ne 0) { throw 'Fetching the libadrenotools submodules failed.' }
+$AdrenotoolsSource = ConvertTo-CMakePath $AdrenotoolsSource
+$gpuAssets = Join-Path $projectRoot 'android/app/src/main/assets/gpu'
+if ($TurnipDriver) {
+    New-Item -ItemType Directory -Force $gpuAssets | Out-Null
+    Copy-Item -LiteralPath $TurnipDriver -Destination (Join-Path $gpuAssets 'libvulkan_freedreno.so') -Force
+}
+if (-not (Test-Path -LiteralPath (Join-Path $gpuAssets 'libvulkan_freedreno.so'))) {
+    Write-Warning 'No Turnip driver to bundle (-TurnipDriver): the APK will use the system Vulkan driver only.'
+}
+
 # 2. Android SDK, NDK and Java.
 if (-not $AndroidSdk) {
     $AndroidSdk = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT, (Join-Path $env:LOCALAPPDATA 'Android/Sdk')) |
@@ -187,7 +217,8 @@ try {
         -DREXGLUE_ENABLE_TRACY=OFF -DREXGLUE_BUILD_TESTS=OFF `
         -DBROKENBOND_NATIVE_RENDERER=ON -DBROKENBOND_NATIVE_D3D12=OFF -DBROKENBOND_NATIVE_VULKAN=ON `
         "-DNATIVE_RENDERER_PLUME_SOURCE=$PlumeSource" "-DBROKENBOND_XENOS_RECOMP_THIRDPARTY=$XenosRecompThirdparty" `
-        "-DBROKENBOND_PREBUILT_SHADER_CACHE=$ShaderCache" "-DBROKENBOND_VERSION=$Version"
+        "-DBROKENBOND_PREBUILT_SHADER_CACHE=$ShaderCache" "-DBROKENBOND_VERSION=$Version" `
+        "-DBROKENBOND_ADRENOTOOLS_SOURCE=$AdrenotoolsSource"
     if ($LASTEXITCODE -ne 0) { throw 'Android configuration failed.' }
     # CI (stand-ins) keeps going after an error, to report all of them in one run.
     $keepGoing = if ($StandInGameCode) { @('--', '-k', '0') } else { @() }

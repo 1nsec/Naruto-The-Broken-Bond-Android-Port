@@ -30,7 +30,7 @@ cat > "$work/android-aarch64.ini" <<INI
 [binaries]
 ar = '$toolchain/bin/llvm-ar'
 c = ['$toolchain/bin/aarch64-linux-android$api-clang']
-cpp = ['$toolchain/bin/aarch64-linux-android$api-clang++', '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables', '-static-libstdc++']
+cpp = ['$toolchain/bin/aarch64-linux-android$api-clang++', '-fno-exceptions', '-fno-unwind-tables', '-fno-asynchronous-unwind-tables', '-static-libstdc++', '-Wno-c++11-narrowing']
 c_ld = 'lld'
 cpp_ld = 'lld'
 strip = '$toolchain/bin/llvm-strip'
@@ -55,6 +55,8 @@ meson setup "$work/build" "$work/mesa" --cross-file "$work/android-aarch64.ini" 
 ninja -C "$work/build" src/freedreno/vulkan/libvulkan_freedreno.so
 cp "$work/build/src/freedreno/vulkan/libvulkan_freedreno.so" "$out/"
 "$toolchain/bin/llvm-strip" --strip-unneeded "$out/libvulkan_freedreno.so"
+# Mesa's license (MIT), shipped with the driver.
+cp "$work/mesa/docs/license.rst" "$out/turnip-license.rst"
 python3 -I - "$out/turnip.json" "$tag" "$(git -C "$work/mesa" rev-parse HEAD)" <<'PY'
 import json, sys
 json.dump({"driver": "Turnip", "mesa": sys.argv[2], "commit": sys.argv[3],
