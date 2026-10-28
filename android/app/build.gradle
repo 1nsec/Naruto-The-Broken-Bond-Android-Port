@@ -24,17 +24,26 @@ android {
         }
     }
 
-    // A release keystore can be given through gradle properties or the
-    // environment (BROKENBOND_KEYSTORE, _PASSWORD, _KEY_ALIAS, _KEY_PASSWORD);
-    // without one the release APK is signed with the debug key.
+    // A private release keystore can be given through gradle properties or
+    // the environment (BROKENBOND_KEYSTORE, _PASSWORD, _KEY_ALIAS,
+    // _KEY_PASSWORD). Without one, release APKs are signed with the alpha key
+    // in signing/, which is public: every build made without a private key
+    // (the cloud build, scripts/build-android.ps1) has the same signature, so
+    // a newer APK installs over an older one and keeps the saves. Anyone can
+    // sign with a public key; switch to a private key for stable releases.
     def keystorePath = System.getenv("BROKENBOND_KEYSTORE") ?: project.findProperty("brokenbondKeystore")
     signingConfigs {
-        if (keystorePath) {
-            release {
+        release {
+            if (keystorePath) {
                 storeFile file(keystorePath)
                 storePassword System.getenv("BROKENBOND_KEYSTORE_PASSWORD") ?: project.findProperty("brokenbondKeystorePassword")
                 keyAlias System.getenv("BROKENBOND_KEY_ALIAS") ?: project.findProperty("brokenbondKeyAlias")
                 keyPassword System.getenv("BROKENBOND_KEY_PASSWORD") ?: project.findProperty("brokenbondKeyPassword")
+            } else {
+                storeFile rootProject.file("signing/public-alpha.keystore")
+                storePassword "brokenbond-alpha"
+                keyAlias "brokenbond"
+                keyPassword "brokenbond-alpha"
             }
         }
     }
@@ -42,7 +51,7 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig keystorePath ? signingConfigs.release : signingConfigs.debug
+            signingConfig signingConfigs.release
         }
         debug {
             applicationIdSuffix ".debug"

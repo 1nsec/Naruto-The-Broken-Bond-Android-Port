@@ -6,6 +6,8 @@ param(
     [string]$AndroidSdk,
     [string]$SpirvVal,
     [string]$Version = '2.5-android-alpha',
+    [string]$ShaderCache,
+    [switch]$StandInGameCode,
     [switch]$Install,
     [ValidateRange(1, 128)]
     [int]$Jobs = 6
@@ -23,6 +25,12 @@ param(
 # The APK holds code generated from your default.xex and shaders from your
 # xeshader.sdb, like the PC build's executable, but no disc image: the app
 # asks for the ISO on first start. See docs/android.md.
+#
+# -ShaderCache <folder>: use the shader cache of an earlier build (its
+# shader_cache_spirv.bin and shader_manifest.json) instead of building it.
+# -StandInGameCode: CI only. Builds against the stand-ins of
+# scripts/android/make-stub-generated.py instead of your game files (needs
+# -ShaderCache); the APK cannot play anything.
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 # NDK r29: the Clang of r28 and older lacks #embed. The CI build checks the same
@@ -52,18 +60,30 @@ $SdkPrefix = ConvertTo-CMakePath $SdkPrefix
 $rexglue = "$SdkPrefix/bin/rexglue.exe"
 
 # 1. Game files, generated code and SDK patches.
-$xex = Join-Path $projectRoot 'game/default.xex'
-if (-not (Test-Path -LiteralPath $xex)) { throw 'game/default.xex is missing: extract the game first (scripts/extract-game.ps1).' }
-if ((Get-FileHash -LiteralPath $xex -Algorithm SHA256).Hash -ne
-    '8F70E79443E36B38E44B6A105DAD51FB8909FB615D982753CABAAC9B15F0D576') {
-    throw 'The native renderer mapping only supports the documented Broken Bond executable.'
-}
-if (-not (Test-Path -LiteralPath (Join-Path $projectRoot 'game/xeshader.sdb'))) {
-    throw 'The shader cache needs game/xeshader.sdb; extract the game first.'
-}
 $generated = Join-Path $projectRoot 'generated/default'
-if (Test-Path -LiteralPath (Join-Path $generated '.stub')) {
-    throw 'generated/default holds the CI stand-in, not your game: delete generated/ and run scripts/build-game.ps1.'
+$standIn = Test-Path -LiteralPath (Join-Path $generated '.stub')
+if ($StandInGameCode) {
+    if (-not $standIn) { throw '-StandInGameCode needs the stand-ins of scripts/android/make-stub-generated.py in generated/default.' }
+    if (-not $ShaderCache) { throw '-StandInGameCode needs -ShaderCache (there is no xeshader.sdb to build one from).' }
+} else {
+    $xex = Join-Path $projectRoot 'game/default.xex'
+    if (-not (Test-Path -LiteralPath $xex)) { throw 'game/default.xex is missing: extract the game first (scripts/extract-game.ps1).' }
+    if ((Get-FileHash -LiteralPath $xex -Algorithm SHA256).Hash -ne
+        '8F70E79443E36B38E44B6A105DAD51FB8909FB615D982753CABAAC9B15F0D576') {
+        throw 'The native renderer mapping only supports the documented Broken Bond executable.'
+    }
+    if (-not $ShaderCache -and -not (Test-Path -LiteralPath (Join-Path $projectRoot 'game/xeshader.sdb'))) {
+        throw 'The shader cache needs game/xeshader.sdb; extract the game first.'
+    }
+    if ($standIn) {
+        throw 'generated/default holds the CI stand-in, not your game: delete generated/ and run scripts/build-game.ps1.'
+    }
+}
+if ($ShaderCache) {
+    foreach ($file in 'shader_cache_spirv.bin', 'shader_manifest.json') {
+        if (-not (Test-Path -LiteralPath (Join-Path $ShaderCache $file))) { throw "The shader cache folder has no $file`: $ShaderCache" }
+    }
+    $ShaderCache = ConvertTo-CMakePath $ShaderCache
 }
 if (-not (Test-Path -LiteralPath (Join-Path $generated 'broken_bond_init.cpp'))) {
     throw 'The generated C++ is missing: run scripts/build-game.ps1 first.'
@@ -114,13 +134,15 @@ if (-not (Test-Path -LiteralPath "$ndk/build/cmake/android.toolchain.cmake")) {
 }
 
 # The SPIR-V of the shader cache is checked with spirv-val (Vulkan SDK).
-if (-not $SpirvVal) {
-    $candidate = if ($env:VULKAN_SDK) { Join-Path $env:VULKAN_SDK 'Bin/spirv-val.exe' }
-    if ($candidate -and (Test-Path -LiteralPath $candidate)) { $SpirvVal = $candidate }
-    elseif ($command = Get-Command spirv-val -ErrorAction SilentlyContinue) { $SpirvVal = $command.Source }
-    else { throw 'spirv-val not found: install the Vulkan SDK (https://vulkan.lunarg.com) or pass -SpirvVal.' }
+if (-not $ShaderCache) {
+    if (-not $SpirvVal) {
+        $candidate = if ($env:VULKAN_SDK) { Join-Path $env:VULKAN_SDK 'Bin/spirv-val.exe' }
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) { $SpirvVal = $candidate }
+        elseif ($command = Get-Command spirv-val -ErrorAction SilentlyContinue) { $SpirvVal = $command.Source }
+        else { throw 'spirv-val not found: install the Vulkan SDK (https://vulkan.lunarg.com) or pass -SpirvVal.' }
+    }
+    $SpirvVal = ConvertTo-CMakePath $SpirvVal
 }
-$SpirvVal = ConvertTo-CMakePath $SpirvVal
 
 if ($env:VSCMD_ARG_TGT_ARCH -ne 'x64') {
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
@@ -134,16 +156,18 @@ try {
     # 3. The shader cache, built by the Windows game build (Vulkan backend
     #    only); only its shader target is built. The cache does not depend on
     #    the platform, and build/shader-store keeps the shaders between builds.
-    $shaderBuild = ConvertTo-CMakePath (Join-Path $projectRoot 'build/android-shaders')
-    & cmake --preset windows-release -B $shaderBuild "-DCMAKE_PREFIX_PATH=$SdkPrefix" `
-        "-Drexglue_DIR=$SdkPrefix/lib/cmake/rexglue" -DBROKENBOND_NATIVE_RENDERER=ON `
-        -DBROKENBOND_NATIVE_D3D12=OFF -DBROKENBOND_NATIVE_VULKAN=ON -DBROKENBOND_BUILD_LAUNCHER=OFF `
-        "-DNATIVE_RENDERER_PLUME_SOURCE=$PlumeSource" "-DBROKENBOND_XENOS_RECOMP_THIRDPARTY=$XenosRecompThirdparty" `
-        "-DBROKENBOND_SPIRV_VAL=$SpirvVal"
-    if ($LASTEXITCODE -ne 0) { throw 'Shader cache configuration failed.' }
-    & cmake --build $shaderBuild --target broken_bond_native_shader_cache --parallel $Jobs
-    if ($LASTEXITCODE -ne 0) { throw 'Shader cache build failed.' }
-    $shaderCache = "$shaderBuild/shader_cache"
+    if (-not $ShaderCache) {
+        $shaderBuild = ConvertTo-CMakePath (Join-Path $projectRoot 'build/android-shaders')
+        & cmake --preset windows-release -B $shaderBuild "-DCMAKE_PREFIX_PATH=$SdkPrefix" `
+            "-Drexglue_DIR=$SdkPrefix/lib/cmake/rexglue" -DBROKENBOND_NATIVE_RENDERER=ON `
+            -DBROKENBOND_NATIVE_D3D12=OFF -DBROKENBOND_NATIVE_VULKAN=ON -DBROKENBOND_BUILD_LAUNCHER=OFF `
+            "-DNATIVE_RENDERER_PLUME_SOURCE=$PlumeSource" "-DBROKENBOND_XENOS_RECOMP_THIRDPARTY=$XenosRecompThirdparty" `
+            "-DBROKENBOND_SPIRV_VAL=$SpirvVal"
+        if ($LASTEXITCODE -ne 0) { throw 'Shader cache configuration failed.' }
+        & cmake --build $shaderBuild --target broken_bond_native_shader_cache --parallel $Jobs
+        if ($LASTEXITCODE -ne 0) { throw 'Shader cache build failed.' }
+        $ShaderCache = "$shaderBuild/shader_cache"
+    }
 
     # 4. The native libraries: the game (libmain.so), the runtime and SDL3,
     #    staged with libc++_shared.so in android/app/src/main/jniLibs/arm64-v8a.
@@ -155,7 +179,7 @@ try {
         -DREXGLUE_ENABLE_TRACY=OFF -DREXGLUE_BUILD_TESTS=OFF `
         -DBROKENBOND_NATIVE_RENDERER=ON -DBROKENBOND_NATIVE_D3D12=OFF -DBROKENBOND_NATIVE_VULKAN=ON `
         "-DNATIVE_RENDERER_PLUME_SOURCE=$PlumeSource" "-DBROKENBOND_XENOS_RECOMP_THIRDPARTY=$XenosRecompThirdparty" `
-        "-DBROKENBOND_PREBUILT_SHADER_CACHE=$shaderCache" "-DBROKENBOND_VERSION=$Version"
+        "-DBROKENBOND_PREBUILT_SHADER_CACHE=$ShaderCache" "-DBROKENBOND_VERSION=$Version"
     if ($LASTEXITCODE -ne 0) { throw 'Android configuration failed.' }
     & cmake --build $androidBuild --target android_jnilibs --parallel $Jobs
     if ($LASTEXITCODE -ne 0) { throw 'Android native build failed.' }

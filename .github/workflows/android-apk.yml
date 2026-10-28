@@ -1,0 +1,241 @@
+name: Android APK
+
+# Builds the playable Android APK in the cloud and publishes it as a GitHub
+# release: the same steps as scripts/build-android.ps1 on your PC, on a
+# Windows machine of GitHub's.
+#
+# The game code is generated from your own default.xex and the shader cache
+# from your own xeshader.sdb. The workflow downloads them from a private link
+# that only the repository secret GAME_FILES_URL holds: your Xbox 360 ISO, or
+# a .zip with the two files (docs/android.md, "Cloud build"). They stay on the
+# build machine, which GitHub deletes after the run; nothing derived from
+# them is committed or cached, and only the APK is uploaded.
+#
+# Mode "test" (also on pushes to ci/android-apk-test) builds the same way
+# against stand-ins, without the secret, to check the Windows build. Its APK
+# cannot play anything and is never released.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "apk: build from your game files (GAME_FILES_URL secret). test: check the build without them."
+        type: choice
+        options: [apk, test]
+        default: apk
+      version:
+        description: "Version name; the release tag is v<version>"
+        type: string
+        default: 2.5-android-alpha.1
+      release:
+        description: "draft: only you see it until you publish it. prerelease: public right away. none: build artifact only."
+        type: choice
+        options: [draft, prerelease, none]
+        default: draft
+  push:
+    branches: [ci/android-apk-test]
+
+permissions:
+  contents: write  # the release, and ci-publish-log.sh
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MODE: ${{ inputs.mode || 'test' }}
+  VERSION: ${{ inputs.version || '2.5-android-alpha-test' }}
+  RELEASE: ${{ inputs.release || 'none' }}
+  NDK_VERSION: "29.0.14206865"  # The same as scripts/build-android.ps1.
+  # A short path keeps the deep build folders under Windows' path length limit.
+  REPO: C:\nb
+
+jobs:
+  apk:
+    name: Android APK (${{ inputs.mode || 'test' }})
+    runs-on: windows-2022
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out
+        run: |
+          git config --global core.autocrlf false  # The SDK patches need LF files.
+          git config --global core.symlinks true   # libmspack in the SDK has symlinks.
+          git config --global core.longpaths true
+          git clone -q --no-checkout "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY.git" $env:REPO
+          git -C $env:REPO checkout -q $env:GITHUB_SHA
+          git -C $env:REPO submodule update -q --init --recursive
+          if ($LASTEXITCODE) { exit 1 }
+          New-Item -ItemType Directory -Force "$env:REPO/build/logs" | Out-Null
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Visual Studio environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+
+      - name: LLVM 19.1.5 (the version the PC build is validated with)
+        run: |
+          choco install llvm --version=19.1.5 --allow-downgrade --force -y --no-progress --limit-output
+          if ($LASTEXITCODE) { exit 1 }
+          "PATH=C:\Program Files\LLVM\bin;$env:PATH" >> $env:GITHUB_ENV
+
+      - name: Tool versions and disk space
+        run: |
+          clang --version; cmake --version; ninja --version; python --version; java -version
+          Get-PSDrive -PSProvider FileSystem | Where-Object Used |
+            Format-Table Name, @{ n = 'Free GB'; e = { [math]::Round($_.Free / 1GB) } }
+
+      - name: Set up ccache (test mode)
+        if: env.MODE == 'test'
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: windows-android-apk-test
+          max-size: 4G
+
+      - name: Use ccache (test mode)
+        if: env.MODE == 'test'
+        run: |
+          "CMAKE_C_COMPILER_LAUNCHER=ccache" >> $env:GITHUB_ENV
+          "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $env:GITHUB_ENV
+
+      - name: Native renderer dependencies
+        working-directory: ${{ env.REPO }}
+        run: |
+          # Plume and XenosRecomp's dependencies at the revisions of dependencies.json
+          # (docs/build-and-run.md, section 6).
+          $deps = Get-Content tools/native-renderer/dependencies.json -Raw | ConvertFrom-Json
+          function Get-Checkout([string]$Dir, [string]$Url, [string]$Revision) {
+            git init -q $Dir
+            git -C $Dir remote add origin $Url
+            git -C $Dir fetch -q --depth 1 origin $Revision
+            if ($LASTEXITCODE) { throw "Fetching $Url at $Revision failed" }
+            git -C $Dir checkout -q --detach FETCH_HEAD
+          }
+          Get-Checkout out/plume $deps.plume.url $deps.plume.revision
+          foreach ($name in 'fmt', 'dxc-bin', 'smol-v', 'xxHash', 'zstd') {
+            $dep = $deps.xenosrecomp_thirdparty.$name
+            Get-Checkout "tools/xenosrecomp/thirdparty/$name" $dep.url $dep.revision
+          }
+
+      - name: Android NDK
+        run: |
+          $sdkManager = "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat"
+          ("y`n" * 20) | & $sdkManager --install "ndk;$env:NDK_VERSION" | Select-Object -Last 2
+          if ($LASTEXITCODE) { exit 1 }
+
+      - name: spirv-val, from the SDK's SPIRV-Tools
+        if: env.MODE == 'apk'
+        working-directory: ${{ env.REPO }}
+        run: |
+          $headers = (Resolve-Path sdk/thirdparty/spirv-headers).Path.Replace('\', '/')
+          cmake -S sdk/thirdparty/spirv-tools -B build/spirv-tools -G Ninja -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ "-DSPIRV-Headers_SOURCE_DIR=$headers" `
+            -DSPIRV_SKIP_TESTS=ON -DSPIRV_WERROR=OFF *>&1 | Tee-Object -FilePath build/logs/0-spirv-tools.log
+          if ($LASTEXITCODE) { exit 1 }
+          cmake --build build/spirv-tools --target spirv-val *>&1 | Tee-Object -FilePath build/logs/0-spirv-tools.log -Append
+          if ($LASTEXITCODE) { exit 1 }
+
+      - name: Host SDK (scripts/build-sdk.ps1)
+        working-directory: ${{ env.REPO }}
+        run: |
+          try {
+            ./scripts/build-sdk.ps1 -Jobs 4 *>&1 | Tee-Object -FilePath build/logs/1-sdk.log
+          } catch { "$_" | Add-Content build/logs/1-sdk.log; throw }
+
+      - name: Your game files (secret GAME_FILES_URL)
+        if: env.MODE == 'apk'
+        working-directory: ${{ env.REPO }}
+        env:
+          GAME_FILES_URL: ${{ secrets.GAME_FILES_URL }}
+        run: |
+          if (-not $env:GAME_FILES_URL) {
+            throw ('Set the repository secret GAME_FILES_URL (Settings > Secrets and variables > Actions) ' +
+                   'to a link to your ISO, or to a .zip with default.xex and xeshader.sdb.')
+          }
+          # The download goes to the drive with the most room (an ISO is about 7 GB).
+          $drive = Get-PSDrive -PSProvider FileSystem | Where-Object Used | Sort-Object Free -Descending | Select-Object -First 1
+          python -I scripts/android/fetch-game-files.py $env:GAME_FILES_URL game "$($drive.Root)game-download"
+          if ($LASTEXITCODE) { exit 1 }
+
+      - name: Generate the C++ from default.xex
+        if: env.MODE == 'apk'
+        working-directory: ${{ env.REPO }}
+        run: |
+          & build/sdk-install/bin/rexglue.exe codegen broken_bond_manifest.toml --ignore-stamp *>&1 |
+            Tee-Object -FilePath build/logs/2-codegen.log
+          if ($LASTEXITCODE) { exit 1 }
+
+      - name: Stand-ins for the game files (test mode)
+        if: env.MODE == 'test'
+        working-directory: ${{ env.REPO }}
+        run: |
+          python -I scripts/android/make-stub-generated.py .
+          if ($LASTEXITCODE) { exit 1 }
+          New-Item -ItemType Directory -Force build/stub-shader-cache | Out-Null
+          [IO.File]::WriteAllText("$PWD/build/stub-shader-cache/shader_cache_spirv.bin", 'NRSC')
+          [IO.File]::WriteAllText("$PWD/build/stub-shader-cache/shader_manifest.json", '{}')
+
+      - name: Build the APK (scripts/build-android.ps1)
+        working-directory: ${{ env.REPO }}
+        env:
+          BROKENBOND_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          $options = @{ Version = $env:VERSION; Jobs = 4 }
+          if ($env:MODE -eq 'test') {
+            $options.StandInGameCode = $true
+            $options.ShaderCache = 'build/stub-shader-cache'
+          } else {
+            $options.SpirvVal = 'build/spirv-tools/tools/spirv-val.exe'
+          }
+          try {
+            ./scripts/build-android.ps1 @options *>&1 | Tee-Object -FilePath build/logs/3-android.log
+          } catch { "$_" | Add-Content build/logs/3-android.log; throw }
+
+      - name: Delete the game files
+        if: always()
+        working-directory: ${{ env.REPO }}
+        run: Remove-Item -Recurse -Force game, generated, build/android-shaders -ErrorAction SilentlyContinue
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MODE == 'apk' && format('NarutoBrokenBond-Android-{0}', env.VERSION) || 'test-apk-NOT-PLAYABLE' }}
+          path: C:\nb\dist\*.apk
+          retention-days: ${{ env.MODE == 'apk' && 30 || 3 }}
+
+      - name: Publish the release
+        if: env.MODE == 'apk' && env.RELEASE != 'none'
+        working-directory: ${{ env.REPO }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v$env:VERSION"
+          $apk = (Get-ChildItem dist/*.apk | Select-Object -First 1).FullName
+          $kind = if ($env:RELEASE -eq 'draft') { '--draft' } else { '--prerelease' }
+          gh release view $tag -R $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $apk --clobber -R $env:GITHUB_REPOSITORY
+          } else {
+            gh release create $tag $apk -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA `
+              --title "Android Alpha ($env:VERSION)" --notes-file android/release-notes.md $kind
+          }
+          if ($LASTEXITCODE) { exit 1 }
+
+      - name: Publish the build log
+        if: always()
+        shell: bash
+        working-directory: ${{ env.REPO }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p build/logs
+          cat build/logs/*.log > build/apk-build.log 2>/dev/null || true
+          bash scripts/android/ci-publish-log.sh "android-apk-$MODE" build/apk-build.log

@@ -164,9 +164,11 @@ An Android version of this port: the same recompiled game, the native renderer o
 Options, a launcher to pick your ISO and change settings, and on-screen controls (Bluetooth and
 USB controllers work too). It needs Android 10+, a 64-bit phone and a **Snapdragon (Adreno)** GPU.
 
-It is an **alpha**: CI builds and packages it, but it has not run on a phone yet. The APK is built
-on Windows from your own game files with `scripts/build-android.ps1`; no game files are included
-or downloaded. Build steps, requirements, controls and how to report problems:
+It is an **alpha**: CI builds and packages it, but it has not run on a phone yet. Download the APK
+from [Releases](../../releases) when one is published, open it, and pick your ISO in the launcher;
+no game files are included. The APK is built from the game's executable once, like the PC
+version: on Windows with `scripts/build-android.ps1`, or in the cloud with the **Android APK**
+workflow. Build steps, requirements, controls and how to report problems:
 **[docs/android.md](docs/android.md)**.
 
 ## Features
