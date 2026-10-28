@@ -120,10 +120,14 @@ workflow; its APK cannot play anything.
 ### Controls
 
 - **On-screen controller:** touch the lower left of the screen for the left stick and the lower
-  middle for the camera stick (each appears where you touch). A/B/X/Y are on the right, the D-pad
-  on the upper left, LB/LT and RB/RT in the top corners, Back, the gear and Start at the top
-  middle, and L3/R3 along the bottom edge. The **gear** opens **PC Options** (Back + Start).
-  Opacity and size are in Settings.
+  middle for the camera stick (each appears where you touch). Each button shows its action, with
+  the pad button in a small badge: the big **X** (attack) at the lower right with **A** (jump),
+  **Y** (heavy attack), **B** (block) and **RB** (kunai) around it and **RT** (sprint) above;
+  **LT** (jutsus) and **LB** (inventory) on the upper left under the health bar, with the D-pad
+  below them; Back, the gear and Start at the top middle. The **gear** opens **PC Options**
+  (Back + Start). Opacity and size are in Settings. The icons are
+  [Material Symbols](https://github.com/google/material-design-icons) (Apache License 2.0; the
+  license is in the app's `assets/licenses`).
 - **Controllers:** Bluetooth and USB controllers work through SDL3 (Xbox, PlayStation, Switch Pro
   and most Android gamepads). The on-screen controller hides while one is connected.
 - **Back gesture:** opens a menu to continue, hide or show the on-screen controls, or quit.

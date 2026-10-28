@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A kunai, drawn for this app. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <group android:rotation="45" android:pivotX="12" android:pivotY="12">
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+            android:pathData="M12,1 L15.2,9.6 L13,12.6 L11,12.6 L8.8,9.6 Z M9.6,12.9 H14.4 V14.3 H9.6 Z M11.1,14.3 H12.9 V19 H11.1 Z M12,18.6 A2.2,2.2 0 1,1 11.99,18.6 Z M12,19.9 A0.95,0.95 0 1,0 12.01,19.9 Z"/>
+    </group>
+</vector>

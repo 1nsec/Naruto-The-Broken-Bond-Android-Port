@@ -103,11 +103,12 @@ textures need a format their Vulkan drivers lack.
 ## Controls
 
 <div align="center">
-<img src="docs/images/android-controls.svg" width="760" alt="On-screen controller layout">
+<img src="docs/images/android-controls.png" width="760" alt="On-screen controller layout">
 </div>
 
 | | |
 |---|---|
+| **Buttons** | Each shows its action: **X** attack (the big one), **Y** heavy attack, **A** jump, **B** block, **RB** kunai, **RT** sprint, **LT** jutsus, **LB** inventory; the small badge names the pad button |
 | **Sticks** | Touch the lower left to move and the lower middle to turn the camera; each stick appears where your thumb lands |
 | **Gear button** | Opens **PC Options** (Back + Start), with every graphics and game option |
 | **Controllers** | Bluetooth and USB controllers work (Xbox, PlayStation, Switch Pro and most Android gamepads); the on-screen controls hide while one is connected |
@@ -180,9 +181,11 @@ Everything about building the APK, from your PC or in the cloud, signing, and ho
 | Recompilation setup, XMA audio fixes and the native renderer | [jorjbarbosa](https://github.com/jorjbarbosa) ([broken-bond-recomp](https://github.com/jorjbarbosa/broken-bond-recomp)) |
 | Static recompilation runtime | [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) (BSD-3-Clause), built on [Xenia](https://github.com/xenia-project/xenia) |
 | Input, audio and the app's game activity | [SDL3](https://libsdl.org) (zlib license) |
+| Icons of the on-screen controls | [Material Symbols](https://github.com/google/material-design-icons) (Apache License 2.0) |
 
 Thanks to everyone credited in the [PC port](docs/pc-port.md#credits), including **tylerl567**
-for testing on the Steam Deck.
+for testing on the Steam Deck. The style of the on-screen controls is inspired by
+[Masterllgod's Naruto: Rise of a Ninja port](https://github.com/Masterllgod/naruto-rise-of-a-ninja-port-nativo).
 
 ## License
 
