@@ -1,0 +1,207 @@
+run: https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port/actions/runs/40654542745
+commit: b719ad37ed06fd9949eaef142a8665a7a7379dd8
+job: sdk
+
+== errors (with context) ==
+
+== last 200 lines ==
+      |                                            ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_info.cpp:313:62: warning: unused parameter 'out_buf' [-Wunused-parameter]
+  313 | u32 XamQueryLiveHiveW_entry(mapped_wstring name, mapped_void out_buf, u32 out_size,
+      |                                                              ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_info.cpp:313:75: warning: unused parameter 'out_size' [-Wunused-parameter]
+  313 | u32 XamQueryLiveHiveW_entry(mapped_wstring name, mapped_void out_buf, u32 out_size,
+      |                                                                           ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_info.cpp:314:33: warning: unused parameter 'type' [-Wunused-parameter]
+  314 |                             u32 type /* guess */) {
+      |                                 ^
+9 warnings generated.
+[605/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xam/xam_net.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_net.cpp:368:61: warning: comparison of integers of different signs: 'u32' (aka 'unsigned int') and 'int' [-Wsign-compare]
+  368 |                                                     timeout != -1 ? &timeout_wait : nullptr);
+      |                                                     ~~~~~~~ ^  ~~
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_net.cpp:574:12: warning: comparison of integers of different signs: 'uint32_t' (aka 'unsigned int') and 'int' [-Wsign-compare]
+  574 |   if (addr == -1 && !addr_ptr.value().length()) {
+      |       ~~~~ ^  ~~
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_net.cpp:760:25: warning: comparison of integers of different signs: 'X_HANDLE' (aka 'unsigned int') and 'int' [-Wsign-compare]
+  760 |       if (socket_handle == -1) {
+      |           ~~~~~~~~~~~~~ ^  ~~
+3 warnings generated.
+[606/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xam/xam_voice.cpp.o
+[607/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xam/apps/xam_app.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/apps/xam_app.cpp:97:12: warning: unused variable 'adr' [-Wunused-variable]
+   97 |       auto adr = *unk;
+      |            ^~~
+1 warning generated.
+[608/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xam/apps/xlivebase_app.cpp.o
+[609/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xam/apps/xgi_app.cpp.o
+[610/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xbdm/xbdm_module.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xbdm/xbdm_module.cpp:25:33: warning: unused parameter 'emulator' [-Wunused-parameter]
+   25 | XbdmModule::XbdmModule(Runtime* emulator, KernelState* kernel_state)
+      |                                 ^
+1 warning generated.
+[611/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xam/apps/xmp_app.cpp.o
+[612/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xam/xam_user.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_user.cpp:549:24: warning: unused variable 'o' [-Wunused-variable]
+  549 |     for (size_t i = 0, o = current_item_; i < count; ++i, ++current_item_) {
+      |                        ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_user.cpp:542:12: warning: unused variable 'size' [-Wunused-variable]
+  542 |     size_t size = count * item_size();
+      |            ^~~~
+2 warnings generated.
+[613/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xbdm/xbdm_misc.cpp.o
+[614/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_debug.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_debug.cpp:66:30: warning: comparison of integers of different signs: 'unsigned int' and 'int' [-Wsign-compare]
+   66 |   if (thread_info->thread_id == -1) {
+      |       ~~~~~~~~~~~~~~~~~~~~~~ ^  ~~
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_debug.cpp:119:8: warning: unused variable 'vftable_ptr' [-Wunused-variable]
+  119 |   auto vftable_ptr = *reinterpret_cast<rex::be<uint32_t>*>(thrown);
+      |        ^~~~~~~~~~~
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_debug.cpp:123:8: warning: unused variable 'catchable_types' [-Wunused-variable]
+  123 |   auto catchable_types = REX_KERNEL_MEMORY()->TranslateVirtual<x_s__CatchableTypeArray*>(
+      |        ^~~~~~~~~~~~~~~
+3 warnings generated.
+[615/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_error.cpp.o
+[616/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_hal.cpp.o
+[617/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_hid.cpp.o
+[618/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xam/xam_misc.cpp.o
+[619/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_io.cpp.o
+[620/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_io_info.cpp.o
+[621/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_crypt.cpp.o
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_crypt.cpp:32:
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/thirdparty/crypto/des/des.cpp:10:13: warning: unknown pragma ignored [-Wunknown-pragmas]
+   10 | #pragma GCC optimize ("unroll-loops")
+      |             ^
+1 warning generated.
+[622/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xam/xam_ui.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_ui.cpp:228:24: warning: unused parameter 'io' [-Wunused-parameter]
+  228 |   void OnDraw(ImGuiIO& io) override {
+      |                        ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_ui.cpp:368:24: warning: unused parameter 'io' [-Wunused-parameter]
+  368 |   void OnDraw(ImGuiIO& io) override {
+      |                        ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_ui.cpp:545:30: warning: unused parameter 'r3' [-Wunused-parameter]
+  545 | u32 XamShowPartyUI_entry(u32 r3, u32 r4) {
+      |                              ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_ui.cpp:545:38: warning: unused parameter 'r4' [-Wunused-parameter]
+  545 | u32 XamShowPartyUI_entry(u32 r3, u32 r4) {
+      |                                      ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_ui.cpp:549:42: warning: unused parameter 'r3' [-Wunused-parameter]
+  549 | u32 XamShowCommunitySessionsUI_entry(u32 r3, u32 r4) {
+      |                                          ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_ui.cpp:549:50: warning: unused parameter 'r4' [-Wunused-parameter]
+  549 | u32 XamShowCommunitySessionsUI_entry(u32 r3, u32 r4) {
+      |                                                  ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_ui.cpp:263:12: warning: private field 'default_button_' is not used [-Wunused-private-field]
+  263 |   uint32_t default_button_ = 0;
+      |            ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xam/xam_ui.cpp:414:10: warning: private field 'max_length_' is not used [-Wunused-private-field]
+  414 |   size_t max_length_ = 0;
+      |          ^
+8 warnings generated.
+[623/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_ob.cpp.o
+[624/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_misc.cpp.o
+[625/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_memory.cpp.o
+[626/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_modules.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_modules.cpp:86:55: warning: unused parameter 'module_flags' [-Wunused-parameter]
+   86 | u32 XexLoadImage_entry(mapped_string module_name, u32 module_flags, u32 min_version,
+      |                                                       ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_modules.cpp:86:73: warning: unused parameter 'min_version' [-Wunused-parameter]
+   86 | u32 XexLoadImage_entry(mapped_string module_name, u32 module_flags, u32 min_version,
+      |                                                                         ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_modules.cpp:212:63: warning: unused parameter 'headers' [-Wunused-parameter]
+  212 | u32 XexLoadImageHeaders_entry(mapped_string path, mapped_void headers) {
+      |                                                               ^
+3 warnings generated.
+[627/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_usbcam.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_usbcam.cpp:21:29: warning: unused parameter 'buffer' [-Wunused-parameter]
+   21 | u32 XUsbcamCreate_entry(u32 buffer,
+      |                             ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_usbcam.cpp:22:29: warning: unused parameter 'buffer_size' [-Wunused-parameter]
+   22 |                         u32 buffer_size,  // 0x4B000 640x480?
+      |                             ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_usbcam.cpp:23:37: warning: unused parameter 'unk3_ptr' [-Wunused-parameter]
+   23 |                         mapped_void unk3_ptr) {
+      |                                     ^
+3 warnings generated.
+[628/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_rtl.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_rtl.cpp:114:12: warning: variable 'len1' set but not used [-Wunused-but-set-variable]
+  114 |   uint32_t len1 = string_1_len;
+      |            ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_rtl.cpp:115:12: warning: variable 'len2' set but not used [-Wunused-but-set-variable]
+  115 |   uint32_t len2 = string_2_len;
+      |            ^
+2 warnings generated.
+[629/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_module.cpp.o
+[630/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_xconfig.cpp.o
+[631/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_strings.cpp.o
+[632/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_audio_xma.cpp.o
+[633/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/crt/memory.cpp.o
+[634/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_audio.cpp.o
+[635/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/crt/file.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/file.cpp:63:74: warning: unused parameter 'dwShareMode' [-Wunused-parameter]
+   63 | u32 CreateFileA_entry(mapped_string lpFileName, u32 dwDesiredAccess, u32 dwShareMode,
+      |                                                                          ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/file.cpp:64:35: warning: unused parameter 'lpSecurityAttributes' [-Wunused-parameter]
+   64 |                       mapped_void lpSecurityAttributes, u32 dwCreationDisposition,
+      |                                   ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/file.cpp:65:27: warning: unused parameter 'dwFlagsAndAttributes' [-Wunused-parameter]
+   65 |                       u32 dwFlagsAndAttributes, u32 hTemplateFile) {
+      |                           ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/file.cpp:65:53: warning: unused parameter 'hTemplateFile' [-Wunused-parameter]
+   65 |                       u32 dwFlagsAndAttributes, u32 hTemplateFile) {
+      |                                                     ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/file.cpp:322:66: warning: unused parameter 'lpSecurityAttributes' [-Wunused-parameter]
+  322 | u32 CreateDirectoryA_entry(mapped_string lpPathName, mapped_void lpSecurityAttributes) {
+      |                                                                  ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/file.cpp:371:36: warning: unused parameter 'fInfoLevelId' [-Wunused-parameter]
+  371 | u32 GetFileAttributesExA_entry(u32 fInfoLevelId, mapped_string lpFileName,
+      |                                    ^
+6 warnings generated.
+[636/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_video.cpp.o
+[637/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/xboxkrnl/xboxkrnl_threading.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_threading.cpp:1371:40: warning: suggest braces around initialization of subobject [-Wmissing-braces]
+ 1371 |   alignas(8) X_SLIST_HEADER old_hdr = {0};
+      |                                        ^
+      |                                        {}
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_threading.cpp:1371:41: warning: missing field 'depth' initializer [-Wmissing-field-initializers]
+ 1371 |   alignas(8) X_SLIST_HEADER old_hdr = {0};
+      |                                         ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_threading.cpp:1372:40: warning: suggest braces around initialization of subobject [-Wmissing-braces]
+ 1372 |   alignas(8) X_SLIST_HEADER new_hdr = {0};
+      |                                        ^
+      |                                        {}
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_threading.cpp:1372:41: warning: missing field 'depth' initializer [-Wmissing-field-initializers]
+ 1372 |   alignas(8) X_SLIST_HEADER new_hdr = {0};
+      |                                         ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_threading.cpp:1394:40: warning: suggest braces around initialization of subobject [-Wmissing-braces]
+ 1394 |   alignas(8) X_SLIST_HEADER new_hdr = {0};
+      |                                        ^
+      |                                        {}
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/xboxkrnl/xboxkrnl_threading.cpp:1394:41: warning: missing field 'depth' initializer [-Wmissing-field-initializers]
+ 1394 |   alignas(8) X_SLIST_HEADER new_hdr = {0};
+      |                                         ^
+6 warnings generated.
+[638/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/crt/string.cpp.o
+[639/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/crt/threading.cpp.o
+[640/642] Building CXX object src/system/CMakeFiles/rexruntime.dir/__/kernel/crt/heap.cpp.o
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/heap.cpp:334:31: warning: unused parameter 'hHeap' [-Wunused-parameter]
+  334 | u32 RtlAllocateHeap_entry(u32 hHeap, u32 dwFlags, u32 dwBytes) {
+      |                               ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/heap.cpp:338:27: warning: unused parameter 'hHeap' [-Wunused-parameter]
+  338 | u32 RtlFreeHeap_entry(u32 hHeap, u32 dwFlags, u32 ptr) {
+      |                           ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/heap.cpp:338:38: warning: unused parameter 'dwFlags' [-Wunused-parameter]
+  338 | u32 RtlFreeHeap_entry(u32 hHeap, u32 dwFlags, u32 ptr) {
+      |                                      ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/heap.cpp:343:27: warning: unused parameter 'hHeap' [-Wunused-parameter]
+  343 | u32 RtlSizeHeap_entry(u32 hHeap, u32 dwFlags, u32 ptr) {
+      |                           ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/heap.cpp:343:38: warning: unused parameter 'dwFlags' [-Wunused-parameter]
+  343 | u32 RtlSizeHeap_entry(u32 hHeap, u32 dwFlags, u32 ptr) {
+      |                                      ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/kernel/crt/heap.cpp:347:33: warning: unused parameter 'hHeap' [-Wunused-parameter]
+  347 | u32 RtlReAllocateHeap_entry(u32 hHeap, u32 dwFlags, u32 ptr, u32 dwBytes) {
+      |                                 ^
+6 warnings generated.
+[641/642] Linking CXX shared library /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/out/android-arm64/librexruntime.so
