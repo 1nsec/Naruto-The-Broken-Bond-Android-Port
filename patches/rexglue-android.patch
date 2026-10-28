@@ -74,7 +74,7 @@ index 9b3cdf5..9ec361b 100644
      # When consumed via add_subdirectory(), provide the same interface as find_package().
      # This sets REXGLUE_SHARE_DIR and makes rexglue_configure_target() available.
 diff --git a/include/rex/chrono/chrono.h b/include/rex/chrono/chrono.h
-index d876846..2844d8c 100644
+index d876846..1e7ad24 100644
 --- a/include/rex/chrono/chrono.h
 +++ b/include/rex/chrono/chrono.h
 @@ -116,8 +116,9 @@ using XSystemClock = detail::NtSystemClock<detail::Domain::Guest>;
@@ -84,8 +84,8 @@ index d876846..2844d8c 100644
 -#ifdef __APPLE__
 -// Apple libc++ does not expose clock_time_conversion or clock_cast.
 +#if defined(__APPLE__) || (defined(__ANDROID__) && defined(_LIBCPP_VERSION))
-+// Apple libc++ and the NDK's libc++ (r28) do not expose clock_time_conversion
-+// or clock_cast.
++// Apple libc++ and the NDK's libc++ do not expose clock_time_conversion or
++// clock_cast.
  template <class, class>
  struct clock_time_conversion {};
  
@@ -787,7 +787,7 @@ index 9ac8d15..30e20b0 100644
          int result = pthread_mutex_trylock(native_mutex);
          if (result == 0 || result == EOWNERDEAD) {
 diff --git a/src/core/timer_queue.cpp b/src/core/timer_queue.cpp
-index 5cfea05..76ecdc4 100644
+index 5cfea05..b029b60 100644
 --- a/src/core/timer_queue.cpp
 +++ b/src/core/timer_queue.cpp
 @@ -21,6 +21,64 @@
@@ -796,8 +796,8 @@ index 5cfea05..76ecdc4 100644
  
 +#include <version>
 +#if !defined(__cpp_lib_jthread)
-+// The NDK's libc++ (r28) has neither std::jthread nor std::stop_token: the
-+// timer thread only needs a stop flag and a joining destructor.
++// Standard libraries without std::jthread and std::stop_token (older NDK
++// libc++): the timer thread only needs a stop flag and a joining destructor.
 +#include <atomic>
 +#include <memory>
 +#include <thread>
