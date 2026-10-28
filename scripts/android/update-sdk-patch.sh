@@ -5,7 +5,7 @@
 # The diff base is built in a temporary index: the SDK's pinned commit with the
 # project patches applied (the same list as apply-sdk-patches.sh, without the
 # Android patch). New files in the sdk tree are included; the SDK's own
-# submodules (thirdparty/) are ignored.
+# submodules (under thirdparty/) are ignored, its thirdparty/CMakeLists.txt is not.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -25,5 +25,5 @@ done
 # New files: everything untracked outside the vendored submodules and build output.
 git -C "$sdk" ls-files --others --exclude-standard -- . ':!thirdparty' ':!out' |
   while IFS= read -r file; do git -C "$sdk" add -N -- "$file"; done
-git -C "$sdk" diff --ignore-submodules=all --no-color --no-ext-diff -- . ':!thirdparty' > "$out"
+git -C "$sdk" diff --ignore-submodules=all --no-color --no-ext-diff -- . ':!out' > "$out"
 echo "Wrote $out ($(grep -c '^diff --git' "$out") files)"

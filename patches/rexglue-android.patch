@@ -74,7 +74,7 @@ index 9b3cdf5..9ec361b 100644
      # When consumed via add_subdirectory(), provide the same interface as find_package().
      # This sets REXGLUE_SHARE_DIR and makes rexglue_configure_target() available.
 diff --git a/include/rex/chrono/chrono.h b/include/rex/chrono/chrono.h
-index d876846..513ba0e 100644
+index d876846..2844d8c 100644
 --- a/include/rex/chrono/chrono.h
 +++ b/include/rex/chrono/chrono.h
 @@ -116,8 +116,9 @@ using XSystemClock = detail::NtSystemClock<detail::Domain::Guest>;
@@ -83,7 +83,7 @@ index d876846..513ba0e 100644
  
 -#ifdef __APPLE__
 -// Apple libc++ does not expose clock_time_conversion or clock_cast.
-+#if defined(__APPLE__) || defined(__ANDROID__)
++#if defined(__APPLE__) || (defined(__ANDROID__) && defined(_LIBCPP_VERSION))
 +// Apple libc++ and the NDK's libc++ (r28) do not expose clock_time_conversion
 +// or clock_cast.
  template <class, class>
@@ -1045,3 +1045,55 @@ index 77bb1dc..1a141cd 100644
    auto remaining = rex::cvar::Init(argc, argv);
    rex::cvar::ApplyEnvironment();
    rex::InitLoggingEarly();
+diff --git a/thirdparty/CMakeLists.txt b/thirdparty/CMakeLists.txt
+index f102b56..e7a9265 100644
+--- a/thirdparty/CMakeLists.txt
++++ b/thirdparty/CMakeLists.txt
+@@ -245,8 +245,15 @@ target_compile_options(imgui PRIVATE -w)
+ # SDL3 - Cross-platform media layer
+ #=============================================================================
+ set(SDL_INSTALL ON CACHE BOOL "" FORCE)
+-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+-set(SDL_STATIC ON CACHE BOOL "" FORCE)
++if(ANDROID)
++    # Android: libSDL3.so, loaded by the Java SDLActivity before the app's
++    # library. The runtime and the app both link it, so there is one SDL.
++    set(SDL_SHARED ON CACHE BOOL "" FORCE)
++    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
++else()
++    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
++    set(SDL_STATIC ON CACHE BOOL "" FORCE)
++endif()
+ set(SDL_TEST OFF CACHE BOOL "" FORCE)
+ set(SDL_UNIX_CONSOLE_BUILD ON CACHE BOOL "" FORCE)
+ 
+@@ -268,8 +275,18 @@ else()
+     endif()
+ endif()
+ set(SDL_RENDER OFF CACHE BOOL "" FORCE)
+-set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
+-set(SDL_SENSOR OFF CACHE BOOL "" FORCE)
++if(ANDROID)
++    # Controller rumble and the Java HIDAPI bridge are part of SDL's Android
++    # input stack; the SDLActivity sources expect them.
++    set(SDL_HAPTIC ON CACHE BOOL "" FORCE)
++else()
++    set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
++endif()
++if(ANDROID)
++    set(SDL_SENSOR ON CACHE BOOL "" FORCE)
++else()
++    set(SDL_SENSOR OFF CACHE BOOL "" FORCE)
++endif()
+ set(SDL_POWER OFF CACHE BOOL "" FORCE)
+ set(SDL_FILESYSTEM OFF CACHE BOOL "" FORCE)
+ set(SDL_LOCALE ON CACHE BOOL "" FORCE)
+@@ -290,7 +307,7 @@ set(SDL_DUMMYVIDEO OFF CACHE BOOL "" FORCE)
+ 
+ # Linux video and audio backends. Both video drivers are always built so the
+ # one in use stays a runtime choice.
+-if(UNIX AND NOT APPLE)
++if(UNIX AND NOT APPLE AND NOT ANDROID)
+     set(SDL_X11               ON  CACHE BOOL "" FORCE)
+     set(SDL_WAYLAND           ON  CACHE BOOL "" FORCE)
+     set(SDL_ALSA              ON  CACHE BOOL "" FORCE)
