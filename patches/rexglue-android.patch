@@ -73,6 +73,22 @@ index 9b3cdf5..9ec361b 100644
  else()
      # When consumed via add_subdirectory(), provide the same interface as find_package().
      # This sets REXGLUE_SHARE_DIR and makes rexglue_configure_target() available.
+diff --git a/include/rex/chrono/chrono.h b/include/rex/chrono/chrono.h
+index d876846..513ba0e 100644
+--- a/include/rex/chrono/chrono.h
++++ b/include/rex/chrono/chrono.h
+@@ -116,8 +116,9 @@ using XSystemClock = detail::NtSystemClock<detail::Domain::Guest>;
+ 
+ namespace std::chrono {
+ 
+-#ifdef __APPLE__
+-// Apple libc++ does not expose clock_time_conversion or clock_cast.
++#if defined(__APPLE__) || defined(__ANDROID__)
++// Apple libc++ and the NDK's libc++ (r28) do not expose clock_time_conversion
++// or clock_cast.
+ template <class, class>
+ struct clock_time_conversion {};
+ 
 diff --git a/include/rex/main_android.h b/include/rex/main_android.h
 new file mode 100644
 index 0000000..62825dd
@@ -119,6 +135,46 @@ index 0000000..62825dd
 +}  // namespace rex
 +
 +#endif  // REX_PLATFORM_ANDROID
+diff --git a/include/rex/string/numeric.h b/include/rex/string/numeric.h
+index 85994c7..9675532 100644
+--- a/include/rex/string/numeric.h
++++ b/include/rex/string/numeric.h
+@@ -26,7 +26,7 @@
+ #include <rex/string/utf8.h>
+ #include <rex/vec128.h>
+ 
+-#if REX_PLATFORM_MAC
++#if REX_PLATFORM_MAC || REX_PLATFORM_ANDROID
+ #include <locale.h>
+ #endif
+ 
+@@ -114,7 +114,7 @@ inline T ifs(const std::string_view value, bool force_hex) {
+   return result;
+ }
+ 
+-#if REX_PLATFORM_MAC
++#if REX_PLATFORM_MAC || REX_PLATFORM_ANDROID
+ template <typename T>
+ inline std::from_chars_result portable_float_from_chars(const char* first, const char* last,
+                                                         T& value) {
+@@ -189,7 +189,7 @@ inline T fpfs(const std::string_view value, bool force_hex) {
+     }
+     std::memcpy(&result, &pun, sizeof(PUN));
+   } else {
+-#if REX_PLATFORM_MAC
++#if REX_PLATFORM_MAC || REX_PLATFORM_ANDROID
+     auto [p, error] = portable_float_from_chars(range.data(), range.data() + range.size(), result);
+ #else
+     auto [p, error] = std::from_chars(range.data(), range.data() + range.size(), result,
+@@ -316,7 +316,7 @@ inline vec128_t from_string<vec128_t>(const std::string_view value, bool force_h
+         assert_always();
+         return vec128_t();
+       }
+-#if REX_PLATFORM_MAC
++#if REX_PLATFORM_MAC || REX_PLATFORM_ANDROID
+       auto result = detail::portable_float_from_chars(p, end, v.f32[i]);
+ #else
+       auto result = std::from_chars(p, end, v.f32[i], std::chars_format::general);
 diff --git a/include/rex/ui/surface_android.h b/include/rex/ui/surface_android.h
 new file mode 100644
 index 0000000..b644f19
@@ -198,6 +254,50 @@ index 1ddafd0..a9a29ec 100644
  elseif(UNIX)
      target_link_libraries(rexcore PRIVATE pthread rt dl)
  endif()
+diff --git a/src/core/exception_handler_posix.cpp b/src/core/exception_handler_posix.cpp
+index 8b1c76a..8add783 100644
+--- a/src/core/exception_handler_posix.cpp
++++ b/src/core/exception_handler_posix.cpp
+@@ -417,6 +417,39 @@ static void ExceptionHandlerCallback(int signal_number, siginfo_t* signal_info,
+       return;
+     }
+   }
++
++  // Not handled here: pass the signal on to the handler that was installed
++  // before (the SEH emulation, a crash reporter, or the system's - debuggerd
++  // on Android, which writes the tombstone). Returning instead would run the
++  // faulting instruction again, forever.
++  const struct sigaction* original = nullptr;
++  switch (signal_number) {
++    case SIGILL:
++      original = &original_sigill_handler_;
++      break;
++    case SIGSEGV:
++      original = &original_sigsegv_handler_;
++      break;
++#if REX_PLATFORM_MAC
++    case SIGBUS:
++      original = &original_sigbus_handler_;
++      break;
++#endif
++    default:
++      break;
++  }
++  if (original) {
++    if ((original->sa_flags & SA_SIGINFO) && original->sa_sigaction) {
++      original->sa_sigaction(signal_number, signal_info, signal_context);
++      return;
++    }
++    if (original->sa_handler != SIG_DFL && original->sa_handler != SIG_IGN && original->sa_handler) {
++      original->sa_handler(signal_number);
++      return;
++    }
++  }
++  signal(signal_number, SIG_DFL);
++  raise(signal_number);
+ }
+ 
+ void ExceptionHandler::Install(Handler fn, void* data) {
 diff --git a/src/core/filesystem_posix.cpp b/src/core/filesystem_posix.cpp
 index ef5bdf4..087b798 100644
 --- a/src/core/filesystem_posix.cpp
@@ -378,6 +478,84 @@ index b52bf39..863f858 100644
    // TODO(Triang3l): Check if memfd can be used instead on API 30+.
    if (android_ASharedMemory_create_) {
      int sharedmem_fd = android_ASharedMemory_create_(path.c_str(), length);
+diff --git a/src/core/seh_posix.cpp b/src/core/seh_posix.cpp
+index 5e0a932..afffbd9 100644
+--- a/src/core/seh_posix.cpp
++++ b/src/core/seh_posix.cpp
+@@ -21,6 +21,41 @@ namespace rex::platform {
+ static thread_local SehThreadState tls_seh_state;
+ static thread_local bool tls_seh_active = false;
+ 
++// The handlers installed before seh_initialize(), for faults outside SEH scopes.
++static struct sigaction previous_sigsegv_, previous_sigbus_, previous_sigfpe_, previous_sigill_;
++
++static void forward_to_previous(int sig, siginfo_t* info, void* ucontext) {
++  const struct sigaction* previous = nullptr;
++  switch (sig) {
++    case SIGSEGV:
++      previous = &previous_sigsegv_;
++      break;
++    case SIGBUS:
++      previous = &previous_sigbus_;
++      break;
++    case SIGFPE:
++      previous = &previous_sigfpe_;
++      break;
++    case SIGILL:
++      previous = &previous_sigill_;
++      break;
++    default:
++      break;
++  }
++  if (previous) {
++    if ((previous->sa_flags & SA_SIGINFO) && previous->sa_sigaction) {
++      previous->sa_sigaction(sig, info, ucontext);
++      return;
++    }
++    if (previous->sa_handler != SIG_DFL && previous->sa_handler != SIG_IGN && previous->sa_handler) {
++      previous->sa_handler(sig);
++      return;
++    }
++  }
++  signal(sig, SIG_DFL);
++  raise(sig);
++}
++
+ SehThreadState& seh_thread_state() {
+   return tls_seh_state;
+ }
+@@ -31,12 +66,12 @@ int seh_filter(uint32_t /*code*/, void* /*ep*/) {
+ }
+ 
+ /// Signal handler for SIGSEGV/SIGBUS/SIGFPE/SIGILL
+-static void signal_handler(int sig, siginfo_t* info, void* /*ucontext*/) {
++static void signal_handler(int sig, siginfo_t* info, void* ucontext) {
+   // Only handle if we're in SEH-protected code
+   if (!tls_seh_active) {
+-    // Not in SEH region - restore default handler and re-raise
+-    signal(sig, SIG_DFL);
+-    raise(sig);
++    // Not in SEH region: the handler that was there before decides (a crash
++    // reporter, or the system's, which writes a tombstone on Android).
++    forward_to_previous(sig, info, ucontext);
+     return;
+   }
+ 
+@@ -110,10 +145,10 @@ void seh_initialize() {
+   sigemptyset(&sa.sa_mask);
+   sa.sa_flags = SA_SIGINFO | SA_NODEFER;  // SA_NODEFER allows re-entry for nested exceptions
+ 
+-  sigaction(SIGSEGV, &sa, nullptr);
+-  sigaction(SIGBUS, &sa, nullptr);
+-  sigaction(SIGFPE, &sa, nullptr);
+-  sigaction(SIGILL, &sa, nullptr);
++  sigaction(SIGSEGV, &sa, &previous_sigsegv_);
++  sigaction(SIGBUS, &sa, &previous_sigbus_);
++  sigaction(SIGFPE, &sa, &previous_sigfpe_);
++  sigaction(SIGILL, &sa, &previous_sigill_);
+ }
+ 
+ bool& seh_active() {
 diff --git a/src/core/system_posix.cpp b/src/core/system_posix.cpp
 index 1655695..05df6d2 100644
 --- a/src/core/system_posix.cpp
@@ -480,7 +658,7 @@ index 0000000..e68957d
 +}  // namespace ui
 +}  // namespace rex
 diff --git a/src/ui/window_sdl.cpp b/src/ui/window_sdl.cpp
-index 2251429..d55d1ec 100644
+index 2251429..69b9d3f 100644
 --- a/src/ui/window_sdl.cpp
 +++ b/src/ui/window_sdl.cpp
 @@ -35,6 +35,8 @@
@@ -492,7 +670,18 @@ index 2251429..d55d1ec 100644
  #else
  #include <X11/Xlib-xcb.h>
  #include <rex/ui/surface_gnulinux.h>
-@@ -398,6 +400,15 @@ std::unique_ptr<Surface> WindowSDL::CreateSurfaceImpl(Surface::TypeFlags allowed
+@@ -235,6 +237,10 @@ void* WindowSDL::GetNativeWindowHandle() const {
+   }
+   return SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window_),
+                                 SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
++#elif REX_PLATFORM_ANDROID
++  // The SDL_Window itself: hosts that draw on their own (a native renderer)
++  // take the ANativeWindow from its properties and its size from SDL.
++  return sdl_window_;
+ #else
+   return nullptr;
+ #endif
+@@ -398,6 +404,15 @@ std::unique_ptr<Surface> WindowSDL::CreateSurfaceImpl(Surface::TypeFlags allowed
        SDL_Metal_DestroyView(metal_view);
      }
    }
