@@ -88,10 +88,13 @@ jobs:
           "PATH=C:\Program Files\LLVM\bin;$env:PATH" >> $env:GITHUB_ENV
 
       - name: Tool versions and disk space
+        working-directory: ${{ env.REPO }}
         run: |
-          clang --version; cmake --version; ninja --version; python --version; java -version
-          Get-PSDrive -PSProvider FileSystem | Where-Object Used |
-            Format-Table Name, @{ n = 'Free GB'; e = { [math]::Round($_.Free / 1GB) } }
+          & {
+            clang --version; cmake --version; ninja --version; python --version; java -version
+            Get-PSDrive -PSProvider FileSystem | Where-Object Used |
+              Format-Table Name, @{ n = 'Free GB'; e = { [math]::Round($_.Free / 1GB) } } | Out-String
+          } *>&1 | Tee-Object -FilePath build/logs/0-tools.log
 
       - name: Set up ccache (test mode)
         if: env.MODE == 'test'
@@ -132,7 +135,6 @@ jobs:
           if ($LASTEXITCODE) { exit 1 }
 
       - name: spirv-val, from the SDK's SPIRV-Tools
-        if: env.MODE == 'apk'
         working-directory: ${{ env.REPO }}
         run: |
           $headers = (Resolve-Path sdk/thirdparty/spirv-headers).Path.Replace('\', '/')
@@ -182,6 +184,28 @@ jobs:
           New-Item -ItemType Directory -Force build/stub-shader-cache | Out-Null
           [IO.File]::WriteAllText("$PWD/build/stub-shader-cache/shader_cache_spirv.bin", 'NRSC')
           [IO.File]::WriteAllText("$PWD/build/stub-shader-cache/shader_manifest.json", '{}')
+
+      - name: Host shader tools (test mode)
+        # In apk mode build-android.ps1 builds the shader cache with these
+        # tools; without xeshader.sdb, test mode only builds the tools.
+        if: env.MODE == 'test'
+        working-directory: ${{ env.REPO }}
+        run: |
+          New-Item -ItemType Directory -Force game | Out-Null
+          Set-Content game/xeshader.sdb 'stand-in'
+          $sdk = "$PWD/build/sdk-install".Replace('\', '/')
+          & {
+            cmake --preset windows-release -B build/android-shaders "-DCMAKE_PREFIX_PATH=$sdk" `
+              "-Drexglue_DIR=$sdk/lib/cmake/rexglue" -DBROKENBOND_NATIVE_RENDERER=ON `
+              -DBROKENBOND_NATIVE_D3D12=OFF -DBROKENBOND_NATIVE_VULKAN=ON -DBROKENBOND_BUILD_LAUNCHER=OFF `
+              "-DNATIVE_RENDERER_PLUME_SOURCE=$PWD/out/plume".Replace('\', '/') `
+              "-DBROKENBOND_XENOS_RECOMP_THIRDPARTY=$PWD/tools/xenosrecomp/thirdparty".Replace('\', '/') `
+              "-DBROKENBOND_SPIRV_VAL=$PWD/build/spirv-tools/tools/spirv-val.exe".Replace('\', '/')
+            if ($LASTEXITCODE) { throw 'Host shader configuration failed' }
+            cmake --build build/android-shaders --target broken_bond_xenosrecomp broken_bond_smolv_encode
+            if ($LASTEXITCODE) { throw 'Host shader tools failed' }
+          } *>&1 | Tee-Object -FilePath build/logs/2-shader-tools.log
+          Remove-Item -Recurse -Force game
 
       - name: Build the APK (scripts/build-android.ps1)
         working-directory: ${{ env.REPO }}
