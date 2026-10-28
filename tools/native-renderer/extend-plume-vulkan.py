@@ -46,5 +46,28 @@ query = query.replace("supportedOptionalExtensions.count(VK_EXT_SWAPCHAIN_MAINTE
                      "supportedOptionalExtensions.count(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME))")
 s = s.replace("        VkPhysicalDeviceFeatures2 deviceFeatures", query + "\n        VkPhysicalDeviceFeatures2 deviceFeatures")
 s = s.replace("        std::vector<const char *> enabledExtensions;", enable + "\n        std::vector<const char *> enabledExtensions;", 1)
+# Android: the game can bring its own Vulkan driver (Turnip, loaded with
+# libadrenotools; src/android/gpu_driver.cpp). volk then starts from that
+# driver's vkGetInstanceProcAddr instead of the system's libvulkan.
+android_loader = """#if defined(__ANDROID__)
+extern "C" PFN_vkGetInstanceProcAddr brokenbond_android_vulkan_loader(void);
+#endif
+
+namespace plume {"""
+assert s.count("namespace plume {") >= 1
+s = s.replace("namespace plume {", android_loader, 1)
+volk_init = "        VkResult res = volkInitialize();\n"
+assert s.count(volk_init) == 1
+s = s.replace(volk_init, """#if defined(__ANDROID__)
+        VkResult res = VK_SUCCESS;
+        if (PFN_vkGetInstanceProcAddr bundledLoader = brokenbond_android_vulkan_loader()) {
+            volkInitializeCustom(bundledLoader);
+        } else {
+            res = volkInitialize();
+        }
+#else
+        VkResult res = volkInitialize();
+#endif
+""")
 if not output.exists() or output.read_text(encoding="utf-8") != s:
     output.write_text(s, encoding="utf-8", newline="\n")

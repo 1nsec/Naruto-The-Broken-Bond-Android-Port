@@ -53,4 +53,8 @@
     <string name="settings_reset">Reset to Android defaults</string>
     <string name="settings_reset_confirm">Replace naruto.toml with the Android defaults?</string>
     <string name="off">Off</string>
+    <string name="setting_gpu_driver">GPU driver</string>
+    <string name="gpu_driver_auto">Automatic</string>
+    <string name="gpu_driver_system">System (Qualcomm)</string>
+    <string name="gpu_driver_turnip">Turnip (bundled)</string>
 </resources>

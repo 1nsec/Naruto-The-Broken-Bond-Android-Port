@@ -128,6 +128,30 @@ public class SettingsActivity extends Activity {
         row.addView(view);
     }
 
+    /** A choice among labels, stored as the matching string preference. */
+    private void prefChoice(int label, String key, String[] labels, String[] values, String fallback) {
+        LinearLayout row = row(label);
+        Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        SharedPreferences prefs = Storage.prefs(this);
+        String current = prefs.getString(key, fallback);
+        for (int i = 0; i < values.length; ++i) {
+            if (values[i].equals(current)) spinner.setSelection(i);
+        }
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                prefs.edit().putString(key, values[position]).apply();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        row.addView(spinner, new LinearLayout.LayoutParams(dp(220), ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
     /** A float preference from min to max. */
     private void prefSlider(int label, String key, float fallback, float min, float max) {
         LinearLayout row = row(label);
@@ -173,6 +197,10 @@ public class SettingsActivity extends Activity {
         toggle(R.string.setting_transparency_aa, "transparency_antialiasing", false);
         toggle(R.string.setting_async_shaders, "async_shaders", true);
         toggle(R.string.setting_show_fps, "show_fps", false);
+        prefChoice(R.string.setting_gpu_driver, Storage.KEY_GPU_DRIVER,
+                new String[] {getString(R.string.gpu_driver_auto), getString(R.string.gpu_driver_system),
+                        getString(R.string.gpu_driver_turnip)},
+                new String[] {"auto", "system", "turnip"}, "auto");
 
         header(R.string.settings_game);
         choice(R.string.setting_language, "user_language",

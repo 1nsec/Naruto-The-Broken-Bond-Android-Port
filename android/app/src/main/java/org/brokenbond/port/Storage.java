@@ -24,6 +24,7 @@ final class Storage {
     static final String KEY_TOUCH = "touch_controls";
     static final String KEY_TOUCH_OPACITY = "touch_opacity";
     static final String KEY_TOUCH_SCALE = "touch_scale";
+    static final String KEY_GPU_DRIVER = "gpu_driver";  // auto, system or turnip
 
     private Storage() {}
 

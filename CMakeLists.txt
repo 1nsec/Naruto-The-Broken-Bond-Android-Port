@@ -143,9 +143,27 @@ elseif(ANDROID)
     add_library(broken_bond SHARED ${BROKENBOND_SOURCES} "${CMAKE_CURRENT_BINARY_DIR}/resources_posix.cpp")
     # SDLActivity loads libmain.so and calls its SDL_main.
     set_target_properties(broken_bond PROPERTIES OUTPUT_NAME main)
-    # The app's on-screen controller (an SDL virtual gamepad, called through JNI).
-    target_sources(broken_bond PRIVATE src/android/touch_controller.cpp)
+    # The app's on-screen controller (an SDL virtual gamepad, called through JNI),
+    # and the choice of the Vulkan driver (the system's or a bundled Turnip).
+    target_sources(broken_bond PRIVATE src/android/touch_controller.cpp src/android/gpu_driver.cpp)
     target_link_libraries(broken_bond PRIVATE android log)
+    # libadrenotools loads a Vulkan driver shipped with the app (Turnip) instead
+    # of the system's; without it the game always uses the system driver.
+    set(BROKENBOND_ADRENOTOOLS_SOURCE "" CACHE PATH "libadrenotools checkout (bundled Vulkan drivers on Android)")
+    if(BROKENBOND_ADRENOTOOLS_SOURCE)
+        if(NOT CMAKE_ANDROID_ARCH_ABI)
+            set(CMAKE_ANDROID_ARCH_ABI "${ANDROID_ABI}")
+        endif()
+        add_subdirectory("${BROKENBOND_ADRENOTOOLS_SOURCE}" "${CMAKE_CURRENT_BINARY_DIR}/adrenotools" EXCLUDE_FROM_ALL)
+        target_link_libraries(broken_bond PRIVATE adrenotools)
+        target_compile_definitions(broken_bond PRIVATE BROKENBOND_ADRENOTOOLS=1)
+        # Its hooks are loaded from the app's native library folder.
+        set(BROKENBOND_ADRENOTOOLS_HOOKS hook_impl main_hook file_redirect_hook gsl_alloc_hook)
+        message(STATUS "Android: libadrenotools from ${BROKENBOND_ADRENOTOOLS_SOURCE} (bundled Vulkan drivers)")
+    else()
+        set(BROKENBOND_ADRENOTOOLS_HOOKS "")
+        message(STATUS "Android: no libadrenotools; the game uses the system Vulkan driver")
+    endif()
 else()
     add_executable(broken_bond ${BROKENBOND_SOURCES})
 endif()
@@ -234,14 +252,21 @@ if(ANDROID)
         list(FILTER android_libcxx INCLUDE REGEX "aarch64")
     endif()
     set(android_jnilibs_commands COMMAND "${CMAKE_COMMAND}" -E make_directory "${BROKENBOND_ANDROID_JNILIBS}")
-    foreach(lib "$<TARGET_FILE:broken_bond>" "$<TARGET_FILE:rexruntime>" "$<TARGET_FILE:SDL3-shared>" "${android_libcxx}")
+    set(android_jnilibs_files "$<TARGET_FILE:broken_bond>" "$<TARGET_FILE:rexruntime>" "$<TARGET_FILE:SDL3-shared>"
+        "${android_libcxx}")
+    set(android_jnilibs_names libmain.so librexruntime.so libSDL3.so libc++_shared.so)
+    foreach(hook IN LISTS BROKENBOND_ADRENOTOOLS_HOOKS)
+        list(APPEND android_jnilibs_files "$<TARGET_FILE:${hook}>")
+        list(APPEND android_jnilibs_names "lib${hook}.so")
+    endforeach()
+    foreach(lib IN LISTS android_jnilibs_files)
         list(APPEND android_jnilibs_commands COMMAND "${CMAKE_COMMAND}" -E copy "${lib}" "${BROKENBOND_ANDROID_JNILIBS}")
     endforeach()
-    foreach(name libmain.so librexruntime.so libSDL3.so libc++_shared.so)
+    foreach(name IN LISTS android_jnilibs_names)
         list(APPEND android_jnilibs_commands COMMAND "${CMAKE_STRIP}" --strip-unneeded "${BROKENBOND_ANDROID_JNILIBS}/${name}")
     endforeach()
     add_custom_target(android_jnilibs ${android_jnilibs_commands}
-        DEPENDS broken_bond
+        DEPENDS broken_bond ${BROKENBOND_ADRENOTOOLS_HOOKS}
         COMMENT "Native libraries of the Android app -> ${BROKENBOND_ANDROID_JNILIBS}"
         VERBATIM)
 endif()

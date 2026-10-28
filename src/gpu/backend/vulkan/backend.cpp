@@ -968,7 +968,11 @@ bool Backend::Initialize(std::string& evidence, const RenderMode& mode) {
   vkGetPhysicalDeviceQueueFamilyProperties(physical, &family_count, families.data());
   const uint32_t direct = vulkan->queueFamilyIndices[0];  // Plume's DIRECT queue.
   const VkQueueFlags direct_needed = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
-  if (direct >= family_count || (families[direct].queueFlags & direct_needed) != direct_needed)
+  // Graphics and compute queues can always transfer, and reporting the transfer
+  // bit for them is optional (Vulkan spec, "Queues"); Adreno drivers leave it out.
+  VkQueueFlags direct_flags = direct < family_count ? families[direct].queueFlags : 0;
+  if (direct_flags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) direct_flags |= VK_QUEUE_TRANSFER_BIT;
+  if ((direct_flags & direct_needed) != direct_needed)
     missing.push_back("queue:graphics+compute+transfer");
   auto format_needs = [&](VkFormat format, VkFormatFeatureFlags needed, const char* name) {
     VkFormatProperties properties{};
