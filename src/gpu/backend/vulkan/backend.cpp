@@ -996,9 +996,31 @@ bool Backend::Initialize(std::string& evidence, const RenderMode& mode) {
     return fail("native-vulkan-shader-contract", VK_ERROR_INITIALIZATION_FAILED,
                 fmt::format(",\"error\":\"{}\"", contract_error));
   for (auto& name : MissingFromDevice(state_->contract, *vulkan)) missing.push_back(std::move(name));
-  if (!missing.empty())
+  if (!missing.empty()) {
+    // What the driver itself reports for buffer device addresses (the shader
+    // cache's buffer access), next to what Plume enabled: tells a driver
+    // without the feature from one whose extension list Plume did not match.
+    uint32_t extension_count = 0;
+    vkEnumerateDeviceExtensionProperties(physical, nullptr, &extension_count, nullptr);
+    std::vector<VkExtensionProperties> extensions(extension_count);
+    vkEnumerateDeviceExtensionProperties(physical, nullptr, &extension_count, extensions.data());
+    bool bda_extension = false;
+    for (const auto& extension : extensions)
+      bda_extension |= std::string_view(extension.extensionName) == VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
+    VkPhysicalDeviceBufferDeviceAddressFeatures bda{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES};
+    VkPhysicalDeviceFeatures2 queried{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &bda};
+    vkGetPhysicalDeviceFeatures2(physical, &queried);
+    VkPhysicalDeviceProperties device_properties{};
+    vkGetPhysicalDeviceProperties(physical, &device_properties);
     return fail("native-vulkan-capability", VK_ERROR_FEATURE_NOT_PRESENT,
-                fmt::format(",\"missing\":[\"{}\"]", fmt::join(missing, "\",\"")));
+                fmt::format(",\"missing\":[\"{}\"],\"device\":\"{}\",\"device_api\":\"{}\",\"extension_count\":{},"
+                            "\"bda_extension\":{},\"bda_feature\":{},\"bda_enabled\":{},\"descriptor_indexing_enabled\":{},"
+                            "\"shader_int64\":{}",
+                            fmt::join(missing, "\",\""), JsonText(device_properties.deviceName),
+                            Version(device_properties.apiVersion), extension_count, bda_extension,
+                            bool(bda.bufferDeviceAddress), vulkan->capabilities.bufferDeviceAddress,
+                            vulkan->capabilities.descriptorIndexing, bool(queried.features.shaderInt64)));
+  }
   // The MSAA sample count, lowered to one the device supports for both surface formats.
   state_->render_mode = mode;
   for (unsigned i = 0; i < 256; ++i)
