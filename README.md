@@ -184,8 +184,6 @@ Everything about building the APK, from your PC or in the cloud, signing, and ho
 Thanks to everyone credited in the [PC port](docs/pc-port.md#credits), including **tylerl567**
 for testing on the Steam Deck.
 
-[![Support the PC port on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/auremana666)
-
 ## License
 
 The code in this repository is released under the [GNU General Public License v3](LICENSE), the
