@@ -123,6 +123,9 @@ jobs:
             git -C $Dir checkout -q --detach FETCH_HEAD
           }
           Get-Checkout out/plume $deps.plume.url $deps.plume.revision
+          # Its Vulkan backend's submodules (build-android.ps1 also fetches them when missing).
+          git -C out/plume submodule update -q --init contrib/volk contrib/Vulkan-Headers contrib/VulkanMemoryAllocator
+          if ($LASTEXITCODE) { throw "Fetching Plume's Vulkan submodules failed" }
           foreach ($name in 'fmt', 'dxc-bin', 'smol-v', 'xxHash', 'zstd') {
             $dep = $deps.xenosrecomp_thirdparty.$name
             Get-Checkout "tools/xenosrecomp/thirdparty/$name" $dep.url $dep.revision
