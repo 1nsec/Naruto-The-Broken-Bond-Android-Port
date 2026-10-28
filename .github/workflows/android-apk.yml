@@ -13,7 +13,9 @@ name: Android APK
 #
 # Mode "test" (also on pushes to ci/android-apk-test) builds the same way
 # against stand-ins, without the secret, to check the Windows build. Its APK
-# cannot play anything and is never released.
+# cannot play anything and is never released. A push to release/android-apk
+# builds the APK like "Run workflow" with the defaults: version
+# 2.5-android-alpha.<run number>, as a draft release.
 
 on:
   workflow_dispatch:
@@ -33,7 +35,7 @@ on:
         options: [draft, prerelease, none]
         default: draft
   push:
-    branches: [ci/android-apk-test]
+    branches: [ci/android-apk-test, release/android-apk]
 
 permissions:
   contents: write  # the release, and ci-publish-log.sh
@@ -43,16 +45,16 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MODE: ${{ inputs.mode || 'test' }}
-  VERSION: ${{ inputs.version || '2.5-android-alpha-test' }}
-  RELEASE: ${{ inputs.release || 'none' }}
+  MODE: ${{ inputs.mode || (github.ref == 'refs/heads/release/android-apk' && 'apk' || 'test') }}
+  VERSION: ${{ inputs.version || (github.ref == 'refs/heads/release/android-apk' && format('2.5-android-alpha.{0}', github.run_number) || '2.5-android-alpha-test') }}
+  RELEASE: ${{ inputs.release || (github.ref == 'refs/heads/release/android-apk' && 'draft' || 'none') }}
   NDK_VERSION: "29.0.14206865"  # The same as scripts/build-android.ps1.
   # A short path keeps the deep build folders under Windows' path length limit.
   REPO: C:\nb
 
 jobs:
   apk:
-    name: Android APK (${{ inputs.mode || 'test' }})
+    name: Android APK (${{ inputs.mode || (github.ref == 'refs/heads/release/android-apk' && 'apk' || 'test') }})
     runs-on: windows-2022
     timeout-minutes: 360
     defaults:

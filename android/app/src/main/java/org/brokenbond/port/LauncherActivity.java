@@ -41,6 +41,7 @@ public class LauncherActivity extends Activity {
         play.setOnClickListener(v -> startGame());
         findViewById(R.id.settings).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.help).setOnClickListener(v -> showHelp());
+        findViewById(R.id.export_logs).setOnClickListener(v -> exportLogs());
         ((TextView) findViewById(R.id.version)).setText(getString(R.string.version_line, versionName()));
         GameConfig.ensureDefaults(this);
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION, 0x401000)) {
@@ -139,6 +140,25 @@ public class LauncherActivity extends Activity {
         // Saved settings and the chosen disc go to the game process through the
         // shared preferences and the data folder.
         startActivity(new Intent(this, GameActivity.class));
+    }
+
+    /** Saves the logs to Downloads (problem reports), off the UI thread. */
+    private void exportLogs() {
+        Toast.makeText(this, R.string.export_logs_working, Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String message;
+            try {
+                message = getString(R.string.export_logs_done, LogExport.export(this));
+            } catch (Exception e) {
+                message = getString(R.string.export_logs_failed, String.valueOf(e.getMessage()));
+            }
+            final String text = message;
+            runOnUiThread(() -> new AlertDialog.Builder(this)
+                    .setTitle(R.string.export_logs)
+                    .setMessage(text)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show());
+        }, "export-logs").start();
     }
 
     private void showHelp() {

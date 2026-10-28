@@ -79,6 +79,11 @@
                 android:id="@+id/help"
                 style="@style/LauncherButton"
                 android:text="@string/help" />
+
+            <Button
+                android:id="@+id/export_logs"
+                style="@style/LauncherButton"
+                android:text="@string/export_logs" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

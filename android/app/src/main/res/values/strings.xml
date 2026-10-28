@@ -7,6 +7,10 @@
     <string name="pick_iso">Choose game ISO…</string>
     <string name="settings">Settings</string>
     <string name="help">Help</string>
+    <string name="export_logs">Save logs for a problem report</string>
+    <string name="export_logs_working">Saving the logs…</string>
+    <string name="export_logs_done">Saved to Downloads:\n%1$s\n\nSend this file with your problem report (GitHub issue).</string>
+    <string name="export_logs_failed">Could not save the logs: %1$s</string>
     <string name="iso_selected">Game disc: %1$s</string>
     <string name="iso_found">Game disc found in the data folder: %1$s</string>
     <string name="iso_missing">No game disc yet. Choose your Naruto: The Broken Bond Xbox 360 ISO, or copy it into:\n%1$s</string>
@@ -17,7 +21,7 @@
     <string name="no_vulkan_title">Vulkan 1.1 not found</string>
     <string name="no_vulkan_message">This device does not report Vulkan 1.1, which the renderer needs. The game will probably not start.</string>
     <string name="help_title">How to play</string>
-    <string name="help_message">1. Choose your own Xbox 360 ISO of Naruto: The Broken Bond (no game files are included).\n\n2. Tap Play. The first start takes a while; new areas can stutter once while their graphics are prepared.\n\n3. On-screen controls: left side moves, right side turns the camera, the gear opens PC Options. A Bluetooth or USB controller works too (the on-screen controls hide while one is connected).\n\n4. The back gesture opens a menu to continue, hide the on-screen controls, or quit.\n\nSaves, settings (naruto.toml) and logs are in:\n%1$s\n\nThis is an alpha for Snapdragon (Adreno) phones. If it crashes, send the newest file in logs/ with your phone model.</string>
+    <string name="help_message">1. Choose your own Xbox 360 ISO of Naruto: The Broken Bond (no game files are included).\n\n2. Tap Play. The first start takes a while; new areas can stutter once while their graphics are prepared.\n\n3. On-screen controls: left side moves, right side turns the camera, the gear opens PC Options. A Bluetooth or USB controller works too (the on-screen controls hide while one is connected).\n\n4. The back gesture opens a menu to continue, hide the on-screen controls, or quit.\n\nSaves, settings (naruto.toml) and logs are in:\n%1$s\n\nThis is an alpha for Snapdragon (Adreno) phones. If it crashes, tap \"Save logs for a problem report\" and send the zip it saves in Downloads.</string>
     <string name="menu_continue">Continue</string>
     <string name="menu_hide_touch">Hide on-screen controls</string>
     <string name="menu_show_touch">Show on-screen controls</string>

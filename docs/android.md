@@ -143,10 +143,14 @@ resolution, 30 FPS, no MSAA, FXAA or transparency anti-aliasing, and log files o
 
 ## Reporting problems
 
-Please include the phone model, the Android version and:
+In the launcher, tap **Save logs for a problem report**. It saves
+`NarutoBrokenBond-logs-<date>.zip` in **Downloads** with the device's details (model, Android
+version, Vulkan level), `naruto.toml`, the newest files of `logs/` (game logs and
+`crash_*.txt`) and the app's own system log, which also covers what happened before the game's
+log started. Attach it to a GitHub issue with a few words about what happened.
 
-- the newest `logs/` file and any `logs/crash_*.txt` from the app's folder, or
-- `adb logcat -s rexglue narutobb SDL DEBUG AndroidRuntime` while starting the game.
+With a PC, `adb logcat -s rexglue narutobb SDL DEBUG AndroidRuntime` while starting the game shows
+the same live.
 
 ## Known limitations
 

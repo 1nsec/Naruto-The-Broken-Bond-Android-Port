@@ -6,6 +6,10 @@
     <string name="pick_iso">Escolher a ISO do jogo…</string>
     <string name="settings">Configurações</string>
     <string name="help">Ajuda</string>
+    <string name="export_logs">Salvar logs para relatar um problema</string>
+    <string name="export_logs_working">Salvando os logs…</string>
+    <string name="export_logs_done">Salvo em Downloads:\n%1$s\n\nMande esse arquivo junto com o relato do problema (issue no GitHub).</string>
+    <string name="export_logs_failed">Não foi possível salvar os logs: %1$s</string>
     <string name="iso_selected">Disco do jogo: %1$s</string>
     <string name="iso_found">Disco do jogo encontrado na pasta de dados: %1$s</string>
     <string name="iso_missing">Nenhum disco ainda. Escolha a sua ISO de Xbox 360 do Naruto: The Broken Bond, ou copie para:\n%1$s</string>
@@ -16,7 +20,7 @@
     <string name="no_vulkan_title">Vulkan 1.1 não encontrado</string>
     <string name="no_vulkan_message">Este aparelho não informa Vulkan 1.1, que o renderer precisa. O jogo provavelmente não vai iniciar.</string>
     <string name="help_title">Como jogar</string>
-    <string name="help_message">1. Escolha a sua própria ISO de Xbox 360 do Naruto: The Broken Bond (nenhum arquivo do jogo vem junto).\n\n2. Toque em Jogar. A primeira vez demora; áreas novas podem travar uma vez enquanto os gráficos são preparados.\n\n3. Controles na tela: o lado esquerdo anda, o lado direito gira a câmera, a engrenagem abre as Opções de PC. Controle Bluetooth ou USB também funciona (os controles na tela somem enquanto um estiver conectado).\n\n4. O gesto de voltar abre um menu para continuar, esconder os controles na tela ou sair.\n\nSaves, configurações (naruto.toml) e logs ficam em:\n%1$s\n\nEsta é uma alpha para celulares Snapdragon (Adreno). Se fechar sozinho, mande o arquivo mais novo da pasta logs/ com o modelo do celular.</string>
+    <string name="help_message">1. Escolha a sua própria ISO de Xbox 360 do Naruto: The Broken Bond (nenhum arquivo do jogo vem junto).\n\n2. Toque em Jogar. A primeira vez demora; áreas novas podem travar uma vez enquanto os gráficos são preparados.\n\n3. Controles na tela: o lado esquerdo anda, o lado direito gira a câmera, a engrenagem abre as Opções de PC. Controle Bluetooth ou USB também funciona (os controles na tela somem enquanto um estiver conectado).\n\n4. O gesto de voltar abre um menu para continuar, esconder os controles na tela ou sair.\n\nSaves, configurações (naruto.toml) e logs ficam em:\n%1$s\n\nEsta é uma alpha para celulares Snapdragon (Adreno). Se fechar sozinho, toque em \"Salvar logs para relatar um problema\" e mande o zip que ele salva em Downloads.</string>
     <string name="menu_continue">Continuar</string>
     <string name="menu_hide_touch">Esconder controles na tela</string>
     <string name="menu_show_touch">Mostrar controles na tela</string>
