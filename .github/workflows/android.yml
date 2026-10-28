@@ -11,6 +11,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write  # ci-publish-log.sh pushes build logs to ci-logs/* branches
+
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
@@ -58,12 +61,12 @@ jobs:
             -DREXGLUE_ENABLE_TRACY=OFF -DREXGLUE_BUILD_TESTS=OFF
 
       - name: Build
-        run: cmake --build build/sdk-android --target rexruntime -- -k 0
+        run: |
+          set -o pipefail
+          cmake --build build/sdk-android --target rexruntime -- -k 0 2>&1 | tee build/sdk-build.log
 
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdk-android-ninja-log
-          path: build/sdk-android/.ninja_log
-          if-no-files-found: ignore
+      - name: Publish build log
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/android/ci-publish-log.sh sdk build/sdk-build.log
