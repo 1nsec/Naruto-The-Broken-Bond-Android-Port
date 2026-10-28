@@ -1,307 +1,190 @@
-# Naruto: The Broken Bond — PC Port
+<div align="center">
 
-An unofficial PC port of **Naruto: The Broken Bond** (Xbox 360, 2008), made by statically
-recompiling the original game with the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) and
-adding a full PC options menu on top.
+# Naruto: The Broken Bond — Android Port
 
-**Version 2** is built on [jorjbarbosa's Broken Bond recomp](https://github.com/jorjbarbosa/broken-bond-recomp):
-its recompilation, audio fixes and **native Direct3D 12 renderer** (higher frame rates, sharper
-resolutions, smoother play) are his work. This port adds its own PC features on top (see
-[Who made what](#who-made-what)).
+**The Xbox 360 game, recompiled to run natively on Android phones.**<br>
+Unofficial fan port · bring your own game
 
-**[▶ Watch the trailer](https://youtu.be/j7WtfO7-Km8)**
+![Status: alpha](https://img.shields.io/badge/status-alpha-f28c28?style=for-the-badge)
+![Android 10+](https://img.shields.io/badge/Android-10%2B-3ddc84?style=for-the-badge&logo=android&logoColor=white)
+![GPU: Snapdragon / Adreno](https://img.shields.io/badge/GPU-Snapdragon%20%2F%20Adreno-e4002b?style=for-the-badge&logo=qualcomm&logoColor=white)
+![Vulkan](https://img.shields.io/badge/renderer-Vulkan-ac162c?style=for-the-badge&logo=vulkan&logoColor=white)
 
-> **Android (alpha):** this repository also builds the port as an Android app, with a launcher and
-> on-screen controls, for Snapdragon (Adreno) phones. It is untested on phones so far. See
-> [Android](#android-alpha).
+### [⬇ Download the APK](../../releases)
 
-![Title screen](docs/images/title-screen.jpg)
+[Install](#install) · [Requirements](#requirements) · [Controls](#controls) · [FAQ](#faq) · [Build it yourself](docs/android.md)
 
+<img src="docs/images/fight-kyuubi.jpg" width="760" alt="Gameplay">
+
+<sub>Screenshots from the PC version: the Android port runs the same game and renderer.</sub>
+
+</div>
+
+> [!IMPORTANT]
 > **No game files are included.** You need your own copy of the game as an Xbox 360 disc image
 > (ISO). This project is not affiliated with or endorsed by Ubisoft, Bandai Namco, Shueisha, Viz
 > Media or Microsoft. Naruto is a trademark of its owners.
 
-## Download and play
+> [!WARNING]
+> **Alpha:** these are the first builds to run on phones. Expect crashes and graphics problems, and
+> please [report them](#reporting-problems): logs from real phones are what move the port forward.
 
-1. Download the latest zip from the [Releases](../../releases) page and extract it.
-2. Put your game's **ISO** file in the `assets` folder (or next to `Naruto The Broken Bond PC.exe`).
-3. Run **Naruto The Broken Bond PC.exe**.
-4. Press **F1** (or **Back + Start** on a controller) to open **PC Options**.
+## What it is
 
-Keep the game folder somewhere you can write to, such as `C:\Games`, your Desktop, Documents or
-another drive. **Don't put it in `C:\Program Files`**: the game saves your progress (`hdd`) and
-settings (`naruto.toml`) next to the exe, and Windows blocks that there.
+The Android version of the [Naruto: The Broken Bond PC Port v2.5](docs/pc-port.md). The game's
+Xbox 360 code is recompiled ahead of time with the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk),
+so it runs natively instead of being emulated, and its graphics go through a native **Vulkan**
+renderer.
 
-**Coming from v1?** Copy your `hdd` folder from the v1 folder into the v2 folder to keep your saves
-(back them up first with the Save Backup Tool).
+<table>
+<tr>
+<td width="33%"><img src="docs/images/story.jpg" alt="Story"></td>
+<td width="33%"><img src="docs/images/fight-kakashi-itachi.jpg" alt="Fight"></td>
+<td width="33%"><img src="docs/images/title-screen.jpg" alt="Title screen"></td>
+</tr>
+</table>
 
-The first start can take a moment while Windows scans the new program.
+<table>
+<tr>
+<td width="50%">
 
-**Steam Deck / Linux:** add `Naruto The Broken Bond PC.exe` to Steam as a non-Steam game and run
-it with Proton (see [Steam Deck](#steam-deck)).
+**🎮 The full game**<br>
+The recompiled game with the PC port's native renderer and its **PC Options** menu.
 
-## What's new in v2.5
+</td>
+<td width="50%">
 
-![Free camera](docs/images/free-camera.jpg)
+**📱 A launcher**<br>
+Pick your ISO once, adjust the settings for your phone, and tap **Play**.
 
-- **Playable on Steam Deck.** The black screen under Proton is fixed (the game's shaders now load
-  there), and the game no longer closes after the title screen: when the Deck's graphics driver
-  crashes on a shader, the game skips that shader from the next start on. Tested by
-  **tylerl567** on a Steam Deck. See [Steam Deck](#steam-deck).
-- **Free camera** (PC Options > Cheats, key **6** by default): the game freezes and you fly the
-  camera anywhere in the level. W A S D move, Space / Ctrl go up and down, Shift goes faster,
-  the mouse or the arrow keys look; on a controller the sticks and triggers. Press 6 again to
-  go back.
-- **Weather** (PC Options > Cheats): one weather everywhere, fights included: Day, Night,
-  Morning, Overcast, Evening or Sunset. It changes right away while you walk around, and GAME
-  brings back the game's own.
+</td>
+</tr>
+<tr>
+<td>
 
-  ![Weather: Sunset](docs/images/weather-sunset.jpg)
-- **First and Second Hokage skins** (PC Options > Cheats > Hidden Characters & Skins): pick a
-  Fight Mode character on the game's own select grid and they wear the First or the Second
-  Hokage's look. **They are only skins:** the character keeps their own moves, jutsus and
-  voice, and the skins look quite glitchy in places (they were made for one story fight, not
-  for every move set). Naruto can't wear them.
+**🕹️ Touch or controller**<br>
+On-screen controls with floating sticks, or any Bluetooth / USB controller.
 
-  ![Hokage skins](docs/images/hokage-skins.jpg)
-- **Speed up** (hold **Numpad +**): the whole game runs 2 to 8 times faster while you hold it,
-  handy for the cutscenes you can't skip. The speed and the key are in PC Options > Cheats.
-- **Graphics options that apply without a restart:** brightness, upscaling (CAS / FSR now really
-  apply), edge smoothing (FXAA) and vertical sync change right away.
-- **Neji's and Kiba's trap jutsus fixed:** with the render resolution at 1.5x the screen went
-  black during the jutsus that find traps (and in some flashbacks). They show correctly now.
+</td>
+<td>
 
-  ![Neji's trap jutsu](docs/images/neji-trap-jutsu.jpg)
-- **New default settings for lower-end PCs:** 1080p (1.5x), 60 FPS, 2X anti-aliasing,
-  transparency anti-aliasing, strong FXAA, mouse camera on and the aspect ratio picked from your
-  screen. Change them any time in PC Options.
-- **Graphics log for testers:** Record Graphics Log (PC Options > Debug) also writes
-  `pipeline_trace.txt`, which shows the exact shader a crash happened on.
+**💾 Your saves stay**<br>
+New versions install over the old one and keep your saves and settings.
 
-**Coming from v2.0?** Copy your `hdd` folder over to keep your saves. Your old `naruto.toml`
-still works; delete it if you want the new default settings.
+</td>
+</tr>
+</table>
 
-## What's new in v2
+## Install
 
-![Gameplay](docs/images/gameplay-16-9.jpg)
+1. Download the **APK** from [Releases](../../releases) and open it on your phone (allow installing
+   apps from your browser or file manager when Android asks).
+2. Open **Naruto: The Broken Bond** and tap **Choose game ISO…** to pick your ISO. Nothing is
+   copied: the game reads the ISO where it is.
+3. Check **Settings** (resolution, frame rate, on-screen controls), then tap **Play**. The first
+   start takes a while.
 
-From [jorjbarbosa's Broken Bond recomp](https://github.com/jorjbarbosa/broken-bond-recomp):
+You can also copy the ISO into `Android/data/org.brokenbond.port/files/assets/`, where the game
+finds it on its own.
 
-- **Native Direct3D 12 renderer.** The game's graphics run straight on Direct3D 12 instead of an
-  emulated Xbox GPU, with the shaders translated ahead of time.
-- **Frame rate up to 240 FPS.** The game still thinks at its own 30 steps per second; above 30 the
-  frames in between are drawn smoothly (camera, characters, effects).
-- **Render resolution from 720p up to 5K**, anti-aliasing 2X / 4X / 8X, transparency
-  anti-aliasing, FXAA, AMD CAS / FSR upscaling, brightness.
-
-Added in this port:
-
-- **PC Options menu on the native renderer:** the whole v1 menu, drawn over his renderer, with
-  every graphics option above in it.
-- **Field of view** (PC Options > Display, 90% to 140%), applied right away. The camera zooms the
-  game does on its own (the gate in the village, fight cameras) now keep your field of view too.
-
-  ![Field of view 140%](docs/images/field-of-view-140.jpg)
-- **Ultrawide that really widens the view:** with 21:9 or 32:9 the game shows more of the world at
-  the sides instead of stretching it.
-
-  ![21:9 on a 16:9 screen](docs/images/ultrawide-21-9.jpg)
-- **Mouse camera:** the camera turns by how far you move the mouse, like a PC game
-  (PC Options > Controls > Mouse Moves Camera).
-- **Fewer stutters:** the graphics cache (his system) grew with many more of our play sessions,
-  and **Skip Unready Graphics** turns on his renderer's skip mode as an option, so an object is
-  left out for a moment instead of freezing the game when it still has to be prepared.
-- **Anti-aliasing OFF that is really off** (it used to fall back to the game's own 4X), and less
-  work per frame on the render thread (see [Performance](#performance)).
-- **New Debug page** (PC Options > Debug): log files, a graphics and performance log to send in
-  with a problem, and Skip Unready Graphics.
-
-## Performance
-
-On a desktop PC with a dedicated graphics card the game runs smoothly at high frame rates and
-resolutions. The work per frame was cut down a lot for v2 (the stutter freezes are gone, the
-render thread does about 20% less work per draw, and Anti-Aliasing OFF is now really off).
-
-On **laptops and PCs with built-in graphics** (Intel Arc / Iris, AMD Radeon integrated), start
-with these settings in **PC Options > Graphics**:
-
-| Setting | Laptop / built-in graphics |
-|---|---|
-| Frame rate | 60, or 30 if it still feels uneven |
-| Render resolution | 1280x720 (Original) |
-| Anti-aliasing | OFF |
-| Edge smoothing | FXAA |
-
-That's as far as this port can be pushed. Half of every frame is the original Xbox game's own
-drawing code, and above 30 FPS it runs twice per game step, so weaker CPUs and graphics chips hit
-a limit that settings can't remove. It won't get much better than this on low-end hardware.
-
-If you get stutters, turn on **PC Options > Debug > Record Graphics Log**, play, and share the
-newest folder in `pipeline-runs`: it shows exactly where the time goes.
-
-## Steam Deck
-
-Version 2.5 runs on the Steam Deck (SteamOS, Proton). Thanks to **tylerl567** for testing it on
-his Deck and sending the logs that found both problems.
-
-1. Copy the game folder to the Deck and add `Naruto The Broken Bond PC.exe` to Steam as a
-   non-Steam game (Desktop Mode).
-2. In its Properties > Compatibility, force a recent Proton version (tested with Proton 11).
-3. Put your ISO in the `assets` folder and start the game.
-
-**If the game closes during the first starts, just start it again.** The Deck's graphics driver
-crashes on a few of the game's shaders; each time, the game remembers that shader in
-`pipeline-guard.txt` and skips it from then on. After a few starts it stays open. A skipped shader
-can leave a small object undrawn.
-
-The frame rate holds 60 FPS in most places and drops to about 34 FPS in some busy areas. For
-the smoothest play on the Deck, set PC Options > Graphics to 1x render resolution and
-anti-aliasing OFF.
-
-## Android (alpha)
-
-An Android version of this port: the same recompiled game, the native renderer on **Vulkan**, PC
-Options, a launcher to pick your ISO and change settings, and on-screen controls (Bluetooth and
-USB controllers work too). It needs Android 10+, a 64-bit phone and a **Snapdragon (Adreno)** GPU.
-
-It is an **alpha**: CI builds and packages it, but it has not run on a phone yet. Download the APK
-from [Releases](../../releases) when one is published, open it, and pick your ISO in the launcher;
-no game files are included. The APK is built from the game's executable once, like the PC
-version: on Windows with `scripts/build-android.ps1`, or in the cloud with the **Android APK**
-workflow. Build steps, requirements, controls and how to report problems:
-**[docs/android.md](docs/android.md)**.
-
-## Features
+## Requirements
 
 | | |
 |---|---|
-| ![PC Options](docs/images/pc-options.jpg) | ![Display](docs/images/display.jpg) |
-| ![Graphics](docs/images/graphics.jpg) | ![Debug](docs/images/debug.jpg) |
-| ![Controller layout](docs/images/controller-layout.jpg) | ![Auto Jutsu](docs/images/auto-jutsu.jpg) |
+| **Android** | 10 or newer, 64-bit (arm64) |
+| **GPU** | **Snapdragon** phone (Adreno 6xx or newer) with Vulkan 1.1 |
+| **Memory** | 6 GB of RAM or more recommended |
+| **Storage** | Your ISO (about 7 GB) plus about 1 GB |
+| **Game** | Your own Xbox 360 ISO of Naruto: The Broken Bond |
 
-- **PC Options menu** (F1 or Back + Start), styled like the game's own menus, usable with keyboard,
-  mouse or controller. Every change is saved to `naruto.toml`.
-  - **Display:** fullscreen or windowed, window size, **aspect ratio (16:9, 21:9, 32:9 or
-    automatic)**, **field of view**, V-Sync, G-Sync / FreeSync, FPS counter.
-  - **Graphics:** frame rate, render resolution, anti-aliasing, transparency anti-aliasing, edge
-    smoothing, upscaling, brightness, **graphics card** (on PCs with more than one), texture
-    filtering.
-  - **Controls:** play with the keyboard, keyboard as player 1 or 2, mouse camera and sensitivity,
-    full key remapping with normal / toggle / turbo presses.
-  - **Controller layout:** separate layouts for **Controller 1** and **Controller 2**. Pick a button
-    on the drawn controller and press the button it should become, or make it a toggle or turbo.
-  - **Audio** and **Game:** mute, language, intro videos on/off, PC title screen on/off.
-  - **Cheats:** unlock every character, unlock every arena (your save is not changed),
-    **weather**, **free camera**, **speed up**, **First / Second Hokage skins** and **Auto Jutsu**.
-  - **Shortcut Keys:** rebind the shortcuts and jump straight to any page.
-  - **Debug:** log files, Record Graphics Log, Skip Unready Graphics.
-- **Auto Jutsu:** one button does your character's jutsu for you.
-  - Keyboard: **Numpad 1–4** for jutsu 1–4.
-  - Controller: hold your jutsu button (**LT**) and press **A, B, Y or X**.
-  - Keep holding to charge the jutsu, let go to release it. You still need enough chakra.
-- **PC title screen** at start (30 seconds, or press Enter), and the intro videos can be skipped.
-- **Save Backup Tool:** run `Save Backup Tool\Save Backup Tool.bat` to zip your saves. Share the
-  zip if you need help with a save problem.
+Phones with **Mali** (Exynos, most MediaTek) or **PowerVR** GPUs are not supported yet: the game's
+textures need a format their Vulkan drivers lack.
+
+## Controls
+
+<div align="center">
+<img src="docs/images/android-controls.svg" width="760" alt="On-screen controller layout">
+</div>
 
 | | |
 |---|---|
-| ![Story](docs/images/story.jpg) | ![Fight](docs/images/fight-kakashi-itachi.jpg) |
+| **Sticks** | Touch the lower left to move and the lower middle to turn the camera; each stick appears where your thumb lands |
+| **Gear button** | Opens **PC Options** (Back + Start), with every graphics and game option |
+| **Controllers** | Bluetooth and USB controllers work (Xbox, PlayStation, Switch Pro and most Android gamepads); the on-screen controls hide while one is connected |
+| **Back gesture** | Opens a menu to continue, hide or show the on-screen controls, or quit |
 
-## Default controls
+The opacity and size of the on-screen controls are in the launcher's **Settings**.
 
-| Action | Keyboard | Controller |
-|---|---|---|
-| Move | W A S D | Left stick |
-| Camera | Arrow keys (or the mouse) | Right stick |
-| Jump / Confirm | Space | A |
-| Block / Back | L | B |
-| Basic attack | J | X |
-| Heavy attack | K | Y |
-| Open inventory | Q | LB |
-| Jutsus / Hand seals | Shift | LT |
-| Kunai attack | E | RB |
-| Sprint / Grab | I | RT |
-| Left / right stick click | F / G | LS / RS |
-| D-pad | 1 2 3 4 | D-pad |
-| Start (pause) / Back | Enter / Tab | Start / Back |
+## FAQ
 
-| Shortcut | Key |
-|---|---|
-| PC Options | F1 (or Back + Start) |
-| FPS counter | F2 |
-| Free camera on / off | 6 |
-| Speed up (hold) | Numpad + |
-| Log files on / off | Ctrl + F12 |
+<details>
+<summary><b>Why do I need my own ISO?</b></summary>
 
-All keys can be changed in **PC Options > Controls > Key Bindings** and **PC Options > Shortcut Keys**.
+The app has the game's code, converted for phones, but none of its graphics, sounds, music or
+levels. Those come from your ISO, the same way the PC version works.
+</details>
 
-## Two players and saves
+<details>
+<summary><b>Will it run on my phone?</b></summary>
 
-With a controller connected, **PC Options > Controls > Keyboard Player** decides who the keyboard
-controls: shared with player 1, player 1 (controllers become player 2+), or player 2.
+If it has a Snapdragon chip with an Adreno 6xx or newer GPU and Android 10+, it should start; how
+well it runs depends on the phone. Mali and PowerVR GPUs are not supported yet. The launcher warns
+when a phone lacks Vulkan 1.1.
+</details>
 
-**Note:** if you set the keyboard as **player 2** and restart the game, the game signs in with a
-different player profile, so it starts a **new save file**. Your old save is not lost: set the
-keyboard back and restart to see it again.
+<details>
+<summary><b>Where are my saves?</b></summary>
 
-## Known issues
+In `Android/data/org.brokenbond.port/files/`: `hdd/` (saves), `naruto.toml` (settings) and
+`logs/`. New versions keep them, but **uninstalling the app deletes this folder**: back up `hdd/`
+first.
+</details>
 
-- Laptops and built-in graphics: see [Performance](#performance).
-- The First and Second Hokage skins are only skins (the character keeps their own moves) and look
-  glitchy in places. The name above the health bar changes after a restart.
-- Steam Deck: the first starts can close the game (start it again, see [Steam Deck](#steam-deck)),
-  and some busy areas drop to about 34 FPS.
-- Some virtual controller drivers (DS4Windows / ViGEm, Rainway) make a controller show as
-  "connected" even when it's unplugged.
+<details>
+<summary><b>It runs slowly or gets hot.</b></summary>
 
-## Building from source
+Lower the render resolution in **Settings**, keep the frame rate at 30 FPS, and leave
+anti-aliasing off. The first time an area loads it can stutter once while its graphics are
+prepared.
+</details>
 
-This repository is a fork of [jorjbarbosa/broken-bond-recomp](https://github.com/jorjbarbosa/broken-bond-recomp)
-with the PC features added (`src/pc`, `assets`, the SDK patches in `patches`). Building needs your
-own copy of the game; see the [recompilation README](docs/recompilation-README.md) and the
-[build guide](docs/build-and-run.md). On Windows, with PowerShell 7 and LLVM:
+<details>
+<summary><b>How is the APK made?</b></summary>
 
-1. `scripts/build-sdk.ps1` (builds the ReXGlue SDK with the patches),
-2. `scripts/build-game.ps1` (generates the code from your `default.xex`),
-3. `scripts/build-game-native.ps1 -PlumeSource out/plume -XenosRecompThirdparty tools/xenosrecomp/thirdparty -Backend d3d12`.
+It is built from the game's executable once, like the PC version's `.exe`: on Windows with
+`scripts/build-android.ps1`, or in the cloud with this repository's **Android APK** workflow. See
+[docs/android.md](docs/android.md).
+</details>
 
-The v1 code (the emulated-graphics version) is in the [`v1` branch](../../tree/v1).
+## Reporting problems
 
-## Support me with Ryō (両)
+[Open an issue](../../issues) with your phone model, Android version and the newest file in
+`logs/` (plus any `logs/crash_*.txt`) from `Android/data/org.brokenbond.port/files/`.
 
-This port is free and always will be. If you enjoy it and want to support more ports and updates,
-you can send a few Ryō my way on Ko-fi. Thank you, believe it!
+**Known limitations:** Adreno only; switching away from the app and back is the least tested
+path, so quitting from the back menu is the safest way out; frame rates above 30 FPS depend
+heavily on the phone and its temperature.
 
-[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/auremana666)
+## Build it yourself
 
-## Who made what
-
-| Part | Made by |
-|---|---|
-| Recompilation setup, function discovery, XMA audio fixes, build scripts (v2) | jorjbarbosa ([broken-bond-recomp](https://github.com/jorjbarbosa/broken-bond-recomp)) |
-| Native Direct3D 12 renderer: draws, shaders, textures, frame interpolation, frame rate, resolution, MSAA, FXAA, CAS / FSR, graphics cache | jorjbarbosa (first written for [naruto-rise-recomp](https://github.com/jorjbarbosa/naruto-rise-recomp)) |
-| PC Options menu, key and controller remapping (toggle / turbo), keyboard as player 1 or 2, Auto Jutsu, unlocks, intro skip, PC title screen, Save Backup Tool | this port (first made for v1, moved to v2) |
-| Field of view, ultrawide that widens the view, mouse camera | this port |
-| v2.5: weather, free camera, speed up, Hokage skins, live graphics options, Steam Deck fixes (shaders under Proton, crash guard), trap jutsu fix | this port |
-| Menu overlay on the native renderer, Skip Unready Graphics option, Anti-aliasing OFF fix, render-thread speedups, performance log, window close fixes | this port, changes inside his renderer |
-| v1 recompilation and its emulated graphics | this port, on the ReXGlue SDK with patches from naruto-rise-recomp |
-| Android port (alpha): ReXGlue SDK patch for Android, Vulkan on Android, launcher app, on-screen controller | this repository, written with Claude AI |
+Everything about building the APK, from your PC or in the cloud, signing, and how the port works:
+**[docs/android.md](docs/android.md)**. The PC version's own guide is
+[docs/pc-port.md](docs/pc-port.md).
 
 ## Credits
 
-- **Auremana666:** project lead, testing, title screen and trailer.
-- **tylerl567:** Steam Deck tester. His Deck logs made v2.5 playable on the Steam Deck.
-- **Claude AI (Anthropic):** the code of this port's PC features and the v1 recompilation.
-- [jorjbarbosa](https://github.com/jorjbarbosa): the
-  [Broken Bond recomp](https://github.com/jorjbarbosa/broken-bond-recomp), whose recompilation,
-  audio fixes and native renderer are the base of v2, and
-  [naruto-rise-recomp](https://github.com/jorjbarbosa/naruto-rise-recomp), whose SDK patches v1
-  started from. Thank you!
-- [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) (BSD-3-Clause), built on
-  [Xenia](https://github.com/xenia-project/xenia).
-- [SDL3](https://libsdl.org) (zlib license): input, audio and the Android activity of the app.
-- [Titan One](https://fonts.google.com/specimen/Titan+One) font (SIL Open Font License, see `assets/fonts/TitanOne-OFL.txt`) and
-  [stb_image](https://github.com/nothings/stb) (public domain).
+| Part | Made by |
+|---|---|
+| Android port: ReXGlue SDK patch for Android, Vulkan on Android, launcher app, on-screen controller | this repository, written with Claude AI |
+| PC port v2.5: PC Options, remapping, Auto Jutsu, free camera, weather, Hokage skins and more | Auremana666 and Claude AI ([details](docs/pc-port.md#who-made-what)) |
+| Recompilation setup, XMA audio fixes and the native renderer | [jorjbarbosa](https://github.com/jorjbarbosa) ([broken-bond-recomp](https://github.com/jorjbarbosa/broken-bond-recomp)) |
+| Static recompilation runtime | [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) (BSD-3-Clause), built on [Xenia](https://github.com/xenia-project/xenia) |
+| Input, audio and the app's game activity | [SDL3](https://libsdl.org) (zlib license) |
+
+Thanks to everyone credited in the [PC port](docs/pc-port.md#credits), including **tylerl567**
+for testing on the Steam Deck.
+
+[![Support the PC port on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/auremana666)
 
 ## License
 
