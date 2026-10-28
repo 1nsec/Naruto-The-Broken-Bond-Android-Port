@@ -70,6 +70,26 @@ jobs:
           if ($LASTEXITCODE) { exit 1 }
           New-Item -ItemType Directory -Force "$env:REPO/build/logs" | Out-Null
 
+      - name: Your game files (secret GAME_FILES_URL)
+        # First, so a problem with the link shows in a minute, not after the SDK build.
+        if: env.MODE == 'apk'
+        working-directory: ${{ env.REPO }}
+        env:
+          GAME_FILES_URL: ${{ secrets.GAME_FILES_URL }}
+        run: |
+          if (-not $env:GAME_FILES_URL) {
+            $message = 'The repository secret GAME_FILES_URL is empty or missing. Add it under Settings > ' +
+                       'Secrets and variables > Actions (Repository secrets): a link to your ISO, or to a ' +
+                       '.zip, .rar or .7z with default.xex and xeshader.sdb.'
+            $message | Tee-Object -FilePath build/logs/0-game-files.log
+            throw $message
+          }
+          # The download goes to the drive with the most room (an ISO is about 7 GB).
+          $drive = Get-PSDrive -PSProvider FileSystem | Where-Object Used | Sort-Object Free -Descending | Select-Object -First 1
+          python -I scripts/android/fetch-game-files.py $env:GAME_FILES_URL game "$($drive.Root)game-download" *>&1 |
+            Tee-Object -FilePath build/logs/0-game-files.log
+          if ($LASTEXITCODE) { exit 1 }
+
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
@@ -154,21 +174,6 @@ jobs:
           try {
             ./scripts/build-sdk.ps1 -Jobs 4 *>&1 | Tee-Object -FilePath build/logs/1-sdk.log
           } catch { "$_" | Add-Content build/logs/1-sdk.log; throw }
-
-      - name: Your game files (secret GAME_FILES_URL)
-        if: env.MODE == 'apk'
-        working-directory: ${{ env.REPO }}
-        env:
-          GAME_FILES_URL: ${{ secrets.GAME_FILES_URL }}
-        run: |
-          if (-not $env:GAME_FILES_URL) {
-            throw ('Set the repository secret GAME_FILES_URL (Settings > Secrets and variables > Actions) ' +
-                   'to a link to your ISO, or to a .zip, .rar or .7z with default.xex and xeshader.sdb.')
-          }
-          # The download goes to the drive with the most room (an ISO is about 7 GB).
-          $drive = Get-PSDrive -PSProvider FileSystem | Where-Object Used | Sort-Object Free -Descending | Select-Object -First 1
-          python -I scripts/android/fetch-game-files.py $env:GAME_FILES_URL game "$($drive.Root)game-download"
-          if ($LASTEXITCODE) { exit 1 }
 
       - name: Generate the C++ from default.xex
         if: env.MODE == 'apk'

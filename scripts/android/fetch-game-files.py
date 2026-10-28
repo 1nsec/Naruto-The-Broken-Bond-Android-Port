@@ -35,14 +35,28 @@ XDVDFS_MAGIC = b"MICROSOFT*XBOX*MEDIA"
 PARTITION_OFFSETS = (0xFD90000, 0x2080000, 0x18300000, 0)
 
 
+def hide_link(text: str, url: str) -> str:
+    """Keeps the private link (and a Drive file id) out of the public build log."""
+    text = text.replace(url, "<link>")
+    match = re.search(r"/d/([\w-]{10,})|[?&]id=([\w-]{10,})", url)
+    if match:
+        text = text.replace(match.group(1) or match.group(2), "<id>")
+    return text
+
+
 def download(url: str, target: Path) -> None:
     if "drive.google.com" in url or "docs.google.com" in url:
         # Large Drive files need a confirmation step that gdown handles.
         subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "gdown"], check=True)
         import gdown  # noqa: PLC0415
 
-        if not gdown.download(url, str(target), quiet=True, fuzzy=True):
-            raise SystemExit("Google Drive download failed: is the file shared with 'Anyone with the link'?")
+        try:
+            ok = gdown.download(url, str(target), quiet=True, fuzzy=True)
+        except Exception as error:  # gdown raises on files it cannot reach
+            raise SystemExit(f"Google Drive download failed: {hide_link(str(error), url)}\n"
+                             "Is the file shared as 'Anyone with the link'?") from None
+        if not ok:
+            raise SystemExit("Google Drive download failed: is the file shared as 'Anyone with the link'?")
         return
     if "dropbox.com" in url:
         url = re.sub(r"([?&])dl=0", r"\1dl=1", url)
@@ -131,16 +145,30 @@ def main() -> None:
     downloads.mkdir(parents=True, exist_ok=True)
     target = downloads / "game-files.bin"
     print("Downloading the game files (link from the repository secret)...", flush=True)
-    download(url, target)
+    try:
+        download(url, target)
+    except SystemExit:
+        raise
+    except Exception as error:
+        raise SystemExit(f"Download failed: {hide_link(str(error), url)}") from None
     print(f"Downloaded {target.stat().st_size / (1 << 20):.0f} MiB", flush=True)
     try:
         with open(target, "rb") as f:
-            magic = f.read(8)
+            magic = f.read(512)
         if magic.startswith(b"PK\x03\x04"):
+            print("Archive: zip", flush=True)
             found = from_zip(target, game)
         elif magic.startswith((b"Rar!\x1a\x07", b"7z\xbc\xaf\x27\x1c")):
-            found = from_7zip_archive(target, game)
+            print("Archive: rar/7z", flush=True)
+            try:
+                found = from_7zip_archive(target, game)
+            except subprocess.CalledProcessError as error:
+                raise SystemExit(f"7-Zip could not extract the archive (exit code {error.returncode})") from None
+        elif magic.lstrip().lower().startswith((b"<!doctype", b"<html")):
+            raise SystemExit("The link returned a web page instead of the file: share the file as "
+                             "'Anyone with the link' (or use a direct download link)")
         else:
+            print("Disc image", flush=True)
             found = from_iso(target, game)
     finally:
         target.unlink(missing_ok=True)
@@ -149,8 +177,8 @@ def main() -> None:
         raise SystemExit(f"The download does not contain {', '.join(missing)}")
     digest = hashlib.sha256((game / "default.xex").read_bytes()).hexdigest().upper()
     if digest != XEX_SHA256:
-        raise SystemExit("default.xex is not the supported revision of the game "
-                         "(the recompilation only supports one disc revision)")
+        raise SystemExit(f"default.xex is not the supported revision of the game (SHA-256 {digest}, "
+                         f"expected {XEX_SHA256}): the recompilation only supports one disc revision")
     for name in WANTED:
         print(f"{name}: {(game / name).stat().st_size / (1 << 20):.1f} MiB", flush=True)
     print("default.xex: supported revision", flush=True)
