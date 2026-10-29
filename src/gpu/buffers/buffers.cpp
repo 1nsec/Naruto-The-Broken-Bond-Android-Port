@@ -251,12 +251,23 @@ bool ReadRange(uint8_t* base, const BufferKey& k, uint32_t at, uint32_t n, std::
   return n <= k.bytes && at <= k.bytes - n && ReadPhysical(base, k.address + at, n, out.data()) && SwapEndian(out, k.endian);
 }
 uint32_t MaxIndex(const std::vector<uint8_t>& data, bool index32) {
-  const size_t n = index32 ? 4 : 2;
+  // A loop per width, which the compiler vectorizes (unsigned maximum).
+  const uint8_t* p = data.data();
   uint32_t m = 0;
-  for (size_t i = 0; i + n <= data.size(); i += n) {
-    uint32_t v = 0;
-    std::memcpy(&v, &data[i], n);
-    m = std::max(m, v);
+  if (index32) {
+    for (size_t i = 0, n = data.size() / 4; i < n; ++i) {
+      uint32_t v;
+      std::memcpy(&v, p + 4 * i, 4);
+      m = v > m ? v : m;
+    }
+  } else {
+    uint16_t m16 = 0;
+    for (size_t i = 0, n = data.size() / 2; i < n; ++i) {
+      uint16_t v;
+      std::memcpy(&v, p + 2 * i, 2);
+      m16 = v > m16 ? v : m16;
+    }
+    m = m16;
   }
   return m;
 }
