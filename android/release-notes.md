@@ -14,6 +14,9 @@ Alpha of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the re
 - **Graphics presets** in Settings: Performance (540p), Balanced (720p) and Quality (1080p). The render resolution now goes below 720p on phones (the 540p choice used to stay at 720p).
 - Settings > **Performance log** (on by default during the alpha): records the frame times, so that a problem report shows where the game slows down.
 - Cutscenes no longer flash black with the FPS counter on: while the game is slow to show a frame, the last image stays on screen.
+- **Faster GPU work:** the game's shaders read their constants the way Adreno GPUs handle best, and data uploaded in the middle of a frame no longer interrupts its drawing.
+- Settings > **Turnip rendering** (experimental): *Automatic*, *Direct (sysmem)* or *Tiled (gmem)*. Try them in the open world and tell us which one runs faster.
+- The performance log also records a CPU profile and images of the frame's passes, which **Save logs** includes.
 
 ## Requirements
 

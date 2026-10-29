@@ -170,6 +170,10 @@ workflow; its APK cannot play anything.
   of a frame is copied before the frame's drawing (a prelude command list submitted first), unless
   the frame already used that buffer or texture. On a tiled GPU (Adreno) each interrupted render
   pass stores the render targets to memory and loads them back.
+- **Shader constants in uniform buffers:** the game shaders read their constants from uniform
+  buffers (bound with dynamic offsets in draw set 3), which the GPU loads into its constant
+  registers, instead of one memory load per constant and per vertex or pixel; repeated shared
+  constants are not uploaded again.
 - **Turnip rendering** (Settings, experimental): *Automatic* lets Turnip choose per render pass
   between its on-chip tiles (gmem) and drawing straight to memory (sysmem); the two others force
   one (`TU_DEBUG`), to compare frame rates.
