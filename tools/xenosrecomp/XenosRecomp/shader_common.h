@@ -29,9 +29,11 @@
 // c17.zw holds 1 / the internal resolution scale of the native renderer, which
 // brings the pixel position of ps_param_gen back to guest pixels;
 // c18 and c19 the descriptor indices of the vertex textures (declared by the
-// cache builder between the two macros); c20..c23 the vertex fetch
-// descriptors (vfetchNaruto); c24..c29 the user clip planes PA_CL_UCP_0..5
-// (zero when disabled).
+// cache builder between the two macros); c20..c23 the descriptors of vertex
+// elements 0..15 (vfetchNaruto), c30..c31 those of elements 16..23; c24..c29
+// the user clip planes PA_CL_UCP_0..5 (zero when disabled). A vertex shader
+// reads its element descriptors with constant indices, so the macro below
+// folds to one register and both indices stay inside their arrays.
 #define DEFINE_SHARED_CONSTANTS_LOW() \
     uint g_Booleans : packoffset(c16.x); \
     uint g_SwappedTexcoords : packoffset(c16.y); \
@@ -42,9 +44,11 @@
 
 #define DEFINE_SHARED_CONSTANTS_HIGH() \
     uint4 g_VertexFetchArray[4] : packoffset(c20); \
-    float4 g_ClipPlaneArray[6] : packoffset(c24);
+    float4 g_ClipPlaneArray[6] : packoffset(c24); \
+    uint4 g_VertexFetchArrayHigh[2] : packoffset(c30);
 
-#define g_VertexFetch(i) (g_VertexFetchArray[(i) / 4][(i) % 4])
+#define g_VertexFetch(i) ((i) < 16 ? g_VertexFetchArray[min((i), 15) / 4][min((i), 15) % 4] : \
+    g_VertexFetchArrayHigh[clamp((i) - 16, 0, 7) / 4][clamp((i) - 16, 0, 7) % 4])
 #define g_ClipPlane(i) (g_ClipPlaneArray[i])
 #endif
 

@@ -101,7 +101,9 @@ if bad:
             interface = r.get('interface', {})
             print(f"build-shader-cache: {step} {r.get('name', r.get('file'))}: {r.get('result')} "
                   f"broken={r.get('broken')} error={r.get('first_error', '')[:200]} "
-                  f"bindings={[(b['set'], b['binding'], b.get('storage'), b.get('bytes')) for b in interface.get('bindings', ())]}")
+                  f"bindings={[(b['set'], b['binding'], b.get('storage'), b.get('bytes')) for b in interface.get('bindings', ())]} "
+                  f"declared_inputs={r.get('vertex_inputs')} "
+                  f"inputs={[(e.get('location'), e.get('type')) for e in interface.get('inputs', ()) if 'location' in e]}")
     sys.exit(f'build-shader-cache: shaders that did not build: {bad}')
 manifest = out / 'shader_manifest.json'
 encoded = []

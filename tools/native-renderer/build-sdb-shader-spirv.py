@@ -118,9 +118,18 @@ def check(entry: dict, interface: dict, text: str):
         declared = [(int(loc), kind, f'{usage}{index}') for loc, kind, usage, index in VERTEX_INPUT.findall(text)]
         entry['vertex_inputs'] = {semantic: loc for loc, _, semantic in declared}
         inputs = located(interface['inputs'])
-        if (len({loc for loc, _, _ in declared}) != len(declared) or set(inputs) != {loc for loc, _, _ in declared}
-                or any(t != 'uint4' for t in inputs.values()) or any(kind != 'uint4' for _, kind, _ in declared)):
-            broken.append('vertex-inputs')
+        declared_locations = {loc for loc, _, _ in declared}
+        if len(declared_locations) != len(declared):
+            broken.append('vertex-inputs-duplicate')
+        if set(inputs) - declared_locations:
+            broken.append('vertex-inputs-undeclared')
+        if any(t != 'uint4' for t in inputs.values()) or any(kind != 'uint4' for _, kind, _ in declared):
+            broken.append('vertex-inputs-type')
+        # DXC removes an input the module does not read. The fork's shaders read every
+        # element they declare, so one missing means that its decode became undefined (as
+        # an element descriptor read outside its array did).
+        if declared_locations - set(inputs):
+            broken.append('vertex-inputs-unread')
         if interface['spec_constants']:
             broken.append('vertex-spec-constants')
     return broken

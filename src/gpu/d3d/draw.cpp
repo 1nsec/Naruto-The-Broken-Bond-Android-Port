@@ -88,6 +88,11 @@
 using namespace gpu;
 
 namespace gpu {
+namespace {
+// The byte of vertex element i's descriptor in the shared constants:
+// c20..c23 for elements 0..15, c30..c31 for 16..23 (shader_common.h).
+constexpr size_t VertexFetchOffset(size_t i) { return i < 16 ? 320 + 4 * i : 480 + 4 * (i - 16); }
+}  // namespace
 InlineDraw inline_draw;
 std::atomic<uint64_t> inline_quads_drawn{0};
 // Posts the built quad with the vertices the title wrote (defined after
@@ -1288,18 +1293,21 @@ DrawTranslation TranslateDraw(DrawCapture& c, GuardSink& sink) {
         request.instance_count, instance_vertices, request.index_count, base_vertex + mesh_base, indirect, max_index,
         index_record.get(), streams_text()));
   // The descriptor of each element (vfetchNaruto) at c20..c23 of the
-  // shared constants, the streams as read: no expansion on the CPU. A 16-bit
+  // shared constants (elements 0..15) and c30..c31 (16..23, after the clip
+  // planes), the streams as read: no expansion on the CPU. A 16-bit
   // pair after the 8in32 swap arrives as (Y, X) and takes the 8in32
   // descriptor; 8in16 keeps the order. The template shaders of the START
   // policy (a) read g_SwappedTexcoords (shared +260) instead.
   uint32_t swapped_texcoords = 0;
+  if (layout.fetch.size() > 24)
+    guard("vertex-elements-uncovered", fmt::format("\"elements\":{}", layout.fetch.size()));
   for (size_t i = 0; i < layout.fetch.size(); ++i) {
     const VertexFetch& f = layout.fetch[i];
     const uint32_t endian = stream_endian[f.slot];
     if (f.by_endian && endian != 1 && endian != 2)
       guard("vertex-pair-endian-uncovered", fmt::format("\"streams\":[{}]", streams_text()));
     const uint32_t descriptor = f.by_endian && endian == 2 ? f.descriptor_8in32 : f.descriptor;
-    std::memcpy(&request.shared_constants[320 + 4 * i], &descriptor, 4);
+    std::memcpy(&request.shared_constants[VertexFetchOffset(i)], &descriptor, 4);
     if (f.texcoord_index >= 0 && endian == 2) swapped_texcoords |= 1u << f.texcoord_index;
   }
   std::memcpy(&request.shared_constants[260], &swapped_texcoords, 4);
@@ -1559,7 +1567,7 @@ DrawTranslation TranslateDraw(DrawCapture& c, GuardSink& sink) {
       const std::vector<VertexElement>& trace_elements = *request.elements;
       for (size_t i = 0; i < layout.fetch.size() && i < trace_elements.size(); ++i) {
         uint32_t descriptor = 0;
-        std::memcpy(&descriptor, &request.shared_constants[320 + 4 * i], 4);
+        std::memcpy(&descriptor, &request.shared_constants[VertexFetchOffset(i)], 4);
         fetch += fmt::format("{}[{},{},{}]", i ? "," : "", descriptor, stream_endian[layout.fetch[i].slot],
                              uint32_t(trace_elements[i].format));
       }
