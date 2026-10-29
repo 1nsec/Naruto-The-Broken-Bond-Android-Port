@@ -1339,7 +1339,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         {
             uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
             println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount,
-                std::min(tailCount - 1, count - 1));
+                (std::min)(tailCount - 1, count - 1));
         }
     }
 
