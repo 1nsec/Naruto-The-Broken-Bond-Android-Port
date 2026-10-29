@@ -124,9 +124,10 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
 
     /**
      * Compiled shaders kept between sessions, so an area stutters only the first
-     * time it is played: the renderer's Vulkan pipeline cache
-     * (src/gpu/backend/vulkan/pipeline_cache.inc) and Mesa's own disk cache for
-     * Turnip. Both are in the app's private storage, deleted with its data.
+     * time it is played: the renderer's Vulkan pipeline cache and the list of the
+     * pipelines drawn, which the next sessions prepare in the background from
+     * the start (src/gpu/backend/vulkan/pipeline_cache.inc), and Mesa's own disk
+     * cache for Turnip. All in the app's private storage, deleted with its data.
      */
     private void setUpShaderCaches() throws ErrnoException {
         File folder = new File(getFilesDir(), "shader-cache");
@@ -134,6 +135,7 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
         //noinspection ResultOfMethodCallIgnored
         mesa.mkdirs();
         Os.setenv("BROKENBOND_PIPELINE_CACHE", new File(folder, "vulkan-pipelines.bin").getAbsolutePath(), true);
+        Os.setenv("BROKENBOND_PIPELINE_LIST", new File(folder, "pipelines.list").getAbsolutePath(), true);
         Os.setenv("MESA_SHADER_CACHE_DIR", mesa.getAbsolutePath(), true);
         Os.setenv("MESA_SHADER_CACHE_MAX_SIZE", "1G", true);
     }

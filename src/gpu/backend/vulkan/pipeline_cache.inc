@@ -10,11 +10,19 @@
 // driver (Settings > GPU driver) or a cut file starts an empty cache. It is
 // saved from a thread of its own, at most every kPipelineCacheSaveInterval
 // while new pipelines are created, and at the shutdown.
+//
+// With it, when the app names a second file (BROKENBOND_PIPELINE_LIST), the
+// list of the pipelines drawn on this device, in the order of their first draw
+// over the sessions: one line per pipeline with the stable identities of its
+// key (as the pipelines.json of record_pipelines), which the dispatcher's pool
+// precompiles at the next boot when the build has no list of its own
+// (shaders/pipelines.cpp, LoadLearnedPipelines). Lines are only added.
 namespace {
 constexpr char kPipelineCacheMagic[4] = {'N', 'B', 'P', 'C'};
 constexpr uint32_t kPipelineCacheFormat = 1;
 constexpr size_t kPipelineCacheHeader = 24;  // Magic, format, data bytes, hash.
 constexpr auto kPipelineCacheSaveInterval = std::chrono::seconds(20);
+constexpr size_t kPipelineListMax = 65535;  // The pool's world index is 16 bits.
 
 uint64_t Fnv1a64(const uint8_t* data, size_t size) {
   uint64_t hash = 0xCBF29CE484222325ull;
@@ -75,7 +83,19 @@ std::vector<uint8_t> ReadPipelineCache(const std::string& path, const VkPhysical
   return data;
 }
 
-// The cache's data into path, through a temporary file renamed over it.
+// bytes into path, through a temporary file renamed over it.
+bool ReplaceFile(const std::string& path, const uint8_t* bytes, size_t size) {
+  const std::string temporary = path + ".tmp";
+  std::FILE* out = std::fopen(temporary.c_str(), "wb");
+  if (!out) return false;
+  const bool complete = std::fwrite(bytes, 1, size, out) == size;
+  if (std::fclose(out) != 0 || !complete) return false;
+  std::error_code error;
+  std::filesystem::rename(temporary, path, error);
+  return !error;
+}
+
+// The cache's data into path.
 bool WritePipelineCache(VkDevice device, VkPipelineCache cache, const std::string& path, size_t& written) {
   size_t size = 0;
   if (vkGetPipelineCacheData(device, cache, &size, nullptr) != VK_SUCCESS || !size) return false;
@@ -87,16 +107,17 @@ bool WritePipelineCache(VkDevice device, VkPipelineCache cache, const std::strin
   std::memcpy(file.data() + 4, &kPipelineCacheFormat, 4);
   std::memcpy(file.data() + 8, &bytes, 8);
   std::memcpy(file.data() + 16, &hash, 8);
-  const std::string temporary = path + ".tmp";
-  std::FILE* out = std::fopen(temporary.c_str(), "wb");
-  if (!out) return false;
-  const bool complete = std::fwrite(file.data(), 1, file.size(), out) == file.size();
-  if (std::fclose(out) != 0 || !complete) return false;
-  std::error_code error;
-  std::filesystem::rename(temporary, path, error);
-  if (error) return false;
+  if (!ReplaceFile(path, file.data(), file.size())) return false;
   written = file.size();
   return true;
+}
+
+// The logical key (the first field) of a line of the pipeline list; 0 if none.
+uint64_t PipelineListKey(const std::string& line) {
+  uint64_t key = 0;
+  const auto end = line.find(' ');
+  if (end != 16 || std::from_chars(line.data(), line.data() + 16, key, 16).ec != std::errc()) return 0;
+  return key;
 }
 }  // namespace
 
@@ -131,6 +152,55 @@ void Backend::State::EnsurePipelineCache() {
   pipeline_cache_saved_at = std::chrono::steady_clock::now();
   PipelineCacheLog(false, fmt::format("{}, {} KB{}", pipeline_cache_status, data.size() / 1024,
                                       pipeline_cache_path.empty() ? "" : " from " + pipeline_cache_path));
+  if (const char* list = std::getenv("BROKENBOND_PIPELINE_LIST"); list && *list) {
+    pipeline_list_path = list;
+    if (std::FILE* in = std::fopen(list, "rb")) {
+      std::string text;
+      char chunk[1 << 16];
+      for (size_t n; (n = std::fread(chunk, 1, sizeof(chunk), in)) > 0;) text.append(chunk, n);
+      std::fclose(in);
+      for (size_t at = 0; at < text.size() && pipeline_list_lines.size() < kPipelineListMax;) {
+        size_t end = text.find('\n', at);
+        if (end == std::string::npos) break;  // A cut last line.
+        std::string line = text.substr(at, end - at);
+        at = end + 1;
+        const uint64_t key = PipelineListKey(line);
+        if (key && pipeline_list_keys.insert(key).second) pipeline_list_lines.push_back(std::move(line));
+      }
+    }
+    pipeline_list_loaded = pipeline_list_lines.size();
+  }
+}
+
+bool Backend::State::LearnPipelines() {
+  if (pipeline_list_path.empty()) {
+    pipeline_order_listed = pipeline_order.size();
+    return false;
+  }
+  bool learned = false;
+  for (; pipeline_order_listed < pipeline_order.size() && pipeline_list_lines.size() < kPipelineListMax;
+       ++pipeline_order_listed) {
+    const uint64_t backend_key = pipeline_order[pipeline_order_listed];
+    const auto it = pipeline_descs.find(backend_key);
+    if (it == pipeline_descs.end() || !it->second.elements) continue;
+    const PipelineDesc& d = it->second;
+    const auto plain = [](const std::string& name) {
+      return !name.empty() && name.find_first_of(": \t\r\n") == std::string::npos;
+    };
+    if (!plain(d.vs.key) || !plain(d.ps.key)) continue;  // The START policy's own shaders are not in the cache.
+    const uint64_t key = PipelineKey(d.vs.key, d.ps.key, d.layout_id, d.state);
+    if (!pipeline_list_keys.insert(key).second) continue;
+    const auto world = pipeline_worlds.find(backend_key);
+    std::string line = fmt::format("{:016x} {} {} {:016x} {:08x} {} {}", key, d.vs.key, d.ps.key, d.layout_id,
+                                   world != pipeline_worlds.end() ? world->second : 0u, fmt::join(d.state, " "),
+                                   d.elements->size());
+    for (const auto& e : *d.elements)
+      line += fmt::format(" {} {} {} {} {} {}", e.semantic, e.semantic_index, uint32_t(e.format), e.slot, e.offset,
+                          e.instance_step);
+    pipeline_list_lines.push_back(std::move(line));
+    learned = true;
+  }
+  return learned;
 }
 
 void Backend::State::SavePipelineCache(bool wait) {
@@ -140,21 +210,37 @@ void Backend::State::SavePipelineCache(bool wait) {
     pipeline_cache_writer.join();
   }
   const uint64_t created = pipelines_created.load(std::memory_order_relaxed);
-  if (created == pipelines_saved) return;
+  const bool learned = LearnPipelines();
+  if (created == pipelines_saved && !learned) return;
+  const bool cache_changed = created != pipelines_saved;
   pipelines_saved = created;
   pipeline_cache_saved_at = std::chrono::steady_clock::now();
   const VkDevice device = vulkan->vk;
   const VkPipelineCache cache = pipeline_cache;
-  const std::string path = pipeline_cache_path;
-  const auto write = [this, device, cache, path, created] {
+  const std::string path = pipeline_cache_path, list_path = pipeline_list_path;
+  std::string list;
+  if (learned) {
+    list.reserve(pipeline_list_lines.size() * 160);
+    for (const auto& line : pipeline_list_lines) (list += line) += '\n';
+  }
+  const size_t listed = pipeline_list_lines.size();
+  const auto write = [this, device, cache, path, list_path, list = std::move(list), cache_changed, created, listed] {
     size_t written = 0;
-    const bool saved = WritePipelineCache(device, cache, path, written);
-    if (saved) {
+    const bool saved = !cache_changed || WritePipelineCache(device, cache, path, written);
+    if (saved && cache_changed) {
       pipeline_cache_saves.fetch_add(1, std::memory_order_relaxed);
       pipeline_cache_saved_bytes.store(written, std::memory_order_relaxed);
     }
-    PipelineCacheLog(!saved, saved ? fmt::format("saved {} KB ({} pipelines created this session)", written / 1024, created)
-                                   : std::string("could not be saved"));
+    const bool list_saved = list.empty() ||
+        ReplaceFile(list_path, reinterpret_cast<const uint8_t*>(list.data()), list.size());
+    PipelineCacheLog(!saved || !list_saved,
+                     fmt::format("{}{}", !cache_changed ? std::string()
+                                         : saved ? fmt::format("saved {} KB ({} pipelines created this session)",
+                                                               written / 1024, created)
+                                                 : std::string("could not be saved"),
+                                 list.empty() ? std::string()
+                                 : list_saved ? fmt::format("{}list of {} pipelines saved", cache_changed ? "; " : "", listed)
+                                              : std::string("; the pipeline list could not be saved")));
     pipeline_cache_writing.store(false, std::memory_order_release);
   };
   pipeline_cache_writing.store(true, std::memory_order_release);
@@ -164,7 +250,8 @@ void Backend::State::SavePipelineCache(bool wait) {
 
 void Backend::State::MaybeSavePipelineCache() {
   if (!pipeline_cache || pipeline_cache_path.empty() ||
-      pipelines_created.load(std::memory_order_relaxed) == pipelines_saved ||
+      (pipelines_created.load(std::memory_order_relaxed) == pipelines_saved &&
+       pipeline_order_listed == pipeline_order.size()) ||
       std::chrono::steady_clock::now() - pipeline_cache_saved_at < kPipelineCacheSaveInterval)
     return;
   SavePipelineCache(false);
@@ -179,9 +266,11 @@ void Backend::State::ReleasePipelineCache() {
 }
 
 std::string Backend::State::PipelineCacheSummary() const {
-  return fmt::format("{{\"status\":\"{}\",\"file\":{},\"loaded_bytes\":{},\"created\":{},\"saves\":{},\"saved_bytes\":{}}}",
+  return fmt::format("{{\"status\":\"{}\",\"file\":{},\"loaded_bytes\":{},\"created\":{},\"saves\":{},\"saved_bytes\":{},"
+                     "\"list_loaded\":{},\"list\":{}}}",
                      JsonText(pipeline_cache_status), !pipeline_cache_path.empty(), pipeline_cache_loaded,
                      pipelines_created.load(std::memory_order_relaxed),
                      pipeline_cache_saves.load(std::memory_order_relaxed),
-                     pipeline_cache_saved_bytes.load(std::memory_order_relaxed));
+                     pipeline_cache_saved_bytes.load(std::memory_order_relaxed), pipeline_list_loaded,
+                     pipeline_list_lines.size());
 }

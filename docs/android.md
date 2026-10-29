@@ -157,6 +157,11 @@ workflow; its APK cannot play anything.
   same pipelines from it in a fraction of the time, so an area stutters only the first time it is
   played. A file made by another driver (Settings > GPU driver) is ignored and replaced. Mesa's own
   disk cache for Turnip is pointed at `files/shader-cache/mesa`.
+- **Pipelines prepared ahead:** with the cache, the renderer keeps the list of the pipelines drawn
+  on the device (`files/shader-cache/pipelines.list`, in the order of their first draw, with the
+  area each was first drawn in). The next sessions prepare them in the background from the start,
+  and those of an area while its loading screen is up, as the PC version does with the list built
+  from its test boots (the APK is built without one).
 - **Performance log** (Settings): writes `pipeline-runs/<time>/performance.csv` in the data folder
   (one line per second: frame times, stutters, where the render thread spent its time, what the
   pipelines did). **Save logs for a problem report** includes the newest three.

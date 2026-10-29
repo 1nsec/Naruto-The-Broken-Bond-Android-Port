@@ -201,7 +201,7 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
       s.pipelines.erase(key);  // `pipeline` is not used below.
     } else {
       s.pipeline_worlds[key] = WorldKey();
-      s.pipeline_descs.emplace(key, desc);
+      if (s.pipeline_descs.emplace(key, desc).second) s.pipeline_order.push_back(key);
     }
   }
   if (!ApplyDrawConstants(r.vs_constants, r.vs_constants_delta, s.vs_block) ||

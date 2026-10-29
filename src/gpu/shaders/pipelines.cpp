@@ -12,6 +12,12 @@
 // not compiled yet are posted to the asynchronous threads ahead of the pool,
 // which compile them at the highest priority while the loading screen is up
 // (PrefetchWorldPipelines). REX_NATIVE_PSO_WORLD=0 turns that off.
+//
+// A build without a list (the Android APK is built without the boots of a PC)
+// takes the list the Vulkan backend learns on the device instead
+// (BROKENBOND_PIPELINE_LIST, vulkan/pipeline_cache.inc): the pipelines drawn
+// in the earlier sessions, in the order of their first draw, with the world of
+// each (LoadLearnedPipelines).
 #include "gpu/shaders/pipelines.h"
 #include "gpu/common/title_loading.h"
 #include "gpu/d3d/draw.h"
@@ -28,6 +34,7 @@
 #include <dxgiformat.h>
 #endif
 #include <array>
+#include <charconv>
 #include <chrono>
 #include <atomic>
 #include <condition_variable>
@@ -82,17 +89,118 @@ struct PipelineCacheWorld {
 };
 #if __has_include("gpu/shaders/pipeline_cache.inc")
 #include "gpu/shaders/pipeline_cache.inc"
-constexpr std::span<const PipelineCacheEntry> kPipelineCache{kPipelineCacheEntries};
-constexpr std::span<const PipelineCacheElement> kPipelineElements{kPipelineCacheElements};
-constexpr std::span<const PipelineCacheWorld> kPipelineWorlds{kPipelineCacheWorlds};
-constexpr std::span<const uint16_t> kPipelineWorldEntries{kPipelineCacheWorldEntries};
+constexpr std::span<const PipelineCacheEntry> kCompiledPipelines{kPipelineCacheEntries};
+constexpr std::span<const PipelineCacheElement> kCompiledElements{kPipelineCacheElements};
+constexpr std::span<const PipelineCacheWorld> kCompiledWorlds{kPipelineCacheWorlds};
+constexpr std::span<const uint16_t> kCompiledWorldEntries{kPipelineCacheWorldEntries};
 #else
-constexpr std::span<const PipelineCacheEntry> kPipelineCache{};
-constexpr std::span<const PipelineCacheElement> kPipelineElements{};
-constexpr std::span<const PipelineCacheWorld> kPipelineWorlds{};
-constexpr std::span<const uint16_t> kPipelineWorldEntries{};
+constexpr std::span<const PipelineCacheEntry> kCompiledPipelines{};
+constexpr std::span<const PipelineCacheElement> kCompiledElements{};
+constexpr std::span<const PipelineCacheWorld> kCompiledWorlds{};
+constexpr std::span<const uint16_t> kCompiledWorldEntries{};
 constexpr const char* kPipelineCacheIdentity = "";
 #endif
+
+// The list the pool compiles: the build's, or the one learned on the device.
+// Set before the pool starts (StartPipelinePrecompile), read-only afterwards.
+struct PipelineList {
+  std::span<const PipelineCacheEntry> entries{kCompiledPipelines};
+  std::span<const PipelineCacheElement> elements{kCompiledElements};
+  std::span<const PipelineCacheWorld> worlds{kCompiledWorlds};
+  std::span<const uint16_t> world_entries{kCompiledWorldEntries};
+  std::string identity{kPipelineCacheIdentity};
+} pipeline_list;
+
+// The storage of a learned list: the strings its entries point to stay for the
+// life of the process.
+struct LearnedPipelines {
+  std::deque<std::string> strings;
+  std::vector<PipelineCacheEntry> entries;
+  std::vector<PipelineCacheElement> elements;
+  std::vector<PipelineCacheWorld> worlds;
+  std::vector<uint16_t> world_entries;
+} learned_pipelines;
+
+// The list of BROKENBOND_PIPELINE_LIST into pipeline_list, when the build has
+// none. A line: key, VS name, PS name, layout id, world (hex), the 21 state
+// words, the element count and per element its semantic, index, format, slot,
+// offset and instance step. A line that does not parse, or whose layout id is
+// not its elements', is left out; DescribeEntry checks the key.
+size_t LoadLearnedPipelines() {
+  if (!kCompiledPipelines.empty()) return 0;
+  const char* path = std::getenv("BROKENBOND_PIPELINE_LIST");
+  if (!path || !*path) return 0;
+  std::FILE* in = std::fopen(path, "rb");
+  if (!in) return 0;
+  std::string text;
+  char chunk[1 << 16];
+  for (size_t n; (n = std::fread(chunk, 1, sizeof(chunk), in)) > 0;) text.append(chunk, n);
+  std::fclose(in);
+  auto& l = learned_pipelines;
+  std::unordered_map<uint64_t, std::pair<uint32_t, uint32_t>> layouts;  // Layout id: first element, count.
+  std::map<uint32_t, std::vector<uint16_t>> worlds;
+  std::unordered_set<uint64_t> keys;
+  const auto intern = [&](std::string_view s) { return l.strings.emplace_back(s).c_str(); };
+  for (size_t at = 0; at < text.size() && l.entries.size() < 65535;) {
+    const size_t end = text.find('\n', at);
+    if (end == std::string::npos) break;  // A cut last line.
+    const std::string_view line(text.data() + at, end - at);
+    at = end + 1;
+    std::vector<std::string_view> f;
+    for (size_t i = 0; i < line.size();) {
+      const size_t space = line.find(' ', i);
+      f.push_back(line.substr(i, space == std::string_view::npos ? std::string_view::npos : space - i));
+      if (space == std::string_view::npos) break;
+      i = space + 1;
+    }
+    const auto number = [](std::string_view s, auto& value, int base = 10) {
+      const auto [end, error] = std::from_chars(s.data(), s.data() + s.size(), value, base);
+      return !s.empty() && error == std::errc() && end == s.data() + s.size();
+    };
+    uint64_t key = 0, layout = 0;
+    uint32_t world = 0, count = 0;
+    if (f.size() < 27 || !number(f[0], key, 16) || !number(f[3], layout, 16) || !number(f[4], world, 16) ||
+        !number(f[26], count) || !count || f.size() != 27 + size_t(count) * 6 || !keys.insert(key).second)
+      continue;
+    PipelineCacheEntry entry{};
+    bool ok = true;
+    for (size_t w = 0; w < 21 && ok; ++w) ok = number(f[5 + w], entry.state[w]);
+    std::vector<VertexElement> elements;
+    std::vector<PipelineCacheElement> cached;
+    for (uint32_t e = 0; e < count && ok; ++e) {
+      const auto* g = f.data() + 27 + size_t(e) * 6;
+      PipelineCacheElement c{};
+      ok = !g[0].empty() && number(g[1], c.semantic_index) && number(g[2], c.format) && number(g[3], c.slot) &&
+           number(g[4], c.offset) && number(g[5], c.instance_step);
+      if (!ok) break;
+      c.semantic = intern(g[0]);
+      cached.push_back(c);
+      elements.push_back({c.semantic, c.semantic_index, VertexFormat(c.format), c.slot, c.offset, c.instance_step});
+    }
+    if (!ok || ElementsId(elements) != layout) continue;
+    auto [it, inserted] = layouts.try_emplace(layout, uint32_t(l.elements.size()), count);
+    if (inserted) l.elements.insert(l.elements.end(), cached.begin(), cached.end());
+    entry.vs = intern(f[1]);
+    entry.ps = intern(f[2]);
+    entry.key = key;
+    entry.layout = layout;
+    entry.first_element = it->second.first;
+    entry.element_count = it->second.second;
+    if (world) worlds[world].push_back(uint16_t(l.entries.size()));
+    l.entries.push_back(entry);
+  }
+  for (const auto& [world, indices] : worlds) {
+    l.worlds.push_back({world, uint32_t(l.world_entries.size()), uint32_t(indices.size())});
+    l.world_entries.insert(l.world_entries.end(), indices.begin(), indices.end());
+  }
+  l.worlds.push_back({0, uint32_t(l.world_entries.size()), 0});  // The sentinel.
+  pipeline_list.entries = l.entries;
+  pipeline_list.elements = l.elements;
+  pipeline_list.worlds = l.worlds;
+  pipeline_list.world_entries = l.world_entries;
+  pipeline_list.identity = fmt::format("learned:{}", l.entries.size());
+  return l.entries.size();
+}
 
 struct PipelinePrecompile {
   std::once_flag once;
@@ -123,7 +231,7 @@ void PrecompileNote(std::atomic<uint64_t>& counter, std::string failure) {
 // linked: the spec constants of the pixel shader taken; variant: the draw asks
 // for another variant than the list holds (its key replaced the entry's).
 bool DescribeEntry(size_t i, PipelineDesc& desc, uint32_t& linked, bool& variant, bool note) {
-  const PipelineCacheEntry& entry = kPipelineCache[i];
+  const PipelineCacheEntry& entry = pipeline_list.entries[i];
   auto unresolved = [&](const char* why) {
     if (note)
       PrecompileNote(pipeline_precompile.unresolved, fmt::format("{{\"reason\":\"{}\",\"vs\":\"{}\",\"ps\":\"{}\"}}",
@@ -212,7 +320,11 @@ bool worldPrefetchOption() {
 void StartPipelinePrecompile() {
   auto& p = pipeline_precompile;
   const char* off = std::getenv("REX_NATIVE_PSO_PRECOMPILE");
-  const char* skip = off && std::string_view(off) == "0" ? "disabled" : kPipelineCache.empty() ? "list-absent"
+  if (!(off && std::string_view(off) == "0")) {
+    if (const size_t learned = LoadLearnedPipelines())
+      REXLOG_INFO("[broken_bond] Precompiling the {} pipelines drawn on this device before", learned);
+  }
+  const char* skip = off && std::string_view(off) == "0" ? "disabled" : pipeline_list.entries.empty() ? "list-absent"
                      : !shader_cache.loaded ? "shader-cache-unavailable" : nullptr;
   auto* dispatcher = host::ActiveDispatcher();
   std::string prepared;
@@ -222,16 +334,16 @@ void StartPipelinePrecompile() {
   if (skip) {
     host::Record("native-d3d-pipeline-precompile-start", fmt::format(
         "\"started\":false,\"reason\":\"{}\",\"list\":{},\"identity\":\"{}\",\"prepare\":{}", skip,
-        kPipelineCache.size(), kPipelineCacheIdentity, prepared.empty() ? "null" : prepared));
+        pipeline_list.entries.size(), pipeline_list.identity, prepared.empty() ? "null" : prepared));
     return;
   }
   std::unordered_map<uint64_t, VertexElements> shared;
-  for (const auto& entry : kPipelineCache) {
+  for (const auto& entry : pipeline_list.entries) {
     auto& layout = shared[entry.layout];
     if (!layout) {
       std::vector<VertexElement> elements;
       for (uint32_t e = entry.first_element; e < entry.first_element + entry.element_count; ++e) {
-        const auto& c = kPipelineElements[e];
+        const auto& c = pipeline_list.elements[e];
         elements.push_back({c.semantic, c.semantic_index, VertexFormat(c.format), c.slot, c.offset, c.instance_step});
       }
       layout = std::make_shared<const std::vector<VertexElement>>(std::move(elements));
@@ -245,7 +357,7 @@ void StartPipelinePrecompile() {
   p.threads = wine ? 1u : std::max(2u, std::thread::hardware_concurrency() * 2 / 3);
   p.started = std::chrono::steady_clock::now();
   p.pool_started.store(true, std::memory_order_release);
-  const bool started = dispatcher->StartPool(kPipelineCache.size(), p.threads, PrecompileEntry, [](bool stopped) {
+  const bool started = dispatcher->StartPool(pipeline_list.entries.size(), p.threads, PrecompileEntry, [](bool stopped) {
     auto& p = pipeline_precompile;
     std::string failure;
     {
@@ -256,7 +368,7 @@ void StartPipelinePrecompile() {
         "\"list\":{},\"threads\":{},\"created\":{},\"present\":{},\"failed\":{},\"unresolved\":{},\"mismatched\":{},"
         "\"alpha_to_coverage\":{},\"alpha_test\":{},\"world_posted\":{},\"world_present\":{},\"stopped\":{},\"ms\":{},"
         "\"swap\":{},\"first_failure\":{}",
-        kPipelineCache.size(),
+        pipeline_list.entries.size(),
         p.threads, p.created.load(), p.present.load(), p.failed.load(), p.unresolved.load(), p.mismatched.load(),
         p.alpha_to_coverage.load(), p.alpha_test.load(), p.world_posted.load(), p.world_present.load(), stopped,
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - p.started).count(),
@@ -264,8 +376,8 @@ void StartPipelinePrecompile() {
   });
   host::Record("native-d3d-pipeline-precompile-start", fmt::format(
       "\"started\":{},\"list\":{},\"layouts\":{},\"worlds\":{},\"threads\":{},\"identity\":\"{}\",\"swap\":{}",
-      started, kPipelineCache.size(), shared.size(), kPipelineWorlds.empty() ? 0 : kPipelineWorlds.size() - 1,
-      p.threads, kPipelineCacheIdentity, swaps.load()));
+      started, pipeline_list.entries.size(), shared.size(), pipeline_list.worlds.empty() ? 0 : pipeline_list.worlds.size() - 1,
+      p.threads, pipeline_list.identity, swaps.load()));
 }
 
 void StartPipelinePrecompileOnce() { std::call_once(pipeline_precompile.once, StartPipelinePrecompile); }
@@ -281,7 +393,7 @@ WorldPrefetch PrefetchWorldPipelines(uint32_t world_key) {
   if (!worldPrefetchOption() || !p.pool_started.load(std::memory_order_acquire)) return out;
   const PipelineCacheWorld* world = nullptr;
   if (world_key)  // The sentinel of key 0 is not a world.
-    for (const auto& w : kPipelineWorlds)
+    for (const auto& w : pipeline_list.worlds)
       if (w.key == world_key) { world = &w; break; }
   if (!world) return out;
   out.listed = world->count;
@@ -291,7 +403,7 @@ WorldPrefetch PrefetchWorldPipelines(uint32_t world_key) {
     PipelineDesc desc;
     uint32_t linked = 0;
     bool variant = false;
-    if (DescribeEntry(kPipelineWorldEntries[e], desc, linked, variant, false)) descs.push_back(std::move(desc));
+    if (DescribeEntry(pipeline_list.world_entries[e], desc, linked, variant, false)) descs.push_back(std::move(desc));
     else ++out.unresolved;
   }
   auto* dispatcher = host::ActiveDispatcher();

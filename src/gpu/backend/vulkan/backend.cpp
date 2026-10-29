@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -40,6 +41,7 @@
 #include <functional>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #ifdef __ANDROID__
@@ -625,6 +627,16 @@ struct Backend::State {
   std::thread pipeline_cache_writer;
   std::atomic<bool> pipeline_cache_writing{false};
   std::atomic<uint64_t> pipeline_cache_saves{0}, pipeline_cache_saved_bytes{0};
+  // The pipelines this device has drawn, in the order of their first draw over
+  // the sessions (BROKENBOND_PIPELINE_LIST): the list the dispatcher's pool
+  // precompiles at the next boot (shaders/pipelines.cpp), one line each.
+  std::vector<uint64_t> pipeline_order;  // pipeline_descs keys, in the order of their first draw.
+  size_t pipeline_order_listed = 0;      // pipeline_order entries already looked at.
+  std::string pipeline_list_path;
+  std::vector<std::string> pipeline_list_lines;
+  std::unordered_set<uint64_t> pipeline_list_keys;  // Logical keys (PipelineKey) of the lines.
+  size_t pipeline_list_loaded = 0;
+  bool LearnPipelines();  // New lines for the pipelines drawn since the last call; true when any.
   ~State() {
     if (pipeline_cache_writer.joinable()) pipeline_cache_writer.join();
   }
@@ -642,6 +654,7 @@ struct Backend::State {
     for (auto view : fallback_views) if (view) vkDestroyImageView(vulkan->vk, view, nullptr);
     fallback_views = {}; fallback_images = {}; fallback_initialized = false;
     pipelines.clear(); resolve_pipelines.clear(); pipeline_descs.clear();
+    pipeline_order.clear(); pipeline_order_listed = 0;
     pipeline_origins.clear(); pipeline_worlds.clear(); pipeline_create_us.clear();
     if (draw_layout) vkDestroyPipelineLayout(vulkan->vk, draw_layout, nullptr);
     if (resolve_layout) vkDestroyPipelineLayout(vulkan->vk, resolve_layout, nullptr);
@@ -1208,9 +1221,10 @@ bool Backend::Shutdown(std::string& evidence) {
   state_->retired_textures.clear();
   state_->retired_sampled.clear();
   state_->retired_buffers.clear();
+  // Saved first, with the list of the pipelines drawn, when the session created or drew new ones.
+  state_->ReleasePipelineCache();
   state_->pipeline_set.Clear();
   state_->ReleaseGraphics();
-  state_->ReleasePipelineCache();  // Saved first, when the session created pipelines.
   state_->surfaces.clear();
   state_->textures.clear();
   state_->sampled.clear();
