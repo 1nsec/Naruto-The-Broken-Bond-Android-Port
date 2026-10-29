@@ -49,11 +49,27 @@ bool Attach() {
   return true;
 }
 
+void Detach() {
+  if (!joystick) return;
+  SDL_CloseJoystick(joystick);
+  SDL_DetachVirtualJoystick(joystick_id);
+  joystick = nullptr;
+  joystick_id = 0;
+  REXLOG_INFO("[narutobb] On-screen controller detached");
+}
+
 }  // namespace
 
 extern "C" JNIEXPORT jboolean JNICALL Java_org_brokenbond_port_TouchControllerView_nativeAttach(JNIEnv*, jclass) {
   std::lock_guard lock(mutex);
   return Attach() ? JNI_TRUE : JNI_FALSE;
+}
+
+// The controller is hidden (a physical controller is connected, or the player
+// hid it): the game stops seeing it until the next touch attaches it again.
+extern "C" JNIEXPORT void JNICALL Java_org_brokenbond_port_TouchControllerView_nativeDetach(JNIEnv*, jclass) {
+  std::lock_guard lock(mutex);
+  Detach();
 }
 
 extern "C" JNIEXPORT void JNICALL Java_org_brokenbond_port_TouchControllerView_nativeButton(JNIEnv*, jclass,

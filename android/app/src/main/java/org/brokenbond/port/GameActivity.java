@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.hardware.input.InputManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,6 +16,8 @@ import android.util.Log;
 import android.view.InputDevice;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 
 import org.libsdl.app.SDLActivity;
@@ -40,16 +43,23 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
     protected void onCreate(Bundle savedInstanceState) {
         File data = Storage.dataDir(this);
         GameConfig.ensureDefaults(this);
+        forceFullscreen();
         try {
             // The runtime's stand-in for the executable's folder, and a temp folder.
             Os.setenv("REX_ANDROID_DATA_DIR", data.getAbsolutePath(), true);
             Os.setenv("TMPDIR", getCacheDir().getAbsolutePath(), true);
             setUpGpuDriver();
+            setUpShaderCaches();
         } catch (ErrnoException e) {
             Log.e(TAG, "setenv failed", e);
         }
         openDisc();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // Edge to edge on phones with a camera cutout.
+            getWindow().getAttributes().layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
         super.onCreate(savedInstanceState);
         if (mLayout == null) return;  // SDL could not start (missing libraries); it shows its own error.
 
@@ -99,6 +109,57 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
         }
     }
 
+    /**
+     * The game always fills the screen on a phone: a windowed naruto.toml (the
+     * PC's default, or PC Options > Display Mode) would leave the status and
+     * navigation bars over a smaller window.
+     */
+    private void forceFullscreen() {
+        GameConfig config = GameConfig.load(this);
+        if (!config.getBool("fullscreen", false)) {
+            config.setBool("fullscreen", true);
+            config.save();
+        }
+    }
+
+    /**
+     * Compiled shaders kept between sessions, so an area stutters only the first
+     * time it is played: the renderer's Vulkan pipeline cache
+     * (src/gpu/backend/vulkan/pipeline_cache.inc) and Mesa's own disk cache for
+     * Turnip. Both are in the app's private storage, deleted with its data.
+     */
+    private void setUpShaderCaches() throws ErrnoException {
+        File folder = new File(getFilesDir(), "shader-cache");
+        File mesa = new File(folder, "mesa");
+        //noinspection ResultOfMethodCallIgnored
+        mesa.mkdirs();
+        Os.setenv("BROKENBOND_PIPELINE_CACHE", new File(folder, "vulkan-pipelines.bin").getAbsolutePath(), true);
+        Os.setenv("MESA_SHADER_CACHE_DIR", mesa.getAbsolutePath(), true);
+        Os.setenv("MESA_SHADER_CACHE_MAX_SIZE", "1G", true);
+    }
+
+    /** Hides the status and navigation bars; a swipe from an edge shows them for a moment. */
+    private void hideSystemBars() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) hideSystemBars();
+    }
+
     /** Opens the picked disc image and hands it to the runtime as /proc/self/fd/N. */
     private void openDisc() {
         if (gameDataRoot != null) return;
@@ -140,7 +201,7 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
     private void updateTouchVisibility() {
         if (touch == null) return;
         boolean show = touchWanted && !physicalPadConnected();
-        if (!show) touch.releaseAll();
+        if (!show) touch.detach();
         touch.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 

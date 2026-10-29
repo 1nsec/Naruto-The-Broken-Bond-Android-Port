@@ -176,7 +176,8 @@ jobs:
             "$readelf" --dyn-syms -W "$libs/libmain.so" > build/apk-check/libmain-symbols.txt
             for symbol in SDL_main Java_org_brokenbond_port_TouchControllerView_nativeAttach \
                           Java_org_brokenbond_port_TouchControllerView_nativeButton \
-                          Java_org_brokenbond_port_TouchControllerView_nativeAxis; do
+                          Java_org_brokenbond_port_TouchControllerView_nativeAxis \
+                          Java_org_brokenbond_port_TouchControllerView_nativeDetach; do
               grep -E -q "DEFAULT +[0-9]+ $symbol\$" build/apk-check/libmain-symbols.txt ||
                 { echo "libmain.so does not export $symbol"; exit 1; }
             done

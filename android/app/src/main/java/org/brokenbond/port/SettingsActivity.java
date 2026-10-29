@@ -197,6 +197,7 @@ public class SettingsActivity extends Activity {
         toggle(R.string.setting_transparency_aa, "transparency_antialiasing", false);
         toggle(R.string.setting_async_shaders, "async_shaders", true);
         toggle(R.string.setting_show_fps, "show_fps", false);
+        toggle(R.string.setting_performance_log, "record_pipelines", false);
         prefChoice(R.string.setting_gpu_driver, Storage.KEY_GPU_DRIVER,
                 new String[] {getString(R.string.gpu_driver_auto), getString(R.string.gpu_driver_system),
                         getString(R.string.gpu_driver_turnip)},

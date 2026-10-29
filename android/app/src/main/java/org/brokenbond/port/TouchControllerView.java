@@ -39,6 +39,7 @@ public class TouchControllerView extends View {
     private static final int GEAR = -1, LT = -2, RT = -3;
 
     static native boolean nativeAttach();
+    static native void nativeDetach();
     static native void nativeButton(int button, boolean pressed);
     static native void nativeAxis(int axis, int value);
 
@@ -340,6 +341,22 @@ public class TouchControllerView extends View {
         if (left.pointer >= 0) releaseStick(left);
         if (right.pointer >= 0) releaseStick(right);
         invalidate();
+    }
+
+    /**
+     * Hidden: everything released and the virtual gamepad detached, so the game
+     * stops counting it as a controller (a physical one is player 1). The next
+     * touch after the view shows again attaches it.
+     */
+    void detach() {
+        releaseAll();
+        if (!attached) return;
+        try {
+            nativeDetach();
+        } catch (UnsatisfiedLinkError ignored) {
+            // No game library: nothing was attached.
+        }
+        attached = false;
     }
 
     /** A parchment disc: shaded fill with a soft shadow, and a dark rim. */

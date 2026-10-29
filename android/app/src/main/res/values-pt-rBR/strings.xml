@@ -41,6 +41,7 @@
     <string name="setting_transparency_aa">Anti-aliasing de transparência</string>
     <string name="setting_async_shaders">Pular gráficos não prontos (menos travadas)</string>
     <string name="setting_show_fps">Mostrar FPS</string>
+    <string name="setting_performance_log">Registro de desempenho (vai junto com os logs de um relato)</string>
     <string name="setting_language">Idioma do jogo</string>
     <string name="setting_skip_intros">Pular vídeos de introdução</string>
     <string name="setting_title_screen">Tela de título do PC</string>
