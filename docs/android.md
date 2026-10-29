@@ -147,6 +147,10 @@ workflow; its APK cannot play anything.
 
 ### Performance
 
+- **Presets** (Settings > Graphics): *Performance* (540p, no anti-aliasing or texture filtering;
+  for the Snapdragon 865 and similar), *Balanced* (720p, the original) and *Quality* (1080p with
+  edge smoothing). On Android the render resolution also goes below the original 720p (360p to
+  540p), which a phone GPU gains most from; the image is scaled up to the screen.
 - **Skip unready graphics** (Settings, on by default; PC Options > Graphics): a draw whose graphics
   pipeline the driver is still compiling is left out of its frame for a moment and the pipeline is
   compiled on other cores, instead of the frame waiting for it. Phone drivers compile slowly, so

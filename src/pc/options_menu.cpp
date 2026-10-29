@@ -397,7 +397,15 @@ void OptionsMenu::BuildPages() {
                                    {"240", "240"}},
                                   "Above 30, extra frames are drawn between the game's own for smoother motion."));
   graphics.items.push_back(choice("RENDER RESOLUTION", "internal_resolution_scale",
-                                  {{"1280X720 (ORIGINAL)", "1"},
+                                  {
+#ifdef __ANDROID__
+                                   // Below the original on phones (gpu/common/resolution_scale.h).
+                                   {"640X360", "0.5"},
+                                   {"800X450", "0.625"},
+                                   {"960X540", "0.75"},
+#endif
+                                   {"1280X720 (ORIGINAL)", "1"},
+                                   {"1600X900", "1.25"},
                                    {"1920X1080", "1.5"},
                                    {"2560X1440", "2"},
                                    {"3840X2160", "3"},

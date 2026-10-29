@@ -58,8 +58,8 @@ REXCVAR_DEFINE_INT32(frame_rate, 30, "broken_bond/Graphics",
     .range(30, 240)
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 REXCVAR_DEFINE_DOUBLE(internal_resolution_scale, 0.0, "broken_bond/Graphics",
-                      "Internal resolution scale of the native renderer, 1 to 4 with fractions "
-                      "(0 = resolution_scale)")
+                      "Internal resolution scale of the native renderer, 1 to 4 with fractions, from 0.5 on "
+                      "Android (0 = resolution_scale)")
     .range(0.0, 4.0)
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 // Shared launcher choice: native uses the name directly; graphics_device.cpp
@@ -244,7 +244,7 @@ void LoadSettings() {
   };
   const double internal_scale = REXCVAR_GET(internal_resolution_scale);
   if (std::isfinite(internal_scale) && internal_scale > 0) {
-    s.resolution_scale.x = s.resolution_scale.y = std::clamp(float(internal_scale), 1.0f, 4.0f);
+    s.resolution_scale.x = s.resolution_scale.y = std::clamp(float(internal_scale), kMinResolutionScale, 4.0f);
   } else {
     s.resolution_scale.x = axis(plugin.draw_resolution_scale_x, "draw_resolution_scale_x");
     s.resolution_scale.y = axis(plugin.draw_resolution_scale_y, "draw_resolution_scale_y");

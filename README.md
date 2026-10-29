@@ -145,8 +145,8 @@ first.
 <details>
 <summary><b>It runs slowly or gets hot.</b></summary>
 
-Lower the render resolution in **Settings**, keep the frame rate at 30 FPS, and leave
-anti-aliasing off. The first time an area is played it can stutter while its graphics are
+Tap **Performance** in **Settings > Graphics** (540p, no anti-aliasing), or lower the render
+resolution further, and keep the frame rate at 30 FPS. The first time an area is played it can stutter while its graphics are
 prepared; they are kept for the next sessions. To report slowness, play the slow part and send
 the zip of **Save logs for a problem report**: during the alpha it includes a performance log
 (Settings > Performance log).

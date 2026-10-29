@@ -11,6 +11,7 @@ Alpha of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the re
 - A built-in or connected controller (Retroid Pocket, Bluetooth, USB) is **player 1**; the on-screen controller no longer takes its place.
 - **Fewer stutters:** graphics the driver is still preparing are skipped for a moment instead of freezing the game (Settings > Skip unready graphics), and prepared graphics are kept for the next sessions, so an area stutters only the first time it is played.
 - The game always fills the screen (no status or navigation bar).
+- **Graphics presets** in Settings: Performance (540p), Balanced (720p) and Quality (1080p). The render resolution now goes below 720p on phones (the 540p choice used to stay at 720p).
 - Settings > **Performance log** (on by default during the alpha): records the frame times, so that a problem report shows where the game slows down.
 - Cutscenes no longer flash black with the FPS counter on: while the game is slow to show a frame, the last image stays on screen.
 

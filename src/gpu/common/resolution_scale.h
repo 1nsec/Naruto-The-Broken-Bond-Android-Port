@@ -14,6 +14,14 @@
 #include <vector>
 
 namespace gpu {
+// The lowest internal scale: below the title's 1280 x 720 only on Android,
+// where a phone GPU gains most from fewer pixels (0.75: 960 x 540).
+#ifdef __ANDROID__
+inline constexpr float kMinResolutionScale = 0.5f;
+#else
+inline constexpr float kMinResolutionScale = 1.0f;
+#endif
+
 struct ResolutionScale {
   float x = 1.0f, y = 1.0f;
   bool Unit() const { return x == 1.0f && y == 1.0f; }

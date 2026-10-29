@@ -102,6 +102,47 @@ public class SettingsActivity extends Activity {
         row.addView(spinner, new LinearLayout.LayoutParams(dp(220), ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
+    /**
+     * Performance, balanced and quality presets: the graphics settings of this
+     * screen and PC Options at once (the screen is built again to show them).
+     * The other settings stay as they are.
+     */
+    private void presets() {
+        LinearLayout row = row(R.string.setting_preset);
+        int[] labels = {R.string.preset_performance, R.string.preset_balanced, R.string.preset_quality};
+        for (int i = 0; i < labels.length; ++i) {
+            final int preset = i;
+            Button button = new Button(this);
+            button.setText(labels[i]);
+            button.setAllCaps(false);
+            button.setOnClickListener(v -> applyPreset(preset));
+            row.addView(button);
+        }
+        TextView note = new TextView(this);
+        note.setText(R.string.preset_note);
+        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        list.addView(note);
+    }
+
+    private void applyPreset(int preset) {
+        // Render resolution, anti-aliasing, edge smoothing, upscaling, texture filtering.
+        String[][] values = {
+                {"0.75", "1", "false", "\"none\"", "\"bilinear\"", "0"},
+                {"1.0", "1", "false", "\"none\"", "\"bilinear\"", "2"},
+                {"1.5", "1", "false", "\"fxaa\"", "\"bilinear\"", "4"}};
+        String[] keys = {"internal_resolution_scale", "msaa_samples", "transparency_antialiasing", "swap_post_effect",
+                "upscaling", "anisotropic_override"};
+        for (int i = 0; i < keys.length; ++i) config.setRaw(keys[i], values[preset][i]);
+        config.setInt("frame_rate", 30);
+        config.setBool("async_shaders", true);
+        if (!config.save()) {
+            Toast.makeText(this, R.string.settings_save_failed, Toast.LENGTH_LONG).show();
+            return;
+        }
+        Toast.makeText(this, R.string.preset_applied, Toast.LENGTH_SHORT).show();
+        recreate();
+    }
+
     private static boolean sameValue(String a, String b) {
         String x = a.replace("\"", "").trim(), y = b.replace("\"", "").trim();
         try {
@@ -180,9 +221,11 @@ public class SettingsActivity extends Activity {
         list.addView(note);
 
         header(R.string.settings_graphics);
+        presets();
         choice(R.string.setting_resolution, "internal_resolution_scale",
-                new String[] {"540p (0.75x)", "720p (1x)", "900p (1.25x)", "1080p (1.5x)"},
-                new String[] {"0.75", "1.0", "1.25", "1.5"}, "1.0");
+                new String[] {"360p (0.5x)", "450p (0.625x)", "540p (0.75x)", "720p (1x)", "900p (1.25x)",
+                        "1080p (1.5x)"},
+                new String[] {"0.5", "0.625", "0.75", "1.0", "1.25", "1.5"}, "1.0");
         choice(R.string.setting_frame_rate, "frame_rate",
                 new String[] {"30", "60"}, new String[] {"30", "60"}, "30");
         choice(R.string.setting_msaa, "msaa_samples",

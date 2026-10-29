@@ -32,6 +32,12 @@
     <string name="settings_game">Jogo</string>
     <string name="settings_touch">Controles na tela</string>
     <string name="settings_debug">Depuração</string>
+    <string name="setting_preset">Predefinição</string>
+    <string name="preset_performance">Desempenho</string>
+    <string name="preset_balanced">Equilibrado</string>
+    <string name="preset_quality">Qualidade</string>
+    <string name="preset_note">Desempenho: 540p, sem anti-aliasing nem filtro de textura, para o Snapdragon 865 e parecidos. Equilibrado: 720p, o original. Qualidade: 1080p com suavização de bordas, para celulares mais novos.</string>
+    <string name="preset_applied">Predefinição aplicada</string>
     <string name="setting_resolution">Resolução de renderização</string>
     <string name="setting_frame_rate">Taxa de quadros</string>
     <string name="setting_msaa">Anti-aliasing (MSAA)</string>
