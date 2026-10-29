@@ -166,8 +166,30 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   if (!r.vs.Present() || r.vs.format != ShaderFormat::kSpirv ||
       (r.depth_only ? bool(r.ps.bytes) : !r.ps.Present() || r.ps.format != ShaderFormat::kSpirv))
     return fail("native-draw-shaders");
-  const auto& target = color ? *color : *depth;
   if (profile::Profiling()) s.CountDraw(r.depth_only, color, depth);
+  uint32_t color_key = color ? r.color_key : 0, depth_key = depth ? r.depth_key : 0;  // The surfaces drawn to.
+  // A draw that leaves out one attachment of the open draw pass stays in it:
+  // with its depth (tests off: no depth access) for a draw without depth test
+  // on the pass's color target, with its color (write mask 0, no fragment
+  // shader) for a depth-only draw on the pass's depth target. On a tiled GPU
+  // each new pass stores the targets and loads them back.
+  if (s.batch_open && s.batch.draw_pass_active) {
+    if (color && !depth && s.batch.draw_depth && color->Image() == s.batch.draw_color) {
+      auto it = s.surfaces.find(s.batch.draw_depth_key);
+      if (it != s.surfaces.end() && it->second.Image() == s.batch.draw_depth) {
+        depth = &it->second; depth_key = it->first;
+        profile::Count(profile::kPassMergedDraws, 1);
+      }
+    } else if (!color && depth && r.depth_only && s.batch.draw_color && depth->Image() == s.batch.draw_depth) {
+      auto it = s.surfaces.find(s.batch.draw_color_key);
+      if (it != s.surfaces.end() && it->second.Image() == s.batch.draw_color &&
+          it->second.desc.width == depth->desc.width && it->second.desc.height == depth->desc.height) {
+        color = &it->second; color_key = it->first;
+        profile::Count(profile::kPassMergedDraws, 1);
+      }
+    }
+  }
+  const auto& target = color ? *color : *depth;
   if (!r.index_count || !r.elements || r.elements->empty() || r.streams.empty() || r.streams.size() > 8)
     return fail("native-draw-vertex-input");
   for (const auto& e : *r.elements)
@@ -429,7 +451,7 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   const VkImage color_image = color ? color->Image() : VK_NULL_HANDLE;
   const VkImage depth_image = depth ? depth->Image() : VK_NULL_HANDLE;
   if (s.batch.draw_pass_active && (s.batch.draw_color != color_image || s.batch.draw_depth != depth_image))
-    s.EndDrawPass();
+    s.EndDrawPass(profile::kPassEndTarget);
   auto* p = static_cast<GraphicsPipeline*>(pipeline.get());
   if (!s.batch.draw_pass_active) {
     std::vector<VkImageView> attachments;
@@ -451,6 +473,7 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     vkCmdBeginRenderPass(commands, &begin, VK_SUBPASS_CONTENTS_INLINE);
     s.batch.draw_pass_active = true;
     s.batch.draw_color = color_image; s.batch.draw_depth = depth_image;
+    s.batch.draw_color_key = color_key; s.batch.draw_depth_key = depth_key;
     s.draw_counters.passes.fetch_add(1, std::memory_order_relaxed);
     profile::Count(profile::kRenderPasses, 1);
   }

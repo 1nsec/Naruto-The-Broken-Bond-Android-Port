@@ -1,16 +1,20 @@
 // A sampling profiler for the performance log on Android (sampling_profiler.h).
 //
-// ITIMER_PROF counts the process's CPU time and raises SIGPROF every
-// kIntervalUs of it on a thread that is running, so the samples fall on the
-// busy threads in proportion to their CPU time. The handler only stores the
-// thread and the interrupted program counter in a ring; a thread of its own
-// drains the ring, maps each address to its library and, with the symbol
-// files the build packs into the APK (assets/symbols/<library>.syms, nm
-// output of the unstripped libraries), to its function, and writes the
-// functions that take the most samples on each busy thread to
-// REX_NATIVE_FRAME_DIR/profile.txt every 30 s.
+// Each thread of the process gets a timer on its own CPU time (the kernel's
+// per-thread CPU clock) that raises SIGPROF on that thread every kIntervalUs
+// of it, so each thread's samples follow its CPU time. (One ITIMER_PROF for
+// the process left most samples on one mostly idle thread.) The profiler's
+// thread arms the timers of new threads every second. The handler only stores
+// the thread and the interrupted program counter in a ring; the profiler's
+// thread drains the ring, maps each address to its library and, with the
+// symbol files the build packs into the APK (assets/symbols/<library>.syms,
+// nm output of the unstripped libraries), to its function, and writes to
+// REX_NATIVE_FRAME_DIR/profile.txt every 30 s the CPU time of each thread
+// (from /proc, over the session and the last period, with the core it last
+// ran on) and the functions that take the most samples on each busy thread.
 #include "android/sampling_profiler.h"
 
+#include <dirent.h>
 #include <link.h>
 #include <pthread.h>
 #include <signal.h>
@@ -30,6 +34,7 @@
 #include <fstream>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -140,6 +145,58 @@ std::string ThreadName(uint32_t tid) {
   return name.empty() ? "?" : name;
 }
 
+std::vector<uint32_t> ThreadIds() {
+  std::vector<uint32_t> tids;
+  if (DIR* dir = opendir("/proc/self/task")) {
+    while (const dirent* entry = readdir(dir))
+      if (entry->d_name[0] >= '0' && entry->d_name[0] <= '9') tids.push_back(uint32_t(std::strtoul(entry->d_name, nullptr, 10)));
+    closedir(dir);
+  }
+  return tids;
+}
+
+// A thread's CPU time (user and system, in clock ticks) and the core it last
+// ran on, from /proc/self/task/<tid>/stat; false when it is gone.
+bool ThreadCpu(uint32_t tid, uint64_t& ticks, int& core) {
+  std::ifstream in("/proc/self/task/" + std::to_string(tid) + "/stat");
+  std::string line;
+  if (!std::getline(in, line)) return false;
+  const size_t paren = line.rfind(')');
+  if (paren == std::string::npos) return false;
+  // Fields after the name: 3 state ... 14 utime 15 stime ... 39 processor.
+  std::vector<std::string> fields;
+  size_t at = paren + 2;
+  while (at < line.size()) {
+    const size_t space = line.find(' ', at);
+    fields.push_back(line.substr(at, space == std::string::npos ? std::string::npos : space - at));
+    if (space == std::string::npos) break;
+    at = space + 1;
+  }
+  if (fields.size() < 37) return false;
+  ticks = std::strtoull(fields[11].c_str(), nullptr, 10) + std::strtoull(fields[12].c_str(), nullptr, 10);
+  core = std::atoi(fields[36].c_str());
+  return true;
+}
+
+// A timer on the thread's CPU clock (CPUCLOCK_SCHED, per thread) that raises
+// SIGPROF on that thread every kIntervalUs of it; its kernel id, or -1.
+int ArmThreadTimer(uint32_t tid) {
+  const clockid_t clock = (~clockid_t(tid) << 3) | 6;
+  sigevent event{};
+  event.sigev_notify = SIGEV_THREAD_ID;
+  event.sigev_signo = SIGPROF;
+  event._sigev_un._tid = pid_t(tid);  // sigev_notify_thread_id.
+  int timer = -1;
+  if (syscall(SYS_timer_create, clock, &event, &timer) != 0) return -1;
+  itimerspec spec{};
+  spec.it_interval.tv_nsec = spec.it_value.tv_nsec = long(kIntervalUs) * 1000;
+  if (syscall(SYS_timer_settime, timer, 0, &spec, nullptr) != 0) {
+    syscall(SYS_timer_delete, timer);
+    return -1;
+  }
+  return timer;
+}
+
 class Profiler {
  public:
   explicit Profiler(std::string out_dir, std::string symbols_dir)
@@ -147,9 +204,12 @@ class Profiler {
 
   void Run() {
     modules_ = LoadedModules();
-    auto last_report = std::chrono::steady_clock::now();
+    self_ = uint32_t(syscall(SYS_gettid));
+    start_ = last_cpu_ = std::chrono::steady_clock::now();
+    auto last_report = start_;
     uint64_t tail = head.load(std::memory_order_acquire);
     for (;;) {
+      ArmNewThreads();
       std::this_thread::sleep_for(std::chrono::seconds(1));
       const uint64_t now_head = head.load(std::memory_order_acquire);
       if (now_head - tail > kRingSize) {
@@ -175,6 +235,59 @@ class Profiler {
     uint64_t samples = 0;
     std::unordered_map<uint32_t, uint64_t> functions;  // By function id (function_names_).
   };
+
+  void ArmNewThreads() {
+    const std::vector<uint32_t> tids = ThreadIds();
+    const std::set<uint32_t> live(tids.begin(), tids.end());
+    for (auto it = armed_.begin(); it != armed_.end();) {  // The timers of threads that ended.
+      if (live.count(it->first)) { ++it; continue; }
+      if (it->second >= 0) syscall(SYS_timer_delete, it->second);
+      it = armed_.erase(it);
+    }
+    for (uint32_t tid : tids) {
+      if (tid == self_ || armed_.count(tid)) continue;
+      uint64_t ticks = 0;
+      int core = -1;
+      if (ThreadCpu(tid, ticks, core)) cpu_ticks_[tid] = ticks;  // The start of its next period.
+      const int timer = ArmThreadTimer(tid);
+      armed_[tid] = timer;
+      if (timer >= 0) ++timers_;
+      else ++timer_failures_;
+    }
+  }
+
+  // The CPU time of each thread over the session and since the last report.
+  std::string CpuTable() {
+    const double tick = double(sysconf(_SC_CLK_TCK) > 0 ? sysconf(_SC_CLK_TCK) : 100);
+    const auto now = std::chrono::steady_clock::now();
+    const double session = std::chrono::duration<double>(now - start_).count();
+    const double period = std::chrono::duration<double>(now - last_cpu_).count();
+    struct Row { uint32_t tid; std::string name; double total, recent; int core; };
+    std::vector<Row> rows;
+    for (uint32_t tid : ThreadIds()) {
+      uint64_t ticks = 0;
+      int core = -1;
+      if (!ThreadCpu(tid, ticks, core)) continue;
+      uint64_t& last = cpu_ticks_[tid];
+      const uint64_t before = std::min(last, ticks);
+      last = ticks;
+      rows.push_back({tid, ThreadName(tid), double(ticks) / tick, double(ticks - before) / tick, core});
+    }
+    last_cpu_ = now;
+    std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.recent > b.recent; });
+    char line[200];
+    std::snprintf(line, sizeof(line), "\n== CPU time by thread (/proc): %.0f s of session, last %.0f s ==\n",
+                  session, period);
+    std::string text = line;
+    text += "  last%   total s  core  thread\n";
+    for (size_t i = 0; i < rows.size() && i < 24; ++i) {
+      if (rows[i].recent < 0.01 && rows[i].total < 1) break;
+      std::snprintf(line, sizeof(line), "%6.1f%% %9.1f  %4d  %s (tid %u)\n", period > 0 ? 100.0 * rows[i].recent / period : 0.0,
+                    rows[i].total, rows[i].core, rows[i].name.c_str(), rows[i].tid);
+      text += line;
+    }
+    return text;
+  }
 
   const Module* ModuleOf(uint64_t pc) {
     auto find = [&]() -> const Module* {
@@ -238,13 +351,15 @@ class Profiler {
     for (const auto& [tid, t] : threads_) busy.push_back({tid, &t});
     std::sort(busy.begin(), busy.end(), [](const auto& a, const auto& b) { return a.second->samples > b.second->samples; });
     std::string text = "# Sampling profile: every " + std::to_string(kIntervalUs) +
-                       " us of process CPU time, the thread running and its function; cumulative.\n";
-    text += "# samples " + std::to_string(total_) + ", dropped " + std::to_string(dropped_) + "\n";
+                       " us of each thread's CPU time, its function; cumulative.\n";
+    text += "# samples " + std::to_string(total_) + ", dropped " + std::to_string(dropped_) + ", thread timers " +
+            std::to_string(timers_) + " (failed " + std::to_string(timer_failures_) + ")\n";
+    text += CpuTable();
     for (size_t i = 0; i < busy.size() && i < 12; ++i) {
       const auto& [tid, t] = busy[i];
       if (t->samples * 50 < total_) break;  // Under 2% of the samples.
       char header[160];
-      std::snprintf(header, sizeof(header), "\n== %s (tid %u): %llu samples, %.1f%%\n", t->name.c_str(), tid,
+      std::snprintf(header, sizeof(header), "\n== %s (tid %u): %llu samples, %.1f%%\n", ThreadName(tid).c_str(), tid,
                     static_cast<unsigned long long>(t->samples), 100.0 * double(t->samples) / double(total_));
       text += header;
       std::vector<std::pair<const std::string*, uint64_t>> top;
@@ -264,6 +379,11 @@ class Profiler {
   }
 
   std::string out_dir_, symbols_dir_;
+  uint32_t self_ = 0;
+  std::map<uint32_t, int> armed_;  // Thread: its timer (-1: none).
+  uint64_t timers_ = 0, timer_failures_ = 0;
+  std::chrono::steady_clock::time_point start_{}, last_cpu_{};
+  std::unordered_map<uint32_t, uint64_t> cpu_ticks_;  // By thread: its CPU ticks at the last report.
   std::vector<Module> modules_;
   std::chrono::steady_clock::time_point modules_loaded_{};
   std::map<std::string, Symbols> symbols_;
@@ -293,13 +413,6 @@ void Start() {
     pthread_setname_np(pthread_self(), "nbb-profiler");
     Profiler(out, syms).Run();
   }).detach();
-  itimerval timer{};
-  timer.it_interval.tv_usec = kIntervalUs;
-  timer.it_value.tv_usec = kIntervalUs;
-  if (setitimer(ITIMER_PROF, &timer, nullptr) != 0) {
-    REXLOG_WARN("[narutobb] Sampling profiler: setitimer failed");
-    return;
-  }
   REXLOG_INFO("[narutobb] Sampling profiler on: {}/profile.txt every 30 s{}", dir,
               symbols ? "" : " (no symbol files)");
 }

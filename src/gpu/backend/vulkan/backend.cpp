@@ -394,6 +394,7 @@ struct Backend::State {
     std::array<uint8_t, 512> shared_bytes{};
     bool draw_pass_active = false;
     VkImage draw_color{}, draw_depth{};
+    uint32_t draw_color_key = 0, draw_depth_key = 0;  // Their surfaces.
     bool draw_bindings_valid = false;
     VkPipeline draw_pipeline{};
     std::array<VkDescriptorSet, 4> draw_sets{};
@@ -435,8 +436,9 @@ struct Backend::State {
   std::vector<UploadPage> free_pages;
   uint64_t batches_closed = 0, lists_created = 0, upload_pages_created = 0;
   VkCommandBuffer DrawCommands() const { return static_cast<plume::VulkanCommandList*>(batch.list.get())->vk; }
-  void EndDrawPass() {
+  void EndDrawPass(profile::Counter cause = profile::kPassEndCommand) {
     if (!batch.draw_pass_active) return;
+    profile::Count(cause, 1);
     vkCmdEndRenderPass(DrawCommands());
     batch.draw_pass_active = false;
     batch.draw_bindings_valid = false;
@@ -446,13 +448,13 @@ struct Backend::State {
   void DrawTransition(VkImage image, VkImageAspectFlags aspect, SyncState& state, const Use& use) {
     SyncState next = state;
     VkPipelineStageFlags stages{}; VkAccessFlags access{};
-    if (Synchronize(next, use, state.layout != use.layout, stages, access)) EndDrawPass();
+    if (Synchronize(next, use, state.layout != use.layout, stages, access)) EndDrawPass(profile::kPassEndBarrier);
     Transition(DrawCommands(), image, aspect, state, use);
   }
   void DrawTransition(VkBuffer buffer, SyncState& state, const Use& use) {
     SyncState next = state;
     VkPipelineStageFlags stages{}; VkAccessFlags access{};
-    if (Synchronize(next, use, false, stages, access)) EndDrawPass();
+    if (Synchronize(next, use, false, stages, access)) EndDrawPass(profile::kPassEndBarrier);
     Transition(DrawCommands(), buffer, state, use);
   }
   // A command list from the pool, begun; null with the result on failure.
@@ -991,6 +993,7 @@ bool Backend::State::CloseBatch(const char*& reason, VkResult& result) {
     return false;
   }
   profile::Timer submit_time(profile::kEngineSubmit);
+  EndDrawPass(profile::kPassEndBatch);
   EndGpuTimer(batch);
   batch_open = false;
   if ((result = EndList(*batch.list)) != VK_SUCCESS || (batch.prelude && (result = EndList(*batch.prelude)) != VK_SUCCESS)) {
@@ -1518,6 +1521,8 @@ bool Backend::ClearSurfaces(const ClearRequest& request, uint64_t& fence, std::s
   const char* batch_reason = nullptr;
   if (!state_->OpenBatch(batch_reason, result)) return fail(batch_reason, result);
   plume::RenderCommandList& list = *state_->batch.list;
+  profile::Count(profile::kClears, 1);
+  if (state_->batch.draw_pass_active) profile::Count(profile::kClearsInPass, 1);
   const VkCommandBuffer commands = state_->Commands();
   for (auto* surface : colors) {
     HostRect rect;

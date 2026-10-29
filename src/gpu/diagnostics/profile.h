@@ -102,7 +102,13 @@ enum Counter : unsigned {
   // The draw layer's render passes (Vulkan), and the uploads recorded in a
   // batch's prelude instead of ending one; batches submitted where a draw
   // started a render pass (kBatchOperationsEarly).
-  kRenderPasses, kPreludeUploads, kEarlySubmits, kCounterCount
+  kRenderPasses, kPreludeUploads, kEarlySubmits,
+  // Draws kept in the open render pass with its other attachment (a draw
+  // without depth test on its color target, a depth-only draw on its depth
+  // target); why draw passes ended: another target, a barrier, another command
+  // (clear, resolve, copy), the batch's end; clears, and those that ended a pass.
+  kPassMergedDraws, kPassEndTarget, kPassEndBarrier, kPassEndCommand, kPassEndBatch, kClears, kClearsInPass,
+  kCounterCount
 };
 inline constexpr const char* kCounterNames[kCounterCount] = {
     "hashed_bytes", "upload_bytes", "texture_uploads", "pipelines_created", "shader_variants", "submissions",
@@ -111,7 +117,8 @@ inline constexpr const char* kCounterNames[kCounterCount] = {
     "headers_live", "buffers_hosted", "pipelines_adopted", "pipelines_waited", "pipelines_precompiled",
     "watch_notifications", "watch_pages", "clip_plane_draws", "pipelines_async", "pipeline_skipped_draws",
     "stage_waits", "stage_depth", "pipelines_warm", "pipelines_warm_slow", "pipelines_prefetched",
-    "pipeline_wait_us_max", "render_passes", "prelude_uploads", "early_submits"};
+    "pipeline_wait_us_max", "render_passes", "prelude_uploads", "early_submits", "pass_merged_draws",
+    "pass_end_target", "pass_end_barrier", "pass_end_command", "pass_end_batch", "clears", "clears_in_pass"};
 
 struct Accumulator {
   std::atomic<uint64_t> ns{0}, calls{0};

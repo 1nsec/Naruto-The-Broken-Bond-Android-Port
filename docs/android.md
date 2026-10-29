@@ -174,6 +174,11 @@ workflow; its APK cannot play anything.
   buffers (bound with dynamic offsets in draw set 3), which the GPU loads into its constant
   registers, instead of one memory load per constant and per vertex or pixel; repeated shared
   constants are not uploaded again.
+- **Fewer render passes:** a draw without depth test on the color target of the open render pass,
+  or a depth-only draw on its depth target, stays in that pass (with the depth attached and its
+  test off, or the color attached and not written) instead of starting a new one; on a tiled GPU
+  each pass stores its targets to memory and loads them back. The performance log counts these
+  draws and why passes ended (another target, a barrier, another command, the batch's end).
 - **Earlier submission:** a batch of 256 operations or more goes to the GPU where a draw starts a
   new render pass, so the GPU works on a frame while the rest of it is recorded, instead of waiting
   for the frame's end.
@@ -186,9 +191,10 @@ workflow; its APK cannot play anything.
   where it goes, render passes, what the pipelines did; the newest five sessions are kept), a
   draw census every 30 seconds in the system log (draws per frame by render target), once per
   session images of the frame's render targets (`surfaces/`, to tell its passes apart), and a
-  sampling profile (`profile.txt`, every 30 seconds: the functions that take the most CPU time on
-  each busy thread, from SIGPROF samples of the process's CPU time and the symbol files the build
-  packs into the APK, `assets/symbols`). **Save logs for a problem report** includes the newest
+  sampling profile (`profile.txt`, every 30 seconds: the CPU time of each thread and the core it
+  last ran on, then the functions that take the most CPU time on each busy thread, from SIGPROF
+  samples of each thread's own CPU time and the symbol files the build packs into the APK,
+  `assets/symbols`). **Save logs for a problem report** includes the newest
   three logs and profiles and the newest images.
 
 ### Files
