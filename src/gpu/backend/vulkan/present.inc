@@ -132,7 +132,7 @@ bool Backend::State::CreateSwapchain(uint32_t width, uint32_t height, std::strin
 void Backend::State::ReleaseOutput() {
   if (acquire_fence) vkDestroyFence(vulkan->vk, acquire_fence, nullptr);
   acquire_fence = VK_NULL_HANDLE;
-  stages = {}; effects = {};
+  stages = {}; effects = {}; last_presented_slot = -1;
   ReleaseOverlay();
   output_pipelines.clear();
   for (auto& [name, pipeline] : compute_pipelines) vkDestroyPipeline(vulkan->vk, pipeline, nullptr);

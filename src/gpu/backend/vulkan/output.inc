@@ -168,6 +168,35 @@ bool Backend::State::QueuePresent(uint32_t index, uint64_t& sequence, VkResult& 
   return true;
 }
 
+// The game image of a stage slot into the back image: the gamma ramp, the
+// output effects and the scaling to the window (black bars around).
+bool Backend::State::DrawStage(OutputImage& stage, BackImage& back, std::string& evidence) {
+  VkResult result = VK_SUCCESS;
+  State::UploadPage* page{}; VkDeviceSize ramp_offset{};
+  if (!Upload(4096, page, ramp_offset, result)) return GraphicsError(evidence, "native-present-ramp-upload", result);
+  auto* ramp = reinterpret_cast<uint32_t*>(page->buffer->mapped + ramp_offset);
+  const bool brightness = std::fabs(present_mode.brightness - 0.5f) > 0.001f;
+  const double exponent = 1.0 / std::clamp(1.0 + (double(present_mode.brightness) - 0.5) * 1.2, 0.1, 4.0);
+  for (uint32_t i = 0; i < 256; ++i) for (uint32_t channel = 0; channel < 4; ++channel) {
+    const uint32_t value = channel == 3 ? 0 : gamma[channel * 256 + i];
+    ramp[4 * i + channel] = brightness ? uint32_t(std::lround(1023.0 * std::pow(std::min(value, 1023u) / 1023.0, exponent))) : value;
+  }
+  const double aspect_scale = std::min(double(swap_extent.width) / stage.width, double(swap_extent.height) / stage.height);
+  const uint32_t vw = std::max(1u, uint32_t(std::lround(stage.width * aspect_scale)));
+  const uint32_t vh = std::max(1u, uint32_t(std::lround(stage.height * aspect_scale)));
+  const uint32_t x = (swap_extent.width - vw) / 2, y = (swap_extent.height - vh) / 2;
+  const auto bits = [](float f) { return std::bit_cast<uint32_t>(f); };
+  if (present_mode.effect != PresentEffect::kBilinear || present_mode.post_effect != SwapPostEffect::kNone) {
+    if (!OutputEffects(stage, back, x, y, vw, vh, page->buffer->buffer, ramp_offset, evidence)) return false;
+  } else {
+    const std::array<uint32_t, 12> c{bits(float(x)), bits(float(y)), bits(float(stage.width) / vw), bits(float(stage.height) / vh),
+        stage.width, stage.height, bits(float(vw)), bits(float(vh))};
+    if (!OutputPass(stage, back.image, back.state, swap_format, swap_extent.width, swap_extent.height,
+                      "present_ps", 0, c, page->buffer->buffer, ramp_offset, evidence)) return false;
+  }
+  return true;
+}
+
 bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, uint32_t& width,
                        uint32_t& height, std::string& evidence) {
   auto& s = *state_; bgra.clear(); width = height = 0;
@@ -184,28 +213,7 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
   }
   auto& back = s.back_images.at(index);
   VkResult result = VK_SUCCESS;
-  State::UploadPage* page{}; VkDeviceSize ramp_offset{};
-  if (!s.Upload(4096, page, ramp_offset, result)) return GraphicsError(evidence, "native-present-ramp-upload", result);
-  auto* ramp = reinterpret_cast<uint32_t*>(page->buffer->mapped + ramp_offset);
-  const bool brightness = std::fabs(s.present_mode.brightness - 0.5f) > 0.001f;
-  const double exponent = 1.0 / std::clamp(1.0 + (double(s.present_mode.brightness) - 0.5) * 1.2, 0.1, 4.0);
-  for (uint32_t i = 0; i < 256; ++i) for (uint32_t channel = 0; channel < 4; ++channel) {
-    const uint32_t value = channel == 3 ? 0 : s.gamma[channel * 256 + i];
-    ramp[4 * i + channel] = brightness ? uint32_t(std::lround(1023.0 * std::pow(std::min(value, 1023u) / 1023.0, exponent))) : value;
-  }
-  const double aspect_scale = std::min(double(s.swap_extent.width) / stage.width, double(s.swap_extent.height) / stage.height);
-  const uint32_t vw = std::max(1u, uint32_t(std::lround(stage.width * aspect_scale)));
-  const uint32_t vh = std::max(1u, uint32_t(std::lround(stage.height * aspect_scale)));
-  const uint32_t x = (s.swap_extent.width - vw) / 2, y = (s.swap_extent.height - vh) / 2;
-  const auto bits = [](float f) { return std::bit_cast<uint32_t>(f); };
-  if (s.present_mode.effect != PresentEffect::kBilinear || s.present_mode.post_effect != SwapPostEffect::kNone) {
-    if (!s.OutputEffects(stage, back, x, y, vw, vh, page->buffer->buffer, ramp_offset, evidence)) return false;
-  } else {
-    const std::array<uint32_t, 12> c{bits(float(x)), bits(float(y)), bits(float(stage.width) / vw), bits(float(stage.height) / vh),
-        stage.width, stage.height, bits(float(vw)), bits(float(vh))};
-    if (!s.OutputPass(stage, back.image, back.state, s.swap_format, s.swap_extent.width, s.swap_extent.height,
-                      "present_ps", 0, c, page->buffer->buffer, ramp_offset, evidence)) return false;
-  }
+  if (!s.DrawStage(stage, back, evidence)) return false;
   // The PC overlay (options menu, title screen, FPS counter) over the image.
   if (!s.DrawOverlay(back, evidence)) return false;
   std::shared_ptr<VmaBuffer> readback;
@@ -227,6 +235,7 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
   uint64_t sequence = 0; VkResult present_result = VK_SUCCESS;
   if (!s.QueuePresent(index, sequence, present_result, evidence)) return false;
   stage.presented = true;
+  s.last_presented_slot = int(slot);
   s.MaybeSavePipelineCache();
   if (capture) {
     if (!s.completion->WaitFor(sequence, kWaitBudget)) return GraphicsError(evidence, "native-present-capture-wait", VK_TIMEOUT);
@@ -243,9 +252,11 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
   return true;
 }
 
-// A black frame under the PC overlay while the game presents nothing (the PC
-// title screen holds the boot; long loads): the back image only, the stage
-// slots and the game's frames are untouched.
+// A frame under the PC overlay while the game presents nothing (the PC title
+// screen holds the boot; long loads; a slow frame of a phone with the FPS
+// counter on): the game's last image again, so the screen holds still instead
+// of flashing black between the game's frames; black before the first. The
+// stage slots are only read.
 bool Backend::PresentIdle(std::string& evidence) {
   auto& s = *state_;
   if (!s.ready || s.owner_thread != GetCurrentThreadId() || s.operation_poisoned || s.unproved_execution)
@@ -259,18 +270,24 @@ bool Backend::PresentIdle(std::string& evidence) {
     case State::Acquired::kImage: break;
   }
   auto& back = s.back_images.at(index);
-  s.batch.list->setFramebuffer(nullptr);
-  const auto commands = s.Commands();
-  Transition(commands, back.image, VK_IMAGE_ASPECT_COLOR_BIT, back.state, kCopyDest, true);
-  const VkClearColorValue black{{0, 0, 0, 1}};
-  const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-  vkCmdClearColorImage(commands, back.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &black, 1, &range);
+  const bool last_image = s.last_presented_slot >= 0 && size_t(s.last_presented_slot) < s.stages.size() &&
+                          s.stages[s.last_presented_slot].image && s.stages[s.last_presented_slot].presented;
+  if (last_image) {
+    if (!s.DrawStage(s.stages[s.last_presented_slot], back, evidence)) return false;
+  } else {
+    s.batch.list->setFramebuffer(nullptr);
+    const auto commands = s.Commands();
+    Transition(commands, back.image, VK_IMAGE_ASPECT_COLOR_BIT, back.state, kCopyDest, true);
+    const VkClearColorValue black{{0, 0, 0, 1}};
+    const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCmdClearColorImage(commands, back.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &black, 1, &range);
+  }
   if (!s.DrawOverlay(back, evidence)) return false;
   ++s.batch.operations;
   uint64_t sequence = 0; VkResult present_result = VK_SUCCESS;
   if (!s.QueuePresent(index, sequence, present_result, evidence)) return false;
   evidence = fmt::format("{{\"presented\":true,\"idle\":true,\"backend\":\"vulkan\",\"present_result\":{},"
-      "\"image\":{},\"fence\":{},\"overlay\":\"{}\"}}", int32_t(present_result), index, sequence,
-      JsonText(s.overlay_status));
+      "\"image\":{},\"fence\":{},\"last_image\":{},\"overlay\":\"{}\"}}", int32_t(present_result), index,
+      sequence, last_image, JsonText(s.overlay_status));
   return true;
 }

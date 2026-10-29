@@ -210,8 +210,9 @@ the same live.
 - **Renderer:** the native renderer's Vulkan backend presents to the Android window (RGBA
   swapchain, surface recreated after the app is paused) and draws the PC overlay (PC Options, the
   FPS counter, the PC title screen) over each frame (`src/gpu/backend/vulkan/overlay.inc`, with
-  `src/gpu/backend/overlay_pass.hlsl` built into the shader cache), and black frames under it while
-  the game shows nothing; the D3D12 backend is not built.
+  `src/gpu/backend/overlay_pass.hlsl` built into the shader cache), and, while the game shows
+  nothing for half a second (the PC title screen, loads, a slow frame), the game's last image again
+  under it; the D3D12 backend is not built.
 - **App:** `android/` holds the launcher (`LauncherActivity`), the settings screen, the game
   activity (SDL3's `SDLActivity`, which loads `libmain.so`) and the on-screen controller, which
   is an SDL virtual gamepad (`src/android/touch_controller.cpp`).

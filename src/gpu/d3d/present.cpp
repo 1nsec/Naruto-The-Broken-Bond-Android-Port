@@ -290,10 +290,17 @@ bool PresentFrame(const std::shared_ptr<host::FramePresent>& present) {
   });
 }
 // The PC overlay while the game presents nothing: every 33 ms, once the last
-// game present is 250 ms old, a black frame under the overlay.
+// game present is kIdleAfter old, a frame under the overlay (D3D12: black;
+// Vulkan: the game's last image). A phone's slow frames (pipelines compiled
+// in a cutscene) wait longer before the overlay takes over.
 namespace {
 std::atomic<bool> idle_running{false};
 std::atomic<bool> idle_in_flight{false};
+#ifdef __ANDROID__
+constexpr auto kIdleAfter = std::chrono::milliseconds(500);
+#else
+constexpr auto kIdleAfter = std::chrono::milliseconds(250);
+#endif
 }  // namespace
 void StartIdlePresenter() {
   if (idle_running.exchange(true)) return;
@@ -302,7 +309,7 @@ void StartIdlePresenter() {
   std::thread([] {
     while (idle_running.load()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(33));
-      if (!host::ActiveDispatcher() || overlay::SinceLastPresent() < std::chrono::milliseconds(250)) continue;
+      if (!host::ActiveDispatcher() || overlay::SinceLastPresent() < kIdleAfter) continue;
       overlay::RequestFrame();
       const auto frame = overlay::Latest();
       if (!frame || frame->commands.empty() || idle_in_flight.load()) continue;

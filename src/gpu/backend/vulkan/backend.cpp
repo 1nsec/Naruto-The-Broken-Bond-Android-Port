@@ -587,6 +587,8 @@ struct Backend::State {
   // present. sequence: the batch's.
   enum class Acquired { kImage, kSkipped, kFailed };
   Acquired AcquireBack(uint32_t& index, std::vector<int32_t>& results, std::string& evidence);
+  bool DrawStage(OutputImage& stage, BackImage& back, std::string& evidence);
+  int last_presented_slot = -1;  // The stage slot of the last game image presented; -1 before the first.
   bool QueuePresent(uint32_t index, uint64_t& sequence, VkResult& present_result, std::string& evidence);
   // The PC overlay (gpu/overlay.h) over the back image, last before its
   // presentation (overlay.inc). An overlay the device cannot draw is left out
