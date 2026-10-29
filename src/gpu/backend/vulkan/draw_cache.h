@@ -5,6 +5,9 @@
 #include <unordered_map>
 
 namespace gpu::vulkan {
+// The bytes of the VS, PS and shared constant blocks of a draw: the ranges of
+// the dynamic uniform buffers at bindings 1 to 3 of draw set 3.
+inline constexpr std::array<VkDeviceSize, 3> kDrawConstantBytes{4096, 4096, 512};
 struct DrawCacheCounters {
   std::atomic<uint64_t> draws{0}, pools{0}, groups{0}, views{0}, samplers{0}, framebuffers{0}, constant_bytes{0}, passes{0};
   std::atomic<uint64_t> pipeline_binds{0}, descriptor_binds{0};
@@ -94,19 +97,24 @@ class DrawCache {
     if (result == VK_SUCCESS) { framebuffers_.emplace(key, out); counters_.framebuffers.fetch_add(1, std::memory_order_relaxed); }
     return result;
   }
+  // The four draw sets of these textures and samplers and of the buffers of
+  // the constant blocks (bound with dynamic offsets).
   VkResult Descriptors(const std::array<VkDescriptorSetLayout, 4>& layouts,
-      const std::array<std::array<VkDescriptorImageInfo, 32>, 4>& images, std::array<VkDescriptorSet, 4>& out) {
+      const std::array<std::array<VkDescriptorImageInfo, 32>, 4>& images, const std::array<VkBuffer, 3>& constants,
+      std::array<VkDescriptorSet, 4>& out) {
     GroupKey key{};
     for (unsigned set = 0; set < 4; ++set) for (unsigned i = 0; i < 32; ++i)
       key[set * 32 + i] = set == 3 ? std::bit_cast<uint64_t>(images[set][i].sampler) :
                                       std::bit_cast<uint64_t>(images[set][i].imageView);
+    for (unsigned i = 0; i < 3; ++i) key[128 + i] = std::bit_cast<uint64_t>(constants[i]);
     if (auto it = groups_.find(key); it != groups_.end()) { out = it->second; return VK_SUCCESS; }
     if (used_slots_ == slots_.size()) {
       if (pools_.empty() || groups_in_pool_ == kGroupsPerPool) {
         VkDescriptorPoolSize sizes[]{{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 96 * kGroupsPerPool},
-                                     {VK_DESCRIPTOR_TYPE_SAMPLER, 32 * kGroupsPerPool}};
+                                     {VK_DESCRIPTOR_TYPE_SAMPLER, 32 * kGroupsPerPool},
+                                     {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 3 * kGroupsPerPool}};
         VkDescriptorPoolCreateInfo info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-        info.maxSets = 4 * kGroupsPerPool; info.poolSizeCount = 2; info.pPoolSizes = sizes;
+        info.maxSets = 4 * kGroupsPerPool; info.poolSizeCount = 3; info.pPoolSizes = sizes;
         VkDescriptorPool pool{};
         const auto result = vkCreateDescriptorPool(device_, &info, nullptr, &pool);
         if (result != VK_SUCCESS) return result;
@@ -124,14 +132,22 @@ class DrawCache {
       out = slots_[used_slots_];
     }
     ++used_slots_;
-    std::array<VkWriteDescriptorSet, 4> writes{};
+    std::array<VkWriteDescriptorSet, 7> writes{};
+    std::array<VkDescriptorBufferInfo, 3> buffers{};
     for (unsigned i = 0; i < 4; ++i) {
       writes[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
       writes[i].dstSet = out[i]; writes[i].descriptorCount = 32;
       writes[i].descriptorType = i == 3 ? VK_DESCRIPTOR_TYPE_SAMPLER : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
       writes[i].pImageInfo = images[i].data();
     }
-    vkUpdateDescriptorSets(device_, 4, writes.data(), 0, nullptr);
+    for (unsigned i = 0; i < 3; ++i) {
+      buffers[i] = {constants[i], 0, kDrawConstantBytes[i]};
+      writes[4 + i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+      writes[4 + i].dstSet = out[3]; writes[4 + i].dstBinding = 1 + i; writes[4 + i].descriptorCount = 1;
+      writes[4 + i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+      writes[4 + i].pBufferInfo = &buffers[i];
+    }
+    vkUpdateDescriptorSets(device_, uint32_t(writes.size()), writes.data(), 0, nullptr);
     groups_.emplace(key, out);
     counters_.groups.fetch_add(1, std::memory_order_relaxed);
     return VK_SUCCESS;
@@ -141,7 +157,7 @@ class DrawCache {
   using ViewKey = std::array<uint64_t, 6>;
   using SamplerKey = std::array<uint64_t, 21>;
   using FrameKey = std::array<uint64_t, 5>;
-  using GroupKey = std::array<uint64_t, 128>;
+  using GroupKey = std::array<uint64_t, 131>;
   const VkDevice device_;
   DrawCacheCounters& counters_;
   std::vector<VkDescriptorPool> pools_;
@@ -151,6 +167,6 @@ class DrawCache {
   std::unordered_map<ViewKey, VkImageView, DrawKeyHash<6>> views_;
   std::unordered_map<SamplerKey, VkSampler, DrawKeyHash<21>> samplers_;
   std::unordered_map<FrameKey, VkFramebuffer, DrawKeyHash<5>> framebuffers_;
-  std::unordered_map<GroupKey, std::array<VkDescriptorSet, 4>, DrawKeyHash<128>> groups_;
+  std::unordered_map<GroupKey, std::array<VkDescriptorSet, 4>, DrawKeyHash<131>> groups_;
 };
 }  // namespace gpu::vulkan

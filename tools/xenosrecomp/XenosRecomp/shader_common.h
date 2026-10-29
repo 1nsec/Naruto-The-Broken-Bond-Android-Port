@@ -20,8 +20,37 @@
 #define FLT_MIN asfloat(0xff7fffff)
 #define FLT_MAX asfloat(0x7f7fffff)
 
+#ifdef NARUTO_RECOMP
+// The shared constants, in the SharedConstants buffer of both DXIL and SPIR-V
+// (shader_recompiler.cpp): c0..c15 hold the descriptor indices of the
+// textures and samplers, c16 and c17.x the upstream constants;
+// c17.y is nonzero when the alpha test passes below the threshold (LESS and
+// LEQUAL, used by Broken Bond); zero keeps the test above it;
+// c17.zw holds 1 / the internal resolution scale of the native renderer, which
+// brings the pixel position of ps_param_gen back to guest pixels;
+// c18 and c19 the descriptor indices of the vertex textures (declared by the
+// cache builder between the two macros); c20..c23 the vertex fetch
+// descriptors (vfetchNaruto); c24..c29 the user clip planes PA_CL_UCP_0..5
+// (zero when disabled).
+#define DEFINE_SHARED_CONSTANTS_LOW() \
+    uint g_Booleans : packoffset(c16.x); \
+    uint g_SwappedTexcoords : packoffset(c16.y); \
+    float2 g_HalfPixelOffset : packoffset(c16.z); \
+    float g_AlphaThreshold : packoffset(c17.x); \
+    uint g_AlphaTestInvert : packoffset(c17.y); \
+    float2 g_InverseResolutionScale : packoffset(c17.z);
+
+#define DEFINE_SHARED_CONSTANTS_HIGH() \
+    uint4 g_VertexFetchArray[4] : packoffset(c20); \
+    float4 g_ClipPlaneArray[6] : packoffset(c24);
+
+#define g_VertexFetch(i) (g_VertexFetchArray[(i) / 4][(i) % 4])
+#define g_ClipPlane(i) (g_ClipPlaneArray[i])
+#endif
+
 #ifdef __spirv__
 
+#ifndef NARUTO_RECOMP
 struct PushConstants
 {
     uint64_t VertexShaderConstants;
@@ -35,11 +64,6 @@ struct PushConstants
 #define g_SwappedTexcoords         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 260)
 #define g_HalfPixelOffset          vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 264)
 #define g_AlphaThreshold           vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 272)
-#ifdef NARUTO_RECOMP
-#define g_AlphaTestInvert          vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 276)
-#define g_InverseResolutionScale   vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 280)
-#define g_VertexFetch(i)           vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 320 + (i) * 4)
-#define g_ClipPlane(i)             vk::RawBufferLoad<float4>(g_PushConstants.SharedConstants + 384 + (i) * 16)
 #endif
 
 [[vk::constant_id(0)]] const uint g_SpecConstants = 0;
@@ -48,27 +72,7 @@ struct PushConstants
 
 #else
 
-#ifdef NARUTO_RECOMP
-// c17.y is nonzero when the alpha test passes below the threshold (LESS and
-// LEQUAL, used by Broken Bond); zero keeps the test above it;
-// c17.zw holds 1 / the internal resolution scale of the native renderer, which
-// brings the pixel position of ps_param_gen back to guest pixels;
-// c18 and c19 the descriptor indices of the vertex textures (declared by the
-// cache builder); c20..c23 the vertex fetch descriptors (vfetchNaruto);
-// c24..c29 the user clip planes PA_CL_UCP_0..5 (zero when disabled).
-#define DEFINE_SHARED_CONSTANTS() \
-    uint g_Booleans : packoffset(c16.x); \
-    uint g_SwappedTexcoords : packoffset(c16.y); \
-    float2 g_HalfPixelOffset : packoffset(c16.z); \
-    float g_AlphaThreshold : packoffset(c17.x); \
-    uint g_AlphaTestInvert : packoffset(c17.y); \
-    float2 g_InverseResolutionScale : packoffset(c17.z); \
-    uint4 g_VertexFetchArray[4] : packoffset(c20); \
-    float4 g_ClipPlaneArray[6] : packoffset(c24);
-
-#define g_VertexFetch(i) (g_VertexFetchArray[(i) / 4][(i) % 4])
-#define g_ClipPlane(i) (g_ClipPlaneArray[i])
-#else
+#ifndef NARUTO_RECOMP
 #define DEFINE_SHARED_CONSTANTS() \
     uint g_Booleans : packoffset(c16.x); \
     uint g_SwappedTexcoords : packoffset(c16.y); \

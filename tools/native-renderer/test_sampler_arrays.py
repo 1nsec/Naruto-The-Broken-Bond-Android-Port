@@ -6,6 +6,7 @@ singleton compatibility and invalid ranges in the single-container CLI.
 """
 import argparse
 from pathlib import Path
+import re
 import struct
 import subprocess
 import tempfile
@@ -50,15 +51,25 @@ class SamplerArrayTests(unittest.TestCase):
             self.assertEqual(run.returncode, 0, run.stderr)
             return output.read_text(encoding='utf-8')
 
-    def test_array_fetch_and_both_descriptor_layouts(self):
+    def test_array_fetch_and_descriptor_layout(self):
         text = self.translate([('g_Textures', 4, 3)], 6)
         self.assertIn('tfetch2D(g_Textures_element_2_Texture2DDescriptorIndex, '
                       'g_Textures_element_2_SamplerDescriptorIndex,', text)
-        for kind, offset, slot in [('Texture2D', 24, 'c1.z'), ('Texture3D', 88, 'c5.z'),
-                                   ('TextureCube', 152, 'c9.z'), ('Sampler', 216, 'c13.z')]:
+        # One layout for DXIL and SPIR-V: the SharedConstants buffer, no address loads.
+        self.assertNotIn('#ifdef __spirv__\n\n#define', text)
+        for kind, slot in [('Texture2D', 'c1.z'), ('Texture3D', 'c5.z'), ('TextureCube', 'c9.z'), ('Sampler', 'c13.z')]:
             name = f'g_Textures_element_2_{kind}DescriptorIndex'
-            self.assertIn(f'#define {name} vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + {offset})', text)
+            self.assertNotIn(f'#define {name} ', text)
             self.assertIn(f'uint {name} : packoffset({slot});', text)
+        self.assertIn('\tDEFINE_SHARED_CONSTANTS_LOW();\n\tDEFINE_SHARED_CONSTANTS_HIGH();\n', text)
+
+    def test_shared_constants_in_offset_order(self):
+        # SPIR-V rejects a packoffset below the previous member's.
+        text = self.translate([('g_B', 6, 2), ('g_A', 1, 2)], 7)
+        block = text[text.index('cbuffer SharedConstants'):]
+        offsets = [(int(c), 'xyzw'.index(s)) for c, s in re.findall(r'packoffset\(c(\d+)\.([xyzw])\)', block)]
+        self.assertEqual(offsets, sorted(offsets))
+        self.assertEqual(len(offsets), 16)
 
     def test_singleton_keeps_original_name(self):
         text = self.translate([('g_Texture', 2, 1)], 2)
@@ -119,7 +130,7 @@ class SamplerArrayTests(unittest.TestCase):
             self.assertFalse(output.exists())
 
     def test_array_shader_compiles_to_dxil_and_spirv(self):
-        text = self.translate([('g_Textures', 4, 3)], 6)
+        text = self.translate([('g_B', 9, 2), ('g_Textures', 4, 3)], 6)
         text += '\n#ifndef __spirv__\nuint g_SpecConstants() { return 0; }\n#endif\n'
         with tempfile.TemporaryDirectory(prefix='broken-bond-samplers-') as folder:
             root = Path(folder)
@@ -128,7 +139,12 @@ class SamplerArrayTests(unittest.TestCase):
             for spirv in (False, True):
                 with self.subTest(spirv=spirv):
                     output = root / ('array.spv' if spirv else 'array.dxil')
-                    flags = ['-spirv', '-fvk-use-dx-layout'] if spirv else ['-Wno-ignored-attributes', '-Qstrip_reflect']
+                    # The register mapping of build-sdb-shader-spirv.py: the constant buffers at set 3.
+                    registers = [f for r in [('b0', 4, 1, 3), ('b1', 4, 2, 3), ('b2', 4, 3, 3), ('t0', 0, 0, 0),
+                                             ('t0', 1, 0, 1), ('t0', 2, 0, 2), ('s0', 3, 0, 3)]
+                                 for f in ('-fvk-bind-register', r[0], *map(str, r[1:]))]
+                    flags = (['-spirv', '-fvk-use-dx-layout', *registers] if spirv
+                             else ['-Wno-ignored-attributes', '-Qstrip_reflect'])
                     run = subprocess.run([str(ARGS.dxc), '-T', 'ps_6_0', '-HV', '2021', '-all-resources-bound',
                                           '-Qstrip_debug', *flags, '-Fo', str(output), str(source)],
                                          capture_output=True, text=True, timeout=30)

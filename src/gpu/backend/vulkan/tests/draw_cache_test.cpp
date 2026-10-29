@@ -87,11 +87,12 @@ int main(int argc, char** argv) {
   };
   check("cached-bindings", number("vulkan_draws") == 100 && number("draw_descriptor_groups") == 3 &&
       number("draw_samplers") == 2 && number("draw_framebuffers") == 1 && number("draw_image_views") == 4 &&
-      number("draw_constant_bytes") == 100 * 512 + 3 * 4096 && number("draw_render_passes") == 3,
+      // The shared constants repeat after the first draw (the same slots), so one block of them.
+      number("draw_constant_bytes") == 512 + 3 * 4096 && number("draw_render_passes") == 3,
       "{" + summary + "}");
   // GPU completion permits slot reuse. Recreate the released texture key and
-  // reuse constant versions: no descriptor or BDA from the old batch may
-  // survive as a valid binding in this one.
+  // reuse constant versions: no descriptor or constant block from the old
+  // batch may survive as a valid binding in this one.
   t.layout = t.version = 4;
   check("second-batch-upload", upload({0, 0, 255, 255}), e);
   r.textures = {t}; r.scissor = {0, 0, 64, 64};

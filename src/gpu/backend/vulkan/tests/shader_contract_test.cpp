@@ -53,7 +53,17 @@ int main(int argc, char** argv) {
   const ShaderPackage* package = EmbeddedShaderPackage(ShaderFormat::kSpirv, error);
   ShaderContract contract;
   const bool read = package && ReadShaderContract(package->index, contract, error);
-  line("embedded-contract-read", read && contract.capabilities.size() == 7 && contract.bindings.size() == 12,
+  // The draw layout: the three texture arrays, the samplers and the three
+  // constant blocks as uniform buffers in set 3; no push constants.
+  const auto draw_bindings = std::count_if(contract.bindings.begin(), contract.bindings.end(),
+                                           [](const auto& b) { return b.layout == "draw"; });
+  const auto draw_uniforms = std::count_if(contract.bindings.begin(), contract.bindings.end(), [](const auto& b) {
+    return b.layout == "draw" && b.set == 3 && b.binding >= 1 && b.binding <= 3 && b.type == "uniform-buffer";
+  });
+  const bool draw_pushes = std::any_of(contract.push_ranges.begin(), contract.push_ranges.end(),
+                                       [](const auto& r) { return r.layout == "draw"; });
+  line("embedded-contract-read", read && !contract.capabilities.empty() && draw_bindings == 7 &&
+       draw_uniforms == 3 && !draw_pushes,
        "{\"sha256\":\"" + contract.sha256 + "\",\"error\":\"" + error + "\"}");
   const auto missing = MissingFromDevice(contract, vulkan);
   line("embedded-contract-met", read && missing.empty(), "{\"missing\":" + Json(missing) + "}");

@@ -54,18 +54,22 @@ bool Backend::State::EnsureGraphics(std::string& evidence) {
     vertex_locations[(*it)[1]] = uint32_t(std::stoul((*it)[2]));
   if (vertex_locations.empty()) return GraphicsError(evidence, "native-vulkan-vertex-locations-empty");
   VkResult result = VK_SUCCESS;
+  // Sets 0 to 2: the 2D, 3D and cube textures; set 3: the samplers, then the
+  // VS, PS and shared constants as dynamic uniform buffers (kDrawConstantBytes),
+  // which the GPU can keep in its constant registers.
+  constexpr VkShaderStageFlags stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   for (uint32_t i = 0; i < 4; ++i) {
-    VkDescriptorSetLayoutBinding binding{0, i == 3 ? VK_DESCRIPTOR_TYPE_SAMPLER :
-        VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+    VkDescriptorSetLayoutBinding bindings[4]{
+        {0, i == 3 ? VK_DESCRIPTOR_TYPE_SAMPLER : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, stages, nullptr}};
+    for (uint32_t b = 1; b < 4; ++b) bindings[b] = {b, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, stages, nullptr};
     VkDescriptorSetLayoutCreateInfo info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    info.bindingCount = 1; info.pBindings = &binding;
+    info.bindingCount = i == 3 ? 4 : 1; info.pBindings = bindings;
     if ((result = vkCreateDescriptorSetLayout(vulkan->vk, &info, nullptr, &draw_sets[i])) != VK_SUCCESS) {
       ReleaseGraphics(); return GraphicsError(evidence, "native-vulkan-draw-set-layout", result);
     }
   }
-  VkPushConstantRange push{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 24};
   VkPipelineLayoutCreateInfo info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-  info.setLayoutCount = 4; info.pSetLayouts = draw_sets.data(); info.pushConstantRangeCount = 1; info.pPushConstantRanges = &push;
+  info.setLayoutCount = 4; info.pSetLayouts = draw_sets.data();
   if ((result = vkCreatePipelineLayout(vulkan->vk, &info, nullptr, &draw_layout)) != VK_SUCCESS) {
     ReleaseGraphics(); return GraphicsError(evidence, "native-vulkan-draw-layout", result);
   }
@@ -343,19 +347,20 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     const uint32_t sampler_offset = t.reg < 16 ? 192 + t.reg * 4 : 304 + (t.reg - 16) * 4;
     std::memcpy(shared.data() + image_offset, &slot, 4); std::memcpy(shared.data() + sampler_offset, &slot, 4);
   }
-  if ((result = resources.Descriptors(s.draw_sets, infos, sets)) != VK_SUCCESS)
-    return fail("native-vulkan-draw-descriptors", result);
   texture_time.Stop();
   profile::Timer upload_time(profile::kEngineUpload);
   // Each draw gets one contiguous allocation; offsets are stable even if the
-  // upload page vector grows on the next draw.
+  // upload page vector grows on the next draw. The constant blocks stay at
+  // multiples of 512 bytes: the alignment of a dynamic uniform buffer offset.
   auto align = [](size_t n) { return (n + 511) & ~size_t(511); };
-  const bool vs_reuse = r.vs_constants_version && s.batch.vs_constants && s.batch.vs_version == r.vs_constants_version;
-  const bool ps_reuse = r.ps_constants_version && s.batch.ps_constants && s.batch.ps_version == r.ps_constants_version;
+  const bool vs_reuse = r.vs_constants_version && s.batch.vs_buffer && s.batch.vs_version == r.vs_constants_version;
+  const bool ps_reuse = r.ps_constants_version && s.batch.ps_buffer && s.batch.ps_version == r.ps_constants_version;
+  static_assert(sizeof(shared) == kDrawConstantBytes[2] && sizeof(s.batch.shared_bytes) == kDrawConstantBytes[2]);
+  const bool shared_reuse = s.batch.shared_buffer && std::memcmp(s.batch.shared_bytes.data(), shared.data(), 512) == 0;
   size_t bytes = 0;
-  const size_t vs_at = bytes; if (!vs_reuse) bytes += 4096;
-  const size_t ps_at = bytes; if (!ps_reuse) bytes += 4096;
-  const size_t shared_at = bytes; bytes += 512;
+  const size_t vs_at = bytes; if (!vs_reuse) bytes += kDrawConstantBytes[0];
+  const size_t ps_at = bytes; if (!ps_reuse) bytes += kDrawConstantBytes[1];
+  const size_t shared_at = bytes; if (!shared_reuse) bytes += kDrawConstantBytes[2];
   s.draw_counters.constant_bytes.fetch_add(bytes, std::memory_order_relaxed);
   std::array<size_t, 8> offsets{};
   for (size_t i = 0; i < r.streams.size(); ++i) {
@@ -370,14 +375,20 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   State::UploadPage* page{}; VkDeviceSize base{};
   if (!s.Upload(bytes, page, base, result)) return fail("native-draw-upload", result);
   auto* cpu = page->buffer->mapped + base;
-  if (!vs_reuse) std::memcpy(cpu + vs_at, s.vs_block.data(), 4096);
-  if (!ps_reuse) std::memcpy(cpu + ps_at, s.ps_block.data(), 4096);
-  std::memcpy(cpu + shared_at, shared.data(), 512);
-  const auto gpu = page->address + base;
-  if (!vs_reuse) s.batch.vs_constants = gpu + vs_at;
-  if (!ps_reuse) s.batch.ps_constants = gpu + ps_at;
+  if (!vs_reuse) std::memcpy(cpu + vs_at, s.vs_block.data(), kDrawConstantBytes[0]);
+  if (!ps_reuse) std::memcpy(cpu + ps_at, s.ps_block.data(), kDrawConstantBytes[1]);
+  if (!shared_reuse) std::memcpy(cpu + shared_at, shared.data(), kDrawConstantBytes[2]);
+  if (!vs_reuse) { s.batch.vs_buffer = page->buffer->buffer; s.batch.vs_offset = base + vs_at; }
+  if (!ps_reuse) { s.batch.ps_buffer = page->buffer->buffer; s.batch.ps_offset = base + ps_at; }
+  if (!shared_reuse) {
+    s.batch.shared_buffer = page->buffer->buffer; s.batch.shared_offset = base + shared_at;
+    s.batch.shared_bytes = shared;
+  }
   s.batch.vs_version = r.vs_constants_version; s.batch.ps_version = r.ps_constants_version;
-  const uint64_t constants[]{s.batch.vs_constants, s.batch.ps_constants, gpu + shared_at};
+  // The sets name the buffers; each draw gives its blocks' offsets in them.
+  const std::array<VkBuffer, 3> constant_buffers{s.batch.vs_buffer, s.batch.ps_buffer, s.batch.shared_buffer};
+  const std::array<uint32_t, 3> constant_offsets{uint32_t(s.batch.vs_offset), uint32_t(s.batch.ps_offset),
+                                                 uint32_t(s.batch.shared_offset)};
   std::array<VkBuffer, 8> streams{};
   std::array<VkDeviceSize, 8> stream_offsets{}, strides{};
   for (size_t i = 0; i < r.streams.size(); ++i) {
@@ -403,6 +414,11 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     s.DrawTransition(indices, b.state, kBufferDraw); b.last_use = s.batch.sequence;
   } else std::memcpy(cpu + index_at, r.indices.data(), index_bytes);
   upload_time.Stop();
+  {
+    profile::Timer descriptor_time(profile::kEngineTexture);
+    if ((result = resources.Descriptors(s.draw_sets, infos, constant_buffers, sets)) != VK_SUCCESS)
+      return fail("native-vulkan-draw-descriptors", result);
+  }
   profile::Timer record_time(profile::kEngineRecord);
   const VkImage color_image = color ? color->Image() : VK_NULL_HANDLE;
   const VkImage depth_image = depth ? depth->Image() : VK_NULL_HANDLE;
@@ -474,12 +490,16 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     vkCmdBindIndexBuffer(commands, indices, index_offset, r.index32 ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16);
     bound.draw_indices = indices; bound.draw_index_offset = index_offset; bound.draw_index32 = r.index32;
   }
-  if (!valid || bound.draw_sets != sets) {
-    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, s.draw_layout, 0, 4, sets.data(), 0, nullptr);
-    bound.draw_sets = sets;
-    s.draw_counters.descriptor_binds.fetch_add(1, std::memory_order_relaxed);
+  // Set 3 carries the dynamic offsets of the constants: bound when they or
+  // the set changed, with the texture sets only when those changed.
+  const bool textures_bound = valid && std::equal(sets.begin(), sets.begin() + 3, bound.draw_sets.begin());
+  if (!textures_bound || bound.draw_sets[3] != sets[3] || bound.draw_constant_offsets != constant_offsets) {
+    const uint32_t first_set = textures_bound ? 3 : 0;
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, s.draw_layout, first_set, 4 - first_set,
+                            sets.data() + first_set, 3, constant_offsets.data());
+    if (!textures_bound) s.draw_counters.descriptor_binds.fetch_add(1, std::memory_order_relaxed);
+    bound.draw_sets = sets; bound.draw_constant_offsets = constant_offsets;
   }
-  vkCmdPushConstants(commands, s.draw_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 24, constants);
   vkCmdDrawIndexed(commands, r.index_count, r.instance_count, 0, r.base_vertex, 0);
   bound.draw_bindings_valid = true;
   fence = s.batch.sequence; ++s.operations;

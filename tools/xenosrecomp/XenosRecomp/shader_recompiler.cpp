@@ -1,7 +1,10 @@
 #include "shader_recompiler.h"
 #include "shader_common.h"
+#include <algorithm>
+#include <map>
 #include <stdexcept>
 #include <unordered_set>
+#include <vector>
 
 static constexpr char SWIZZLES[] = 
 { 
@@ -1194,7 +1197,18 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         }
     }
 
-    out += "#ifdef __spirv__\n\n";
+    // NARUTO_RECOMP: SPIR-V reads the constants from the same uniform buffers
+    // as DXIL (the Vulkan backend binds them to set 3, bindings 1 to 3), which
+    // Adreno keeps in its constant registers. The upstream SPIR-V path loads
+    // each constant from a buffer device address instead.
+#ifdef NARUTO_RECOMP
+    constexpr bool constantsByAddress = false;
+#else
+    constexpr bool constantsByAddress = true;
+#endif
+
+    if (constantsByAddress)
+        out += "#ifdef __spirv__\n\n";
 
 #ifdef UNLEASHED_RECOMP
     bool isMetaInstancer = false;
@@ -1231,14 +1245,14 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         {
             const char* shaderName = isPixelShader ? "Pixel" : "Vertex";
 
-            if (constantInfo->registerCount > 1)
+            if (constantsByAddress && constantInfo->registerCount > 1)
             {
                 uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
 
                 println("#define {}(INDEX) select((INDEX) < {}, vk::RawBufferLoad<float4>(g_PushConstants.{}ShaderConstants + ({} + min(INDEX, {})) * 16, 0x10), 0.0)",
                     constantName, tailCount, shaderName, constantInfo->registerIndex.get(), tailCount - 1);
             }
-            else
+            else if (constantsByAddress)
             {
                 println("#define {} vk::RawBufferLoad<float4>(g_PushConstants.{}ShaderConstants + {}, 0x10)",
                     constantName, shaderName, constantInfo->registerIndex * 16);
@@ -1252,7 +1266,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
         case RegisterSet::Sampler:
         {
-            for (uint32_t element = 0; element < constantInfo->registerCount; ++element)
+            for (uint32_t element = 0; constantsByAddress && element < constantInfo->registerCount; ++element)
             {
                 const uint32_t index = constantInfo->registerIndex + element;
                 const auto& name = samplers.at(index);
@@ -1272,32 +1286,51 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         }
     }
 
-    out += "\n#else\n\n";
+    if (constantsByAddress)
+        out += "\n#else\n\n";
 
-    println("cbuffer {}ShaderConstants : register(b{}, space4)", isPixelShader ? "Pixel" : "Vertex", isPixelShader ? 1 : 0);
-    out += "{\n";
-
+    // The members in the order of their registers: DXC's SPIR-V layout rejects
+    // a packoffset below the one of the previous member.
+    std::vector<const ConstantInfo*> float4Members;
     for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
     {
         const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
             constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
 
         if (constantInfo->registerSet == RegisterSet::Float4)
+            float4Members.push_back(constantInfo);
+    }
+    std::stable_sort(float4Members.begin(), float4Members.end(), [](const ConstantInfo* a, const ConstantInfo* b)
+    {
+        return a->registerIndex.get() < b->registerIndex.get();
+    });
+    for (size_t i = 1; i < float4Members.size(); i++)
+    {
+        const ConstantInfo* previous = float4Members[i - 1];
+        if (previous->registerIndex.get() + previous->registerCount.get() > float4Members[i]->registerIndex.get())
+            throw std::runtime_error(fmt::format("Overlapping float4 constants: {} and {}",
+                reinterpret_cast<const char*>(constantTableData + previous->name),
+                reinterpret_cast<const char*>(constantTableData + float4Members[i]->name)));
+    }
+
+    println("cbuffer {}ShaderConstants : register(b{}, space4)", isPixelShader ? "Pixel" : "Vertex", isPixelShader ? 1 : 0);
+    out += "{\n";
+
+    for (const ConstantInfo* constantInfo : float4Members)
+    {
+        const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
+
+        print("\tfloat4 {}", constantName);
+
+        if (constantInfo->registerCount > 1)
+            print("[{}]", constantInfo->registerCount.get());
+
+        println(" : packoffset(c{});", constantInfo->registerIndex.get());
+
+        if (constantInfo->registerCount > 1)
         {
-            const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
-
-            print("\tfloat4 {}", constantName);
-
-            if (constantInfo->registerCount > 1)
-                print("[{}]", constantInfo->registerCount.get());
-
-            println(" : packoffset(c{});", constantInfo->registerIndex.get());
-
-            if (constantInfo->registerCount > 1)
-            {
-                uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
-                println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount, tailCount - 1);
-            }
+            uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
+            println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount, tailCount - 1);
         }
     }
 
@@ -1306,33 +1339,38 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     out += "cbuffer SharedConstants : register(b2, space4)\n";
     out += "{\n";
 
-    for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
+    // The descriptor indices by offset: each texture dimension, then the
+    // samplers, each bank in register order (samplers is ordered by register).
+    const std::map<uint32_t, std::string> samplersByRegister(samplers.begin(), samplers.end());
+    for (size_t j = 0; j <= std::size(TEXTURE_DIMENSIONS); j++)
     {
-        const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
-            constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
-
-        if (constantInfo->registerSet == RegisterSet::Sampler)
+        for (const auto& [index, name] : samplersByRegister)
         {
-            for (uint32_t element = 0; element < constantInfo->registerCount; ++element)
+            if (j < std::size(TEXTURE_DIMENSIONS))
             {
-                const uint32_t index = constantInfo->registerIndex + element;
-                const auto& name = samplers.at(index);
-                for (size_t j = 0; j < std::size(TEXTURE_DIMENSIONS); j++)
-                {
-                    println("\tuint {}_Texture{}DescriptorIndex : packoffset(c{}.{});",
-                        name, TEXTURE_DIMENSIONS[j], j * 4 + index / 4, SWIZZLES[index % 4]);
-                }
-
+                println("\tuint {}_Texture{}DescriptorIndex : packoffset(c{}.{});",
+                    name, TEXTURE_DIMENSIONS[j], j * 4 + index / 4, SWIZZLES[index % 4]);
+            }
+            else
+            {
                 println("\tuint {}_SamplerDescriptorIndex : packoffset(c{}.{});",
                     name, 4 * std::size(TEXTURE_DIMENSIONS) + index / 4, SWIZZLES[index % 4]);
             }
         }
     }
 
+#ifdef NARUTO_RECOMP
+    // c16 and c17; the cache builder declares the vertex texture indices of
+    // c18 and c19 between the two.
+    out += "\tDEFINE_SHARED_CONSTANTS_LOW();\n";
+    out += "\tDEFINE_SHARED_CONSTANTS_HIGH();\n";
+#else
     out += "\tDEFINE_SHARED_CONSTANTS();\n";
+#endif
     out += "};\n\n";
 
-    out += "#endif\n";
+    if (constantsByAddress)
+        out += "#endif\n";
 
     for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
     {

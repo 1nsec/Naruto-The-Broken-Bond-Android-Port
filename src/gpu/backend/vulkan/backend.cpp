@@ -380,12 +380,20 @@ struct Backend::State {
     uint64_t operations = 0;
     std::unique_ptr<DrawCache> graphics;
     uint64_t vs_version = 0, ps_version = 0;
-    VkDeviceAddress vs_constants = 0, ps_constants = 0;
+    // The VS and PS constant blocks of the last draw (an upload page and the
+    // block's offset), which the next draw binds again when unchanged.
+    VkBuffer vs_buffer{}, ps_buffer{};
+    VkDeviceSize vs_offset = 0, ps_offset = 0;
+    // The shared constants of the last draw, reused while their bytes repeat.
+    VkBuffer shared_buffer{};
+    VkDeviceSize shared_offset = 0;
+    std::array<uint8_t, 512> shared_bytes{};
     bool draw_pass_active = false;
     VkImage draw_color{}, draw_depth{};
     bool draw_bindings_valid = false;
     VkPipeline draw_pipeline{};
     std::array<VkDescriptorSet, 4> draw_sets{};
+    std::array<uint32_t, 3> draw_constant_offsets{};
     VkViewport draw_viewport{};
     VkRect2D draw_scissor{};
     std::array<float, 4> draw_blend{};
