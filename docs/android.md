@@ -174,6 +174,9 @@ workflow; its APK cannot play anything.
   buffers (bound with dynamic offsets in draw set 3), which the GPU loads into its constant
   registers, instead of one memory load per constant and per vertex or pixel; repeated shared
   constants are not uploaded again.
+- **Earlier submission:** a batch of 256 operations or more goes to the GPU where a draw starts a
+  new render pass, so the GPU works on a frame while the rest of it is recorded, instead of waiting
+  for the frame's end.
 - **Turnip rendering** (Settings, experimental): *Automatic* lets Turnip choose per render pass
   between its on-chip tiles (gmem) and drawing straight to memory (sysmem); the two others force
   one (`TU_DEBUG`), to compare frame rates.

@@ -100,8 +100,9 @@ enum Counter : unsigned {
   // wait of a draw for a pipeline being created in the frame (Max, microseconds).
   kPipelinesPrefetched, kPipelineWaitUsMax,
   // The draw layer's render passes (Vulkan), and the uploads recorded in a
-  // batch's prelude instead of ending one.
-  kRenderPasses, kPreludeUploads, kCounterCount
+  // batch's prelude instead of ending one; batches submitted where a draw
+  // started a render pass (kBatchOperationsEarly).
+  kRenderPasses, kPreludeUploads, kEarlySubmits, kCounterCount
 };
 inline constexpr const char* kCounterNames[kCounterCount] = {
     "hashed_bytes", "upload_bytes", "texture_uploads", "pipelines_created", "shader_variants", "submissions",
@@ -110,7 +111,7 @@ inline constexpr const char* kCounterNames[kCounterCount] = {
     "headers_live", "buffers_hosted", "pipelines_adopted", "pipelines_waited", "pipelines_precompiled",
     "watch_notifications", "watch_pages", "clip_plane_draws", "pipelines_async", "pipeline_skipped_draws",
     "stage_waits", "stage_depth", "pipelines_warm", "pipelines_warm_slow", "pipelines_prefetched",
-    "pipeline_wait_us_max", "render_passes", "prelude_uploads"};
+    "pipeline_wait_us_max", "render_passes", "prelude_uploads", "early_submits"};
 
 struct Accumulator {
   std::atomic<uint64_t> ns{0}, calls{0};

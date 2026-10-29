@@ -58,6 +58,10 @@ constexpr std::chrono::milliseconds kWaitBudget{5000};
 constexpr size_t kUploadPageBytes = size_t(8) << 20;  // Pooled page; larger requests get their own.
 constexpr VkDeviceSize kUploadAlign = 512;             // Texel blocks and the texture rows of any format.
 constexpr uint64_t kBatchOperationsMax = 2048;         // A longer batch closes without waiting.
+// A batch with this many operations is submitted where a draw starts a new
+// render pass, so that the GPU works on the frame while the rest is recorded
+// instead of waiting for the frame's end (the pass ends there anyway).
+constexpr uint64_t kBatchOperationsEarly = 256;
 
 // How the next command uses an image or a buffer: the image's layout (none
 // for a buffer), the stages and the accesses.

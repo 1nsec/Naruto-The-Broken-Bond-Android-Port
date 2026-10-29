@@ -227,6 +227,12 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     return true;
   }
   const char* reason = nullptr; VkResult result = VK_SUCCESS;
+  if (s.batch_open && s.batch.operations >= kBatchOperationsEarly &&
+      (!s.batch.draw_pass_active || s.batch.draw_color != (color ? color->Image() : VK_NULL_HANDLE) ||
+       s.batch.draw_depth != (depth ? depth->Image() : VK_NULL_HANDLE))) {
+    profile::Count(profile::kEarlySubmits, 1);
+    if (!s.CloseBatch(reason, result)) return fail(reason, result);
+  }
   if (!s.OpenBatch(reason, result)) return fail(reason, result);
   s.batch.list->setFramebuffer(nullptr);
   const auto commands = s.DrawCommands();
