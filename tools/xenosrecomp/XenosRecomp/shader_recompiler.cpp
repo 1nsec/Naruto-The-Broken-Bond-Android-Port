@@ -1289,61 +1289,74 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     if (constantsByAddress)
         out += "\n#else\n\n";
 
-    // The members in the order of their registers: DXC's SPIR-V layout rejects
-    // a packoffset below the one of the previous member.
-    std::vector<const ConstantInfo*> float4Members;
-    for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
-    {
-        const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
-            constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
-
-        if (constantInfo->registerSet == RegisterSet::Float4)
-            float4Members.push_back(constantInfo);
-    }
-    std::stable_sort(float4Members.begin(), float4Members.end(), [](const ConstantInfo* a, const ConstantInfo* b)
-    {
-        return a->registerIndex.get() < b->registerIndex.get();
-    });
-    // An array declared past the last register (c255) keeps the registers of
-    // the 4096-byte block: the Vulkan backend binds that many bytes, and the
-    // shader reads no register above c255 (the INDEX macro below).
-    auto declaredCount = [](const ConstantInfo* constantInfo)
-    {
-        return std::min<uint32_t>(constantInfo->registerCount.get(), 256 - std::min<uint32_t>(constantInfo->registerIndex.get(), 255));
-    };
-    for (size_t i = 1; i < float4Members.size(); i++)
-    {
-        const ConstantInfo* previous = float4Members[i - 1];
-        if (previous->registerIndex.get() + declaredCount(previous) > float4Members[i]->registerIndex.get())
-            throw std::runtime_error(fmt::format("Overlapping float4 constants: {} and {}",
-                reinterpret_cast<const char*>(constantTableData + previous->name),
-                reinterpret_cast<const char*>(constantTableData + float4Members[i]->name)));
-    }
-
     println("cbuffer {}ShaderConstants : register(b{}, space4)", isPixelShader ? "Pixel" : "Vertex", isPixelShader ? 1 : 0);
     out += "{\n";
 
-    for (const ConstantInfo* constantInfo : float4Members)
+    if (!constantsByAddress)
     {
-        const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
-        const uint32_t count = declaredCount(constantInfo);
-
-        print("\tfloat4 {}", constantName);
-
-        if (constantInfo->registerCount > 1)
-            print("[{}]", count);
-
-        println(" : packoffset(c{});", constantInfo->registerIndex.get());
-
-        if (constantInfo->registerCount > 1)
+        // NARUTO_RECOMP: the 256 registers as one array, each constant a macro
+        // on its registers. A relative read past the registers the constant
+        // table gives an array (a bone palette indexed by a0) reads the
+        // registers that follow, as on the console and as the address loads
+        // did, instead of indexing a member array out of its bounds, which
+        // SPIR-V leaves undefined (DXC then dropped vertex inputs).
+        out += "\tfloat4 g_Float4Constants[256] : packoffset(c0);\n";
+        out += "};\n\n";
+        for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
         {
-            uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
-            println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount,
-                (std::min)(tailCount - 1, count - 1));
+            const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
+                constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
+            if (constantInfo->registerSet != RegisterSet::Float4)
+                continue;
+            const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
+            const uint32_t reg = constantInfo->registerIndex.get();
+            if (reg > 255 || constantInfo->registerCount.get() == 0)
+                throw std::runtime_error(fmt::format("Float4 constant {} outside the registers: {} + {}", constantName, reg,
+                    constantInfo->registerCount.get()));
+            if (constantInfo->registerCount > 1)
+            {
+                // The registers a relative read may reach: to c223 in a pixel
+                // shader (as before), within the 256 registers in any case.
+                const uint32_t limit = isPixelShader && reg < 224 ? 224 : 256;
+                const uint32_t tailCount = limit - reg;
+                println("#define {0}(INDEX) select((INDEX) < {1}, g_Float4Constants[{2} + min(INDEX, {3})], 0.0)",
+                    constantName, tailCount, reg, tailCount - 1);
+            }
+            else
+            {
+                println("#define {} (g_Float4Constants[{}])", constantName, reg);
+            }
         }
+        out += "\n";
     }
+    else
+    {
+        for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
+        {
+            const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
+                constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
 
-    out += "};\n\n";
+            if (constantInfo->registerSet == RegisterSet::Float4)
+            {
+                const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
+
+                print("\tfloat4 {}", constantName);
+
+                if (constantInfo->registerCount > 1)
+                    print("[{}]", constantInfo->registerCount.get());
+
+                println(" : packoffset(c{});", constantInfo->registerIndex.get());
+
+                if (constantInfo->registerCount > 1)
+                {
+                    uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
+                    println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount, tailCount - 1);
+                }
+            }
+        }
+
+        out += "};\n\n";
+    }
 
     out += "cbuffer SharedConstants : register(b2, space4)\n";
     out += "{\n";

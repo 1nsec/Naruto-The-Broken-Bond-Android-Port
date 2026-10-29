@@ -63,14 +63,14 @@ class SamplerArrayTests(unittest.TestCase):
             self.assertIn(f'uint {name} : packoffset({slot});', text)
         self.assertIn('\tDEFINE_SHARED_CONSTANTS_LOW();\n\tDEFINE_SHARED_CONSTANTS_HIGH();\n', text)
 
-    def test_float4_array_stops_at_the_last_register(self):
-        # The constant block is 4096 bytes (c0..c255): an array declared past c255 keeps
-        # the registers inside it, and the members stay in register order.
-        text = self.translate([('g_Textures', 4, 1), ('g_Tail', 250, 10, 2), ('g_Head', 3, 1, 2)], 4)
-        block = text[text.index('cbuffer PixelShaderConstants'):text.index('cbuffer SharedConstants')]
-        self.assertIn('float4 g_Head : packoffset(c3);', block)
-        self.assertIn('float4 g_Tail[6] : packoffset(c250);', block)
-        self.assertLess(block.index('g_Head'), block.index('g_Tail'))
+    def test_float4_constants_are_registers_of_one_array(self):
+        # Each float4 constant is a macro on the 256 registers: a relative read past an
+        # array reads the registers after it (as on the console), never out of an array.
+        text = self.translate([('g_Textures', 4, 1), ('g_Tail', 250, 10, 2), ('g_Bones', 8, 2, 2), ('g_Head', 3, 1, 2)], 4)
+        self.assertIn('\tfloat4 g_Float4Constants[256] : packoffset(c0);', text)
+        self.assertIn('#define g_Head (g_Float4Constants[3])', text)
+        self.assertIn('#define g_Bones(INDEX) select((INDEX) < 216, g_Float4Constants[8 + min(INDEX, 215)], 0.0)', text)
+        self.assertIn('#define g_Tail(INDEX) select((INDEX) < 6, g_Float4Constants[250 + min(INDEX, 5)], 0.0)', text)
 
     def test_shared_constants_in_offset_order(self):
         # SPIR-V rejects a packoffset below the previous member's.
