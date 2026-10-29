@@ -179,6 +179,10 @@ workflow; its APK cannot play anything.
   test off, or the color attached and not written) instead of starting a new one; on a tiled GPU
   each pass stores its targets to memory and loads them back. The performance log counts these
   draws and why passes ended (another target, a barrier, another command, the batch's end).
+- **No busy threads:** SDL's event wait on Android never blocked (each pump queued a poll sentinel
+  that woke it), which kept a whole fast core busy; the poll sentinel is off, so the UI thread
+  sleeps until an event. Timed waits of the runtime no longer spin through their last fraction of a
+  millisecond, and a memory commit or a write watch hit no longer scans `/proc/self/maps`.
 - **Earlier submission:** a batch of 256 operations or more goes to the GPU where a draw starts a
   new render pass, so the GPU works on a frame while the rest of it is recorded, instead of waiting
   for the frame's end.

@@ -624,7 +624,7 @@ index 0000000..11c83e0
 +
 +}  // namespace rex
 diff --git a/src/core/memory_posix.cpp b/src/core/memory_posix.cpp
-index b52bf39..863f858 100644
+index b52bf39..3881af4 100644
 --- a/src/core/memory_posix.cpp
 +++ b/src/core/memory_posix.cpp
 @@ -53,8 +53,7 @@
@@ -637,7 +637,38 @@ index b52bf39..863f858 100644
  #endif
  
  namespace rex {
-@@ -432,6 +431,8 @@ bool QueryProtect(void* base_address, size_t& length, PageAccess& access_out) {
+@@ -190,7 +189,7 @@ static bool FindEntryForAddress(void* address, LinuxMapEntry& out_entry) {
+ }
+ 
+ // Check if [base, base+length) is fully covered by existing mappings (no gaps)
+-static bool IsRangeFullyMapped(void* base_address, size_t length) {
++[[maybe_unused]] static bool IsRangeFullyMapped(void* base_address, size_t length) {
+   if (!base_address || length == 0)
+     return false;
+ 
+@@ -304,12 +303,21 @@ void* AllocFixed(void* base_address, size_t length, AllocationType allocation_ty
+   if (errno == EEXIST && base_address &&
+       (allocation_type == AllocationType::kCommit ||
+        allocation_type == AllocationType::kReserveCommit)) {
++#if REX_PLATFORM_ANDROID
++    // mprotect fails with ENOMEM where the range is not fully mapped. Scanning
++    // /proc/self/maps (thousands of mappings on Android) for every commit took
++    // milliseconds of the guest threads' time.
++    if (mprotect(base_address, length, static_cast<int>(prot_requested)) == 0) {
++      return base_address;
++    }
++#else
+     // Verify the entire range is mapped before using mprotect
+     if (IsRangeFullyMapped(base_address, length)) {
+       if (mprotect(base_address, length, static_cast<int>(prot_requested)) == 0) {
+         return base_address;
+       }
+     }
++#endif
+   }
+ #endif
+ 
+@@ -432,6 +440,8 @@ bool QueryProtect(void* base_address, size_t& length, PageAccess& access_out) {
  FileMappingHandle CreateFileMappingHandle(const std::filesystem::path& path, size_t length,
                                            PageAccess access, bool commit) {
  #if REX_PLATFORM_ANDROID
@@ -754,10 +785,18 @@ index 1655695..05df6d2 100644
  
  }  // namespace rex
 diff --git a/src/core/threading_posix.cpp b/src/core/threading_posix.cpp
-index 9ac8d15..30e20b0 100644
+index 9ac8d15..ef27877 100644
 --- a/src/core/threading_posix.cpp
 +++ b/src/core/threading_posix.cpp
-@@ -270,8 +270,8 @@ static sem_t* RexCreateAnonymousSemaphore() {
+@@ -14,6 +14,7 @@ static_assert(REX_PLATFORM_LINUX || REX_PLATFORM_MAC, "This file is POSIX-only")
+ #include <signal.h>
+ 
+ #include <atomic>
++#include <algorithm>
+ #include <array>
+ #include <cerrno>
+ #include <cstddef>
+@@ -270,8 +271,8 @@ static sem_t* RexCreateAnonymousSemaphore() {
  class PosixConditionBase {
   public:
    PosixConditionBase() {
@@ -768,7 +807,7 @@ index 9ac8d15..30e20b0 100644
      pthread_mutexattr_t attr;
      if (pthread_mutexattr_init(&attr) == 0) {
        if (pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST) == 0) {
-@@ -290,7 +290,7 @@ class PosixConditionBase {
+@@ -290,7 +291,7 @@ class PosixConditionBase {
    WaitResult Wait(std::chrono::milliseconds timeout) {
      bool executed;
      auto predicate = [this] { return this->signaled(); };
@@ -777,7 +816,7 @@ index 9ac8d15..30e20b0 100644
      auto native_mutex = static_cast<pthread_mutex_t*>(mutex_.native_handle());
      int lock_result = pthread_mutex_lock(native_mutex);
      if (lock_result == EOWNERDEAD) {
-@@ -344,7 +344,7 @@ class PosixConditionBase {
+@@ -344,7 +345,7 @@ class PosixConditionBase {
        locks.reserve(handles.size());
  
        for (size_t i = 0; i < handles.size(); ++i) {
@@ -786,6 +825,41 @@ index 9ac8d15..30e20b0 100644
          auto native_mutex = static_cast<pthread_mutex_t*>(handles[i]->mutex_.native_handle());
          int result = pthread_mutex_trylock(native_mutex);
          if (result == 0 || result == EOWNERDEAD) {
+@@ -414,9 +415,18 @@ class PosixConditionBase {
+       if (timeout == std::chrono::milliseconds::max()) {
+         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+       } else {
++#if REX_PLATFORM_ANDROID
++        // In microseconds: the last partial millisecond truncated to a zero
++        // sleep, and the wait spun until its end (a third of a core on the
++        // audio worker).
++        auto remaining = std::chrono::duration_cast<std::chrono::microseconds>(end_time - now);
++        std::this_thread::sleep_for(std::clamp(remaining, std::chrono::microseconds(100),
++                                               std::chrono::microseconds(1000)));
++#else
+         auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - now);
+         auto sleep_time = std::min(remaining, std::chrono::milliseconds(1));
+         std::this_thread::sleep_for(sleep_time);
++#endif
+       }
+     }
+   }
+@@ -1106,8 +1116,15 @@ std::chrono::milliseconds ComputeAlertableWaitTimeout(
+   if (deadline == std::chrono::steady_clock::time_point::max()) {
+     return kAlertablePollSlice;
+   }
++#if REX_PLATFORM_ANDROID
++  // Rounded up: a remaining fraction of a millisecond made a zero timeout,
++  // and the alertable wait spun until its deadline.
++  auto remaining = std::chrono::ceil<std::chrono::milliseconds>(
++      deadline - std::chrono::steady_clock::now());
++#else
+   auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+       deadline - std::chrono::steady_clock::now());
++#endif
+   if (remaining <= std::chrono::milliseconds::zero()) {
+     return std::chrono::milliseconds::zero();
+   }
 diff --git a/src/core/timer_queue.cpp b/src/core/timer_queue.cpp
 index 5cfea05..b029b60 100644
 --- a/src/core/timer_queue.cpp
@@ -891,6 +965,58 @@ index 5cfea05..b029b60 100644
  };
  
  rex::thread::TimerQueue timer_queue_;
+diff --git a/src/system/mmio_handler.cpp b/src/system/mmio_handler.cpp
+index 2b93005..3efe8cb 100644
+--- a/src/system/mmio_handler.cpp
++++ b/src/system/mmio_handler.cpp
+@@ -406,13 +406,22 @@ bool MMIOHandler::ExceptionCallback(arch::Exception* ex) {
+     // clears the watch we just hit).
+     // Do this under the lock so we don't introduce another race condition.
+     auto lock = global_critical_region_.Acquire();
+-    memory::PageAccess cur_access;
+-    size_t page_length = memory::page_size();
+-    memory::QueryProtect(fault_host_address, page_length, cur_access);
+-    if (cur_access != memory::PageAccess::kNoAccess &&
+-        (!is_write || cur_access != memory::PageAccess::kReadOnly)) {
+-      // Another thread has cleared this watch. Abort.
+-      return true;
++#if REX_PLATFORM_ANDROID
++    // QueryProtect scans /proc/self/maps, milliseconds with the thousands of
++    // mappings of an Android process, on every write watch hit. A write goes
++    // straight to the callback, which finds whether the page is still watched
++    // and restores the access of a page another thread unwatched meanwhile.
++    if (!is_write)
++#endif
++    {
++      memory::PageAccess cur_access;
++      size_t page_length = memory::page_size();
++      memory::QueryProtect(fault_host_address, page_length, cur_access);
++      if (cur_access != memory::PageAccess::kNoAccess &&
++          (!is_write || cur_access != memory::PageAccess::kReadOnly)) {
++        // Another thread has cleared this watch. Abort.
++        return true;
++      }
+     }
+     // The address is not found within any range, so either a write watch or an
+     // actual access violation.
+diff --git a/src/system/xmemory.cpp b/src/system/xmemory.cpp
+index 76cc877..e616db9 100644
+--- a/src/system/xmemory.cpp
++++ b/src/system/xmemory.cpp
+@@ -609,7 +609,13 @@ bool Memory::AccessViolationCallback(std::unique_lock<std::recursive_mutex> glob
+           reinterpret_cast<uintptr_t>(host_address) & ~(uintptr_t(host_page_size - 1));
+       if (rex::memory::Protect(reinterpret_cast<void*>(page_base), host_page_size,
+                                rex::memory::PageAccess::kReadWrite, nullptr)) {
++#if REX_PLATFORM_ANDROID
++        // The usual case on Android, where the access violation handler does not
++        // query the protection first: another thread unwatched the page meanwhile.
++        REXSYS_DEBUG(
++#else
+         REXSYS_WARN(
++#endif
+             "Recovered stale physical page protection for guest {:08X} (host {:016X}, "
+             "guest_protect {:08X})",
+             virtual_address, static_cast<uint64_t>(page_base), guest_protect);
 diff --git a/src/ui/CMakeLists.txt b/src/ui/CMakeLists.txt
 index 5bd3dc5..d51e1b8 100644
 --- a/src/ui/CMakeLists.txt

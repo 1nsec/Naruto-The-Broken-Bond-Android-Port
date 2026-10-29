@@ -138,10 +138,27 @@ inline bool QuietRecords() {
   return value;
 }
 
+#if defined(__ANDROID__) && defined(__aarch64__)
+// The generic timer's virtual counter, which the kernel lets user space read
+// (the vDSO's clock): a profile timer runs around each draw on several
+// threads, and clock_gettime took a large share of their time on a
+// Snapdragon 865.
+inline uint64_t Now() {
+  static const uint64_t frequency = [] {
+    uint64_t hz;
+    asm volatile("mrs %0, cntfrq_el0" : "=r"(hz));
+    return hz ? hz : 19200000;
+  }();
+  uint64_t ticks;
+  asm volatile("isb\n mrs %0, cntvct_el0" : "=r"(ticks)::"memory");
+  return ticks / frequency * 1000000000ull + ticks % frequency * 1000000000ull / frequency;
+}
+#else
 inline uint64_t Now() {
   return uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
       std::chrono::steady_clock::now().time_since_epoch()).count());
 }
+#endif
 inline void Add(Slot slot, uint64_t ns) {
   slots[slot].ns.fetch_add(ns, std::memory_order_relaxed);
   slots[slot].calls.fetch_add(1, std::memory_order_relaxed);
