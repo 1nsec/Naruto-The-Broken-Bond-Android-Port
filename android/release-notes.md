@@ -11,7 +11,8 @@ Alpha of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the re
 - A built-in or connected controller (Retroid Pocket, Bluetooth, USB) is **player 1**; the on-screen controller no longer takes its place.
 - **Fewer stutters:** graphics the driver is still preparing are skipped for a moment instead of freezing the game (Settings > Skip unready graphics), and prepared graphics are kept for the next sessions, so an area stutters only the first time it is played.
 - The game always fills the screen (no status or navigation bar).
-- Settings > **Performance log**: records the frame times so that a problem report shows where the game slows down.
+- Settings > **Performance log** (on by default during the alpha): records the frame times, so that a problem report shows where the game slows down.
+- Cutscenes no longer flash black with the FPS counter on: while the game is slow to show a frame, the last image stays on screen.
 
 ## Requirements
 
@@ -31,6 +32,6 @@ Saves, settings and logs are in `Android/data/org.brokenbond.port/files/`. A new
 
 ## Reporting problems
 
-In the launcher, tap **Save logs for a problem report** (turn on Settings > Performance log first if the problem is slowness), and open an issue with the zip it saves in Downloads and a few words about what happened.
+In the launcher, tap **Save logs for a problem report** and open an issue with the zip it saves in Downloads and a few words about what happened.
 
 Building it yourself, controls and known limitations: [docs/android.md](https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port/blob/main/docs/android.md).

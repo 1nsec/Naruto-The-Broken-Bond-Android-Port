@@ -31,6 +31,7 @@ import java.io.File;
 public class GameActivity extends SDLActivity implements InputManager.InputDeviceListener {
     private static final String TAG = "narutobb";
     private static final String TURNIP_LIBRARY = "libvulkan_freedreno.so";
+    private static final int KEPT_PERFORMANCE_RUNS = 5;
     // The disc image stays open for the life of the process: the runtime maps it.
     private static ParcelFileDescriptor isoDescriptor;
     private static String gameDataRoot;
@@ -50,6 +51,7 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
             Os.setenv("TMPDIR", getCacheDir().getAbsolutePath(), true);
             setUpGpuDriver();
             setUpShaderCaches();
+            setUpPerformanceLog(data);
         } catch (ErrnoException e) {
             Log.e(TAG, "setenv failed", e);
         }
@@ -138,6 +140,36 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
         Os.setenv("BROKENBOND_PIPELINE_LIST", new File(folder, "pipelines.list").getAbsolutePath(), true);
         Os.setenv("MESA_SHADER_CACHE_DIR", mesa.getAbsolutePath(), true);
         Os.setenv("MESA_SHADER_CACHE_MAX_SIZE", "1G", true);
+    }
+
+    /**
+     * Settings > Performance log (on by default in the alphas): the game writes
+     * one line per second of play to pipeline-runs/<time>/performance.csv
+     * (src/gpu/diagnostics/perf_log.h), which Save logs includes. The newest
+     * runs are kept.
+     */
+    private void setUpPerformanceLog(File data) throws ErrnoException {
+        Os.unsetenv("REX_NATIVE_FRAME_DIR");
+        Os.unsetenv("REX_NATIVE_PERF_LOG");
+        if (!Storage.prefs(this).getBoolean(Storage.KEY_PERF_LOG, true)) return;
+        File runs = new File(data, "pipeline-runs");
+        File[] old = runs.listFiles(File::isDirectory);
+        if (old != null && old.length >= KEPT_PERFORMANCE_RUNS) {
+            java.util.Arrays.sort(old, java.util.Comparator.comparingLong(File::lastModified));
+            for (int i = 0; i <= old.length - KEPT_PERFORMANCE_RUNS; ++i) deleteTree(old[i]);
+        }
+        File run = new File(runs, new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+                .format(new java.util.Date()));
+        if (!run.mkdirs()) return;
+        Os.setenv("REX_NATIVE_FRAME_DIR", run.getAbsolutePath(), true);
+        Os.setenv("REX_NATIVE_PERF_LOG", "1", true);
+    }
+
+    private static void deleteTree(File file) {
+        File[] children = file.listFiles();
+        if (children != null) for (File child : children) deleteTree(child);
+        //noinspection ResultOfMethodCallIgnored
+        file.delete();
     }
 
     /** Hides the status and navigation bars; a swipe from an edge shows them for a moment. */

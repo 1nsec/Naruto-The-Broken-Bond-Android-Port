@@ -147,8 +147,9 @@ first.
 
 Lower the render resolution in **Settings**, keep the frame rate at 30 FPS, and leave
 anti-aliasing off. The first time an area is played it can stutter while its graphics are
-prepared; they are kept for the next sessions. To report slowness, turn on **Settings >
-Performance log**, play the slow part, and send the zip of **Save logs for a problem report**.
+prepared; they are kept for the next sessions. To report slowness, play the slow part and send
+the zip of **Save logs for a problem report**: during the alpha it includes a performance log
+(Settings > Performance log).
 </details>
 
 <details>

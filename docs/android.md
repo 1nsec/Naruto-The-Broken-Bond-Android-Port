@@ -162,9 +162,10 @@ workflow; its APK cannot play anything.
   area each was first drawn in). The next sessions prepare them in the background from the start,
   and those of an area while its loading screen is up, as the PC version does with the list built
   from its test boots (the APK is built without one).
-- **Performance log** (Settings): writes `pipeline-runs/<time>/performance.csv` in the data folder
-  (one line per second: frame times, stutters, where the render thread spent its time, what the
-  pipelines did). **Save logs for a problem report** includes the newest three.
+- **Performance log** (Settings, on by default during the alpha): writes
+  `pipeline-runs/<time>/performance.csv` in the data folder (one line per second: frame times,
+  stutters, where the render thread spent its time, what the pipelines did; the newest five
+  sessions are kept). **Save logs for a problem report** includes the newest three.
 
 ### Files
 

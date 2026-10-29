@@ -42,7 +42,7 @@
     <string name="setting_transparency_aa">Transparency anti-aliasing</string>
     <string name="setting_async_shaders">Skip unready graphics (fewer stutters)</string>
     <string name="setting_show_fps">Show FPS</string>
-    <string name="setting_performance_log">Performance log (saved with the logs for a problem report)</string>
+    <string name="setting_performance_log">Performance log (on during the alpha; saved with the logs for a problem report)</string>
     <string name="setting_language">Game language</string>
     <string name="setting_skip_intros">Skip intro videos</string>
     <string name="setting_title_screen">PC title screen</string>

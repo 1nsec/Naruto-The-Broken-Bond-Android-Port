@@ -97,10 +97,18 @@ bool ReplaceFile(const std::string& path, const uint8_t* bytes, size_t size) {
 
 // The cache's data into path.
 bool WritePipelineCache(VkDevice device, VkPipelineCache cache, const std::string& path, size_t& written) {
+  // The asynchronous threads may add pipelines between the size and the data
+  // (VK_INCOMPLETE): room for some more, and another try.
+  std::vector<uint8_t> file;
   size_t size = 0;
-  if (vkGetPipelineCacheData(device, cache, &size, nullptr) != VK_SUCCESS || !size) return false;
-  std::vector<uint8_t> file(kPipelineCacheHeader + size);
-  if (vkGetPipelineCacheData(device, cache, &size, file.data() + kPipelineCacheHeader) != VK_SUCCESS) return false;
+  VkResult result = VK_INCOMPLETE;
+  for (int attempt = 0; attempt < 4 && result == VK_INCOMPLETE; ++attempt) {
+    if (vkGetPipelineCacheData(device, cache, &size, nullptr) != VK_SUCCESS || !size) return false;
+    size += size / 8 + (size_t(1) << 20);
+    file.resize(kPipelineCacheHeader + size);
+    result = vkGetPipelineCacheData(device, cache, &size, file.data() + kPipelineCacheHeader);
+  }
+  if (result != VK_SUCCESS) return false;
   file.resize(kPipelineCacheHeader + size);
   const uint64_t bytes = size, hash = Fnv1a64(file.data() + kPipelineCacheHeader, size);
   std::memcpy(file.data(), kPipelineCacheMagic, 4);
