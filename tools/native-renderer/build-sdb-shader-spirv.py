@@ -125,11 +125,13 @@ def check(entry: dict, interface: dict, text: str):
             broken.append('vertex-inputs-undeclared')
         if any(t != 'uint4' for t in inputs.values()) or any(kind != 'uint4' for _, kind, _ in declared):
             broken.append('vertex-inputs-type')
-        # DXC removes an input the module does not read. The fork's shaders read every
-        # element they declare, so one missing means that its decode became undefined (as
-        # an element descriptor read outside its array did).
-        if declared_locations - set(inputs):
-            broken.append('vertex-inputs-unread')
+        # DXC removes an input whose value the module never uses (the instancing shaders
+        # fetch POSITION1 into a register they overwrite: the Xenos fetch only set up the
+        # vertex index there). MakeGraphicsPipeline binds only the locations the module
+        # reads, so such an element is left out of the pipeline.
+        unread = sorted(declared_locations - set(inputs))
+        if unread:
+            entry['vertex_inputs_unread'] = unread
         if interface['spec_constants']:
             broken.append('vertex-spec-constants')
     return broken
@@ -222,6 +224,7 @@ summary = dict(
                     for stage in ('vs', 'ps')},
     spec_masks={stage: sorted({r['mask'] for r in results if r['stage'] == stage}) for stage in ('vs', 'ps')},
     vertex_input_locations={s: sorted(v) for s, v in sorted(locations.items())},
+    vertex_shaders_with_unread_inputs=sum(1 for r in ok if r.get('vertex_inputs_unread')),
     locations_shared_in_the_corpus={loc: sorted(s) for loc, s in sorted(semantics.items()) if len(s) > 1},
     specialization_route='shared' if not broken and all(r['result'] == 'ok' for r in results) else None)
 report = dict(started_at_utc=started.isoformat(), finished_at_utc=finished.isoformat(), cache=str(cache),
