@@ -2,9 +2,9 @@
 
 This repository builds the port as an Android app: the same recompiled game, its native renderer
 on Vulkan, and the PC options menu, with a launcher and on-screen controls. It is an **alpha**:
-the APK is built and packaged in CI, but it has not been tested on a phone yet, so expect crashes
-and graphics problems. Logs from real devices are what moves it forward (see
-[Reporting problems](#reporting-problems)).
+it starts and runs on a Retroid Pocket 5 (Snapdragon 865, with the bundled Turnip driver), but
+expect crashes, graphics problems and slowdowns. Logs from real devices are what moves it forward
+(see [Reporting problems](#reporting-problems)).
 
 > **No game files are included, and none are downloaded.** The game code is generated from your
 > own `default.xex` and the shaders from your own `xeshader.sdb`, on your PC. The app reads your
@@ -125,8 +125,8 @@ workflow; its APK cannot play anything.
 3. **Settings** has the options worth setting before the first start (render resolution, frame
    rate, anti-aliasing, language, on-screen controls). They are saved to `naruto.toml`; in game,
    PC Options has all of them.
-4. Tap **Play**. The first start takes a while, and new areas can stutter once while their
-   pipelines are created.
+4. Tap **Play**. The first start takes a while, and new areas can stutter the first time they are
+   played while their pipelines are created (see [Performance](#performance)).
 
 ### Controls
 
@@ -139,9 +139,27 @@ workflow; its APK cannot play anything.
   (Back + Start). Opacity and size are in Settings. The icons are
   [Material Symbols](https://github.com/google/material-design-icons) (Apache License 2.0; the
   license is in the app's `assets/licenses`).
-- **Controllers:** Bluetooth and USB controllers work through SDL3 (Xbox, PlayStation, Switch Pro
-  and most Android gamepads). The on-screen controller hides while one is connected.
+- **Controllers:** Bluetooth and USB controllers, and the controls built into handhelds such as the
+  Retroid Pocket, work through SDL3 (Xbox, PlayStation, Switch Pro and most Android gamepads).
+  The on-screen controller hides while one is connected and leaves the game's controller list, so
+  a physical controller is always player 1. **Back + Start** opens PC Options.
 - **Back gesture:** opens a menu to continue, hide or show the on-screen controls, or quit.
+
+### Performance
+
+- **Skip unready graphics** (Settings, on by default; PC Options > Graphics): a draw whose graphics
+  pipeline the driver is still compiling is left out of its frame for a moment and the pipeline is
+  compiled on other cores, instead of the frame waiting for it. Phone drivers compile slowly, so
+  without it every new effect freezes the game for a moment.
+- **Pipelines kept between sessions:** the renderer creates every pipeline through a Vulkan
+  pipeline cache saved in the app's private storage (`files/shader-cache/vulkan-pipelines.bin`,
+  every 20 seconds while new ones are made, and when the game closes). The next sessions make the
+  same pipelines from it in a fraction of the time, so an area stutters only the first time it is
+  played. A file made by another driver (Settings > GPU driver) is ignored and replaced. Mesa's own
+  disk cache for Turnip is pointed at `files/shader-cache/mesa`.
+- **Performance log** (Settings): writes `pipeline-runs/<time>/performance.csv` in the data folder
+  (one line per second: frame times, stutters, where the render thread spent its time, what the
+  pipelines did). **Save logs for a problem report** includes the newest three.
 
 ### Files
 
@@ -165,7 +183,7 @@ the same live.
 
 ## Known limitations
 
-- Untested on hardware so far: the first starts on real phones will find problems.
+- Tested on few devices so far (a Retroid Pocket 5): other phones will find other problems.
 - Adreno only (see [Phone requirements](#phone-requirements)).
 - Leaving the app pauses the game; switching back recreates the Vulkan surface, and this path is
   the least tested. Quitting from the back menu is the safest way out.
@@ -185,7 +203,10 @@ the same live.
   `src/platform/win32_posix.cpp` (files, events, timers, resources), the controller code uses SDL
   (`src/pc/pad_input_sdl.cpp`), and crashes are logged by `src/pc/crash_handler_posix.cpp`.
 - **Renderer:** the native renderer's Vulkan backend presents to the Android window (RGBA
-  swapchain, surface recreated after the app is paused); the D3D12 backend is not built.
+  swapchain, surface recreated after the app is paused) and draws the PC overlay (PC Options, the
+  FPS counter, the PC title screen) over each frame (`src/gpu/backend/vulkan/overlay.inc`, with
+  `src/gpu/backend/overlay_pass.hlsl` built into the shader cache), and black frames under it while
+  the game shows nothing; the D3D12 backend is not built.
 - **App:** `android/` holds the launcher (`LauncherActivity`), the settings screen, the game
   activity (SDL3's `SDLActivity`, which loads `libmain.so`) and the on-screen controller, which
   is an SDL virtual gamepad (`src/android/touch_controller.cpp`).

@@ -111,7 +111,7 @@ textures need a format their Vulkan drivers lack.
 | **Buttons** | Each shows its action: **X** attack (the big one), **Y** heavy attack, **A** jump, **B** block, **RB** kunai, **RT** sprint, **LT** jutsus, **LB** inventory; the small badge names the pad button |
 | **Sticks** | Touch the lower left to move and the lower middle to turn the camera; each stick appears where your thumb lands |
 | **Gear button** | Opens **PC Options** (Back + Start), with every graphics and game option |
-| **Controllers** | Bluetooth and USB controllers work (Xbox, PlayStation, Switch Pro and most Android gamepads); the on-screen controls hide while one is connected |
+| **Controllers** | Bluetooth and USB controllers and the built-in controls of handhelds like the Retroid Pocket work (Xbox, PlayStation, Switch Pro and most Android gamepads) and are player 1; the on-screen controls hide while one is connected; **Back + Start** opens PC Options |
 | **Back gesture** | Opens a menu to continue, hide or show the on-screen controls, or quit |
 
 The opacity and size of the on-screen controls are in the launcher's **Settings**.
@@ -146,8 +146,9 @@ first.
 <summary><b>It runs slowly or gets hot.</b></summary>
 
 Lower the render resolution in **Settings**, keep the frame rate at 30 FPS, and leave
-anti-aliasing off. The first time an area loads it can stutter once while its graphics are
-prepared.
+anti-aliasing off. The first time an area is played it can stutter while its graphics are
+prepared; they are kept for the next sessions. To report slowness, turn on **Settings >
+Performance log**, play the slow part, and send the zip of **Save logs for a problem report**.
 </details>
 
 <details>
