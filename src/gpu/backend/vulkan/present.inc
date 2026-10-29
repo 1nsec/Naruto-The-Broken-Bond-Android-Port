@@ -133,6 +133,7 @@ void Backend::State::ReleaseOutput() {
   if (acquire_fence) vkDestroyFence(vulkan->vk, acquire_fence, nullptr);
   acquire_fence = VK_NULL_HANDLE;
   stages = {}; effects = {};
+  ReleaseOverlay();
   output_pipelines.clear();
   for (auto& [name, pipeline] : compute_pipelines) vkDestroyPipeline(vulkan->vk, pipeline, nullptr);
   compute_pipelines.clear();
@@ -253,6 +254,7 @@ bool Backend::StageFront(uint32_t key, uint32_t& slot, std::string& evidence) {
 
 bool Backend::State::EnsureOutput(std::string& evidence) {
   if (output_layouts[2]) return true;
+  EnsurePipelineCache();
   // 0: gamma/present; 1: SDK graphics effects; 2: FXAA compute.
   for (unsigned kind = 0; kind < 3; ++kind) {
     std::vector<VkDescriptorSetLayoutBinding> bindings;
@@ -356,7 +358,7 @@ bool Backend::State::OutputPass(OutputImage& input, VkImage output, SyncState& o
       info.stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
       info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT; info.stage.module = made; info.stage.pName = "main";
       info.layout = output_layouts[2];
-      result = vkCreateComputePipelines(vulkan->vk, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
+      result = vkCreateComputePipelines(vulkan->vk, pipeline_cache, 1, &info, nullptr, &pipeline);
       vkDestroyShaderModule(vulkan->vk, made, nullptr);
       if (result != VK_SUCCESS) return GraphicsError(evidence, "native-output-compute-pipeline", result);
     }
@@ -375,7 +377,8 @@ bool Backend::State::OutputPass(OutputImage& input, VkImage output, SyncState& o
       desc.state[0] = 0x00010001; desc.state[1] = 15; desc.state[8] = 1; desc.state[18] = 1;
       // SDK rectangle uses a strip; the gamma shader uses a full-screen triangle.
       desc.state[10] = kind == 1 ? 1 : 0;
-      const auto made = MakeGraphicsPipeline(vulkan->vk, output_layouts[kind], desc, {}, pipeline, format, true);
+      const auto made = MakeGraphicsPipeline(vulkan->vk, output_layouts[kind], desc, {}, pipeline, format, true,
+                                             pipeline_cache);
       if (!made.ok) return GraphicsError(evidence, made.reason, VkResult(made.code));
     }
     batch.retained.push_back(pipeline);

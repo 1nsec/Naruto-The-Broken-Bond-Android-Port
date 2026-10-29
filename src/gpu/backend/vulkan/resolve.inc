@@ -24,7 +24,7 @@ bool Backend::State::ResolvePass(Surface& source, Texture& dest, int32_t sample,
     desc.ps = PassShader(name, ShaderStage::kPixel);
     desc.state[0] = 0x00010001; desc.state[1] = 15; desc.state[8] = 1; desc.state[18] = 1;
     const auto made = MakeGraphicsPipeline(vulkan->vk, resolve_layout, desc, {}, pipeline,
-        depth ? VK_FORMAT_R32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM, true);
+        depth ? VK_FORMAT_R32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM, true, pipeline_cache);
     if (!made.ok) return GraphicsError(evidence, made.reason, VkResult(made.code));
   }
   auto resources = std::make_shared<GraphicsResources>(); resources->device = vulkan->vk;

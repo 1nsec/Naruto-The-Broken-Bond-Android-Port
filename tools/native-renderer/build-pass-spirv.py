@@ -1,5 +1,5 @@
 """The SPIR-V of the passes of the native renderer besides the game's shaders, for its
-Vulkan backend: the presentation with the gamma ramp and the resolves
+Vulkan backend: the presentation with the gamma ramp, the resolves and the PC overlay
 (app/src/gpu/backend/*.hlsl), FXAA (backend/fxaa) and the output effects of the SDK
 (backend/sdk_shaders/vulkan_spirv).
 
@@ -43,7 +43,7 @@ MODELS = {'vs': 'vertex', 'ps': 'fragment', 'cs': 'compute'}
 # The pipeline layouts of the passes: the descriptor type of each binding of set 0 (with
 # the format of a storage image, the bytes of a uniform buffer) and the push constant
 # range [offset, end) of each stage. The sampler of fxaa and effect is the static
-# sampler of D3D12: linear, clamp.
+# sampler of D3D12: linear, clamp. The overlay's are its two static samplers, linear and point.
 LAYOUTS = {
     'present': dict(bindings={0: ('sampled-image', None), 1: ('uniform-buffer', 4096)},
                     push_constants=dict(fragment=(0, 32))),
@@ -52,6 +52,8 @@ LAYOUTS = {
                  push_constants=dict(compute=(0, 16))),
     'effect': dict(bindings={0: ('sampled-image', None), 1: ('sampler', 'linear-clamp')},
                    push_constants=dict(vertex=(0, 16), fragment=(16, 48))),
+    'overlay': dict(bindings={0: ('sampled-image', None), 1: ('sampler', 'linear-clamp'), 2: ('sampler', 'point-clamp')},
+                    push_constants=dict(vertex=(0, 16), fragment=(0, 16))),
 }
 SDK_HEADERS = 'sdk_shaders/vulkan_spirv'
 FXAA_SOURCES = ['fxaa/fxaa.hlsli', 'fxaa/FXAA3_11.h']
@@ -76,6 +78,8 @@ PASSES = [
     hlsl('depth_resolve_ms_ps', 'resolve', 'ps', 'depth_resolve.hlsl', 'ps_main', ['MSAA=1']),
     hlsl('depth_resolve_single_ps', 'resolve', 'ps', 'depth_resolve.hlsl', 'ps_main', ['MSAA=0']),
     hlsl('sample_resolve_ps', 'resolve', 'ps', 'sample_resolve.hlsl', 'ps_main'),
+    hlsl('overlay_vs', 'overlay', 'vs', 'overlay_pass.hlsl', 'vs_main'),
+    hlsl('overlay_ps', 'overlay', 'ps', 'overlay_pass.hlsl', 'ps_main'),
     hlsl('fxaa_cs', 'fxaa', 'cs', 'fxaa/fxaa.cs.hlsl', 'main', includes=FXAA_SOURCES),
     hlsl('fxaa_extreme_cs', 'fxaa', 'cs', 'fxaa/fxaa_extreme.cs.hlsl', 'main', includes=FXAA_SOURCES),
     sdk('guest_output_triangle_strip_rect_vs', 'vs'),

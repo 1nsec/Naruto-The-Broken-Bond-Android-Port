@@ -10,7 +10,8 @@
 // command list goes to the queue only through FailureChannel::Authorize.
 //
 // Draws and resolves are in draw.inc/resolve.inc; presentation and its WSI
-// retirement are in present.inc/output.inc. They share this batch lifetime.
+// retirement are in present.inc/output.inc, the PC overlay over the presented
+// image in overlay.inc. They share this batch lifetime.
 #include "gpu/backend/backend.h"
 #include "gpu/backend/lifecycle.h"
 #include "gpu/backend/pipeline_set.h"
@@ -24,18 +25,25 @@
 #include "gpu/common/title_loading.h"
 #include "gpu/d3d/init/initializer_services.h"
 #include "gpu/diagnostics/profile.h"
+#include "gpu/overlay.h"
 #include "gpu/shaders/package.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <filesystem>
 #include <functional>
+#include <thread>
 #include <unordered_map>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #ifdef __ANDROID__
+#include <android/log.h>  // The overlay's state, once (overlay.inc).
 #include <SDL3/SDL.h>  // The ANativeWindow of the SDL window (present.inc, output.inc).
 #endif
 
@@ -280,6 +288,7 @@ class Backend final : public gpu::Backend {
   bool StageFront(uint32_t, uint32_t& slot, std::string& evidence) override;
   bool Present(uint32_t, bool, std::vector<uint8_t>& bgra, uint32_t& width, uint32_t& height,
                std::string& evidence) override;
+  bool PresentIdle(std::string& evidence) override;
   std::string ResourceCounts() override;
   bool ReleaseTexture(uint32_t key, std::string& evidence) override;
   bool ReleaseSampled(uint32_t address, std::string& evidence) override;
@@ -569,8 +578,63 @@ struct Backend::State {
                   const std::array<uint32_t, 12>& constants, VkBuffer ramp, VkDeviceSize ramp_offset, std::string& evidence);
   bool OutputEffects(OutputImage& source, BackImage& back, uint32_t x, uint32_t y, uint32_t width, uint32_t height,
                      VkBuffer ramp, VkDeviceSize ramp_offset, std::string& evidence);
+  // The steps of Present and PresentIdle: the next back image (the open batch
+  // submitted, the swapchain made for the window), kSkipped with the evidence
+  // when there is no window to present to; then, once the image is drawn in
+  // the open batch, the transition to presentation, the submission and the
+  // present. sequence: the batch's.
+  enum class Acquired { kImage, kSkipped, kFailed };
+  Acquired AcquireBack(uint32_t& index, std::vector<int32_t>& results, std::string& evidence);
+  bool QueuePresent(uint32_t index, uint64_t& sequence, VkResult& present_result, std::string& evidence);
+  // The PC overlay (gpu/overlay.h) over the back image, last before its
+  // presentation (overlay.inc). An overlay the device cannot draw is left out
+  // (overlay_status says why) and the game goes on; false only when the batch
+  // failed.
+  struct OverlayTexture {
+    std::weak_ptr<const overlay::Texture> source;
+    std::shared_ptr<VmaImage> image;
+    std::shared_ptr<GraphicsResources> objects;  // Its view and the pool of its descriptor set.
+    VkDescriptorSet set{};
+    SyncState state;
+  };
+  VkDescriptorSetLayout overlay_set{};
+  VkPipelineLayout overlay_layout{};
+  std::shared_ptr<GraphicsResources> overlay_samplers;  // Linear, point.
+  std::map<VkFormat, std::shared_ptr<GraphicsPipeline>> overlay_pipelines;
+  std::unordered_map<const overlay::Texture*, OverlayTexture> overlay_textures;
+  std::shared_ptr<const overlay::Texture> overlay_white;  // Bound for the color-only draws.
+  std::string overlay_status = "none";
+  uint64_t overlay_frames = 0;
+  bool overlay_failed = false;
+  bool EnsureOverlay(VkFormat format, std::shared_ptr<GraphicsPipeline>& pipeline, const char*& reason, VkResult& result);
+  bool PrepareOverlayTexture(const overlay::Texture& texture, OverlayTexture& gpu, const char*& reason, VkResult& result);
+  bool DrawOverlay(BackImage& back, std::string& evidence);
+  void OverlayFailed(const char* reason, VkResult result);
+  void ReleaseOverlay();
   void ReleaseOutput();
   std::map<std::string, PipelineSet::Pipeline> resolve_pipelines;
+  // The pipeline cache every pipeline is created through, kept on disk
+  // between sessions when the app names a file (pipeline_cache.inc).
+  VkPipelineCache pipeline_cache{};
+  bool pipeline_cache_tried = false;
+  std::string pipeline_cache_path, pipeline_cache_status = "none";
+  size_t pipeline_cache_loaded = 0;
+  std::atomic<uint64_t> pipelines_created{0};  // Graphics pipelines made, by the draws and the asynchronous threads.
+  uint64_t pipelines_saved = 0;                // pipelines_created at the last save.
+  std::chrono::steady_clock::time_point pipeline_cache_saved_at{};
+  std::thread pipeline_cache_writer;
+  std::atomic<bool> pipeline_cache_writing{false};
+  std::atomic<uint64_t> pipeline_cache_saves{0}, pipeline_cache_saved_bytes{0};
+  ~State() {
+    if (pipeline_cache_writer.joinable()) pipeline_cache_writer.join();
+  }
+  void EnsurePipelineCache();
+  // Saves when pipelines were created since the last save: on its own thread,
+  // or before returning (wait).
+  void SavePipelineCache(bool wait);
+  void MaybeSavePipelineCache();  // At a present: every kPipelineCacheSaveInterval at most.
+  void ReleasePipelineCache();
+  std::string PipelineCacheSummary() const;
   std::array<uint8_t, 4096> vs_block{}, ps_block{};
   bool EnsureGraphics(std::string& evidence);
   bool ResolvePass(Surface& source, Texture& dest, int32_t sample, std::string& evidence);
@@ -599,6 +663,8 @@ struct Backend::State {
 #include "gpu/backend/vulkan/resolve.inc"
 #include "gpu/backend/vulkan/present.inc"
 #include "gpu/backend/vulkan/output.inc"
+#include "gpu/backend/vulkan/overlay.inc"
+#include "gpu/backend/vulkan/pipeline_cache.inc"
 
 #if defined(NATIVE_RENDERER_ENGINE_FAULT_TEST)
 class Backend::State::Hooks final : public CompletionTestHooks {
@@ -1144,6 +1210,7 @@ bool Backend::Shutdown(std::string& evidence) {
   state_->retired_buffers.clear();
   state_->pipeline_set.Clear();
   state_->ReleaseGraphics();
+  state_->ReleasePipelineCache();  // Saved first, when the session created pipelines.
   state_->surfaces.clear();
   state_->textures.clear();
   state_->sampled.clear();
@@ -1441,10 +1508,11 @@ std::string Backend::PipelineSummary() {
   return state_->pipeline_set.Summary() + fmt::format(
       ",\"vulkan_draws\":{},\"draw_descriptor_pools\":{},\"draw_descriptor_groups\":{},\"draw_image_views\":{},"
       "\"draw_samplers\":{},\"draw_framebuffers\":{},\"draw_constant_bytes\":{},\"draw_render_passes\":{},"
-      "\"draw_pipeline_binds\":{},\"draw_descriptor_binds\":{},\"draw_set_allocations\":{}",
+      "\"draw_pipeline_binds\":{},\"draw_descriptor_binds\":{},\"draw_set_allocations\":{},\"vulkan_skipped_draws\":{},"
+      "\"pipeline_cache\":{}",
       c.draws.load(), c.pools.load(), c.groups.load(), c.views.load(), c.samplers.load(),
       c.framebuffers.load(), c.constant_bytes.load(), c.passes.load(), c.pipeline_binds.load(), c.descriptor_binds.load(),
-      c.set_allocations.load());
+      c.set_allocations.load(), c.skipped.load(), state_->PipelineCacheSummary());
 }
 
 bool Backend::LiveResources(ResourceKeys& keys, std::string& evidence) {

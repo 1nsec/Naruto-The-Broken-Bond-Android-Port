@@ -9,6 +9,7 @@ struct DrawCacheCounters {
   std::atomic<uint64_t> draws{0}, pools{0}, groups{0}, views{0}, samplers{0}, framebuffers{0}, constant_bytes{0}, passes{0};
   std::atomic<uint64_t> pipeline_binds{0}, descriptor_binds{0};
   std::atomic<uint64_t> set_allocations{0};
+  std::atomic<uint64_t> skipped{0};  // Draws left out while their pipeline was created (skip take).
 };
 template <size_t N> struct DrawKeyHash {
   size_t operator()(const std::array<uint64_t, N>& key) const {

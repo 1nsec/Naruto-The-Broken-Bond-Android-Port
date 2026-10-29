@@ -30,6 +30,7 @@ bool GraphicsError(std::string& evidence, const char* reason, VkResult result = 
 
 bool Backend::State::EnsureGraphics(std::string& evidence) {
   if (draw_layout) return true;
+  EnsurePipelineCache();
   VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dynamic{
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT};
   VkPhysicalDeviceCustomBorderColorFeaturesEXT border{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT};
@@ -69,7 +70,10 @@ bool Backend::State::EnsureGraphics(std::string& evidence) {
     ReleaseGraphics(); return GraphicsError(evidence, "native-vulkan-draw-layout", result);
   }
   pipeline_set.Configure([this](const PipelineDesc& d, PipelineSet::Pipeline& out) {
-    return MakeGraphicsPipeline(vulkan->vk, draw_layout, d, vertex_locations, out);
+    const auto made = MakeGraphicsPipeline(vulkan->vk, draw_layout, d, vertex_locations, out, VK_FORMAT_UNDEFINED,
+                                           false, pipeline_cache);
+    if (made.ok) pipelines_created.fetch_add(1, std::memory_order_relaxed);
+    return made;
   });
   return true;
 }
@@ -169,23 +173,36 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   const uint64_t key = VulkanPipelineKey(desc), triple = TripleKey(r.vs.key, r.ps.key, desc.layout_id);
   auto& pipeline = s.pipelines[key];
   const bool created = !pipeline;
+  bool skip_draw = false;  // The pipeline is being created asynchronously (skip take).
   if (!pipeline) {
-    // Normal and diagnostic draws both remain visible on Vulkan. Never skip
-    // a draw because a pipeline compilation is pending.
-    auto take = s.pipeline_set.Take(key, triple, r.pipeline_take == DrawRequest::PipelineTake::kSkip ?
-        DrawRequest::PipelineTake::kPrefetch : r.pipeline_take);
+    // The take (pipeline_set.h), as in D3D12: with PC Options > Skip Unready
+    // Graphics (async_shaders, the skip take) a draw whose pipeline is not
+    // ready posts it to the asynchronous threads and leaves the frame without
+    // itself, instead of stopping the frame while the driver compiles it (the
+    // stutter of a slow phone driver); otherwise the draw waits for it or
+    // creates it.
+    auto take = s.pipeline_set.Take(key, triple, r.pipeline_take);
     pipeline = std::move(take.pipeline);
-    s.pipeline_origins[key] = take.origin ? take.origin : "created";
-    if (!pipeline) {
+    skip_draw = take.skip;
+    if (take.post) s.pipeline_set.Post(key, desc, false, true);
+    if (!pipeline && !skip_draw) {
       const auto begin = std::chrono::steady_clock::now();
-      const auto result = MakeGraphicsPipeline(s.vulkan->vk, s.draw_layout, desc, s.vertex_locations, pipeline);
+      const auto result = MakeGraphicsPipeline(s.vulkan->vk, s.draw_layout, desc, s.vertex_locations, pipeline,
+                                               VK_FORMAT_UNDEFINED, false, s.pipeline_cache);
       if (!result.ok) { s.pipelines.erase(key); return fail(result.reason, VkResult(result.code)); }
       const auto micros = uint32_t(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count());
       s.pipeline_create_us[key] = micros;
       s.pipeline_origins[key] = s.pipeline_set.NoteCreated(take, triple, micros);
+      s.pipelines_created.fetch_add(1, std::memory_order_relaxed);
+    } else if (!skip_draw) {
+      s.pipeline_origins[key] = take.origin ? take.origin : "created";
     }
-    s.pipeline_worlds[key] = WorldKey();
-    s.pipeline_descs.emplace(key, desc);
+    if (skip_draw) {
+      s.pipelines.erase(key);  // `pipeline` is not used below.
+    } else {
+      s.pipeline_worlds[key] = WorldKey();
+      s.pipeline_descs.emplace(key, desc);
+    }
   }
   if (!ApplyDrawConstants(r.vs_constants, r.vs_constants_delta, s.vs_block) ||
       !ApplyDrawConstants(r.ps_constants, r.ps_constants_delta, s.ps_block)) return fail("native-draw-constants");
@@ -193,6 +210,14 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   // this draw's descriptors and retaining its resources.
   for (const auto& t : r.textures) if (!t.resolved && !t.data.empty())
     if (!UploadSampled(t, evidence)) return false;
+  if (skip_draw) {
+    // The constants and the texture copies stay current for the next draws;
+    // nothing is recorded.
+    s.draw_counters.skipped.fetch_add(1, std::memory_order_relaxed);
+    if (r.want_evidence) evidence = fmt::format("{{\"drawn\":false,\"skipped\":\"pipeline-pending\",\"pipeline\":\"{:016x}\"}}", key);
+    else evidence.clear();
+    return true;
+  }
   const char* reason = nullptr; VkResult result = VK_SUCCESS;
   if (!s.OpenBatch(reason, result)) return fail(reason, result);
   s.batch.list->setFramebuffer(nullptr);
