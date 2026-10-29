@@ -84,9 +84,16 @@ bool PipelineSet::Post(uint64_t key, PipelineDesc desc, bool only_if_absent, boo
   return true;
 }
 
-// Two thirds of the hardware threads, at least two, as the recomps.
+// Two thirds of the hardware threads, at least two, as the recomps. Two on
+// Android: a phone has about four fast cores, and the title thread, the
+// translator and the engine owner need them (a Snapdragon 865 lost half its
+// frame rate while five compiled).
 void PipelineSet::StartThreads(bool lowest) {
+#ifdef __ANDROID__
+  const unsigned threads = 2;
+#else
   const unsigned threads = std::max(2u, std::thread::hardware_concurrency() * 2 / 3);
+#endif
   const int base = lowest ? THREAD_PRIORITY_LOWEST : THREAD_PRIORITY_NORMAL;
   for (unsigned i = 0; i < threads; ++i) threads_.emplace_back([this, base] { Work(base); });
 }

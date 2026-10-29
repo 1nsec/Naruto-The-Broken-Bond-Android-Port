@@ -354,7 +354,12 @@ void StartPipelinePrecompile() {
   // so the pipeline guard of the backend (RADV crashes) names one culprit.
   const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
   const bool wine = ntdll && GetProcAddress(ntdll, "wine_get_version");
+#ifdef __ANDROID__
+  p.threads = 2;  // As the asynchronous threads (pipeline_set.cpp): the fast cores are few.
+  (void)wine;
+#else
   p.threads = wine ? 1u : std::max(2u, std::thread::hardware_concurrency() * 2 / 3);
+#endif
   p.started = std::chrono::steady_clock::now();
   p.pool_started.store(true, std::memory_order_release);
   const bool started = dispatcher->StartPool(pipeline_list.entries.size(), p.threads, PrecompileEntry, [](bool stopped) {

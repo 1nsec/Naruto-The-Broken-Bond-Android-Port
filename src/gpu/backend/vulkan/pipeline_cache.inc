@@ -282,3 +282,39 @@ std::string Backend::State::PipelineCacheSummary() const {
                      pipeline_cache_saved_bytes.load(std::memory_order_relaxed), pipeline_list_loaded,
                      pipeline_list_lines.size());
 }
+
+// The draw census (CountDraw), every 30 s with the profile: the draws per
+// frame of each pair of targets, the largest first.
+void Backend::State::LogDrawCensus() {
+  if (!profile::Profiling()) return;
+  const auto now = std::chrono::steady_clock::now();
+  if (draw_census_since == std::chrono::steady_clock::time_point{}) {
+    draw_census_since = now;
+    draw_census_presents = presents;
+    draw_census.clear();
+    return;
+  }
+  if (now - draw_census_since < std::chrono::seconds(30)) return;
+  const uint64_t frames = std::max<uint64_t>(1, presents - draw_census_presents);
+  std::vector<std::pair<uint64_t, uint64_t>> sorted(draw_census.begin(), draw_census.end());
+  std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+  uint64_t total = 0;
+  for (const auto& [key, count] : sorted) total += count;
+  std::string text = fmt::format("{} frames, {:.0f} draws per frame:", frames, double(total) / frames);
+  const auto size = [](uint64_t s) {
+    return s ? fmt::format("{}x{}", (s >> 15) & 0x7FFF, s & 0x7FFF) : std::string("-");
+  };
+  for (size_t i = 0; i < sorted.size() && i < 16; ++i) {
+    const uint64_t key = sorted[i].first;
+    text += fmt::format(" [{}{} color {} depth {}: {:.1f}]", (key >> 60) & 1 ? "depth-only" : "draw", "",
+                        size((key >> 30) & 0x3FFFFFFF), size(key & 0x3FFFFFFF), double(sorted[i].second) / frames);
+  }
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "narutobb", "Draw census: %s", text.c_str());
+#else
+  (void)text;
+#endif
+  draw_census.clear();
+  draw_census_since = now;
+  draw_census_presents = presents;
+}

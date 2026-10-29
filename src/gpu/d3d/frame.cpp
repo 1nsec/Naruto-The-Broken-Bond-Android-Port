@@ -147,6 +147,7 @@ uint32_t CallImport(PPCContext& ctx, uint8_t* base, GuestFunction fn, uint32_t s
 
 
 uint64_t dropped_sync_interrupts = 0;  // Render thread only.
+uint64_t game_frame_start = 0;         // When the last own Swap returned (Render thread only).
 // The limiter of the own Swap. The period is the title's presentation interval
 // (+13596, in vblanks of 60 Hz); a Swap that arrives after its deadline starts
 // a new phase instead of catching up in a burst. With the state interpolation
@@ -345,6 +346,9 @@ REX_HOOK_RAW(sub_821B1DD0) {
   const bool measuring = MeasureSwaps() > 0;
   if (measuring) MeasureAtSwap(ctx);  // The frame closed by this Swap.
   else gpu::perf_log::AtSwap();
+  // The title thread's own time since the last Swap returned (kGameFrame).
+  if (game_frame_start && gpu::profile::Profiling())
+    gpu::profile::Add(gpu::profile::kGameFrame, gpu::profile::Now() - game_frame_start);
   gpu::profile::Timer swap_time(gpu::profile::kSwap);
   const uint32_t dev = ctx.r3.u32, front = ctx.r4.u32, params = ctx.r5.u32, lr = ctx.lr;
   if (!front) StopInOrder(ctx, "Swap-front-buffer-null", 88);
@@ -593,4 +597,5 @@ REX_HOOK_RAW(sub_821B1DD0) {
         LimiterSummary()));
   PaceSwap(ctx, base, dev);  // Last, after the present.
   MeterSwap();  // The frame-time meter of the window title.
+  game_frame_start = gpu::profile::Now();
 }

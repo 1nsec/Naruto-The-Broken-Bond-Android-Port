@@ -237,6 +237,7 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
   stage.presented = true;
   s.last_presented_slot = int(slot);
   s.MaybeSavePipelineCache();
+  s.LogDrawCensus();
   if (capture) {
     if (!s.completion->WaitFor(sequence, kWaitBudget)) return GraphicsError(evidence, "native-present-capture-wait", VK_TIMEOUT);
     if ((result = vmaInvalidateAllocation(s.vulkan->allocator, readback->allocation, 0, bytes)) != VK_SUCCESS)

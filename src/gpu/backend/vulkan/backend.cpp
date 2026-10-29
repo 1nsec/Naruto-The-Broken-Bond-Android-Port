@@ -391,7 +391,19 @@ struct Backend::State {
     VkBuffer draw_indices{};
     VkDeviceSize draw_index_offset{};
     bool draw_index32 = false;
+    int32_t gpu_timer = -1;  // Its pair of timestamp queries (gpu_timers), with the profile.
   };
+  // The GPU time of each batch for the profile (kGpu): a timestamp at its
+  // start and at its end, read once the batch completed.
+  static constexpr uint32_t kGpuTimerPairs = 256;
+  VkQueryPool gpu_timers{};
+  bool gpu_timers_tried = false;
+  uint32_t gpu_timer_next = 0;
+  double gpu_timer_period_ns = 0;
+  uint64_t gpu_timer_mask = 0;
+  void StartGpuTimer(Batch& b);
+  void EndGpuTimer(Batch& b);
+  void ReadGpuTimer(const Batch& b);
   bool batch_open = false, batch_refused = false;
   Batch batch;
   std::deque<Batch> batches_in_flight;
@@ -617,6 +629,19 @@ struct Backend::State {
   void ReleaseOverlay();
   void ReleaseOutput();
   std::map<std::string, PipelineSet::Pipeline> resolve_pipelines;
+  // The draws by their targets (depth only or not, the color and depth
+  // surface sizes), logged every 30 s with the profile: which passes cost the
+  // frames (the shadow maps are the depth-only draws into their own surfaces).
+  std::unordered_map<uint64_t, uint64_t> draw_census;
+  std::chrono::steady_clock::time_point draw_census_since{};
+  uint64_t draw_census_presents = 0;
+  void CountDraw(bool depth_only, const Surface* color, const Surface* depth) {
+    const auto size = [](const Surface* s) {
+      return s ? (uint64_t(std::min(s->desc.width, 0x7FFFu)) << 15) | std::min(s->desc.height, 0x7FFFu) : 0;
+    };
+    ++draw_census[(uint64_t(depth_only) << 60) | (size(color) << 30) | size(depth)];
+  }
+  void LogDrawCensus();
   // The pipeline cache every pipeline is created through, kept on disk
   // between sessions when the app names a file (pipeline_cache.inc).
   VkPipelineCache pipeline_cache{};
@@ -824,6 +849,7 @@ VkResult Backend::State::EndList(plume::RenderCommandList& list) {
 void Backend::State::Reclaim(uint64_t completed) {
   while (!batches_in_flight.empty() && batches_in_flight.front().sequence <= completed) {
     Batch& done = batches_in_flight.front();
+    ReadGpuTimer(done);
     if (done.graphics && free_draw_caches.size() < 4) {
       done.graphics->Recycle();
       free_draw_caches.push_back(std::move(done.graphics));
@@ -879,7 +905,49 @@ bool Backend::State::OpenBatch(const char*& reason, VkResult& result) {
   }
   batch = std::move(next);
   batch_open = true;
+  StartGpuTimer(batch);
   return true;
+}
+
+void Backend::State::StartGpuTimer(Batch& b) {
+  if (!profile::Profiling()) return;
+  if (!gpu_timers_tried) {
+    gpu_timers_tried = true;
+    uint32_t count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(vulkan->physicalDevice, &count, nullptr);
+    std::vector<VkQueueFamilyProperties> families(count);
+    vkGetPhysicalDeviceQueueFamilyProperties(vulkan->physicalDevice, &count, families.data());
+    const uint32_t family = vulkan->queueFamilyIndices[0];
+    const uint32_t bits = family < families.size() ? families[family].timestampValidBits : 0;
+    const float period = vulkan->physicalDeviceProperties.limits.timestampPeriod;
+    if (!bits || period <= 0) return;
+    VkQueryPoolCreateInfo info{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+    info.queryType = VK_QUERY_TYPE_TIMESTAMP; info.queryCount = 2 * kGpuTimerPairs;
+    if (vkCreateQueryPool(vulkan->vk, &info, nullptr, &gpu_timers) != VK_SUCCESS) { gpu_timers = VK_NULL_HANDLE; return; }
+    gpu_timer_period_ns = period;
+    gpu_timer_mask = bits >= 64 ? ~uint64_t(0) : (uint64_t(1) << bits) - 1;
+  }
+  if (!gpu_timers) return;
+  b.gpu_timer = int32_t(gpu_timer_next++ % kGpuTimerPairs);
+  const VkCommandBuffer commands = DrawCommands();
+  vkCmdResetQueryPool(commands, gpu_timers, 2 * uint32_t(b.gpu_timer), 2);
+  vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gpu_timers, 2 * uint32_t(b.gpu_timer));
+}
+
+void Backend::State::EndGpuTimer(Batch& b) {
+  if (b.gpu_timer < 0 || !gpu_timers) return;
+  b.list->setFramebuffer(nullptr);
+  vkCmdWriteTimestamp(Commands(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gpu_timers, 2 * uint32_t(b.gpu_timer) + 1);
+}
+
+void Backend::State::ReadGpuTimer(const Batch& b) {
+  if (b.gpu_timer < 0 || !gpu_timers) return;
+  uint64_t stamps[2]{};
+  if (vkGetQueryPoolResults(vulkan->vk, gpu_timers, 2 * uint32_t(b.gpu_timer), 2, sizeof(stamps), stamps,
+                            sizeof(uint64_t), VK_QUERY_RESULT_64_BIT) != VK_SUCCESS)
+    return;
+  const uint64_t ticks = (stamps[1] - stamps[0]) & gpu_timer_mask;
+  profile::Add(profile::kGpu, uint64_t(double(ticks) * gpu_timer_period_ns));
 }
 
 bool Backend::State::CloseBatch(const char*& reason, VkResult& result) {
@@ -890,6 +958,7 @@ bool Backend::State::CloseBatch(const char*& reason, VkResult& result) {
     return false;
   }
   profile::Timer submit_time(profile::kEngineSubmit);
+  EndGpuTimer(batch);
   batch_open = false;
   if ((result = EndList(*batch.list)) != VK_SUCCESS) {
     operation_poisoned = true;
@@ -1234,6 +1303,9 @@ bool Backend::Shutdown(std::string& evidence) {
   state_->free_views.clear();
   state_->next_view = 1;
   state_->completion.reset();  // Its fences, before the device.
+  if (state_->gpu_timers) vkDestroyQueryPool(state_->vulkan->vk, state_->gpu_timers, nullptr);
+  state_->gpu_timers = VK_NULL_HANDLE;
+  state_->gpu_timers_tried = false;
 #if defined(NATIVE_RENDERER_ENGINE_FAULT_TEST)
   if (state_->hold) vkDestroySemaphore(state_->vulkan->vk, state_->hold, nullptr);
   state_->hold = VK_NULL_HANDLE;

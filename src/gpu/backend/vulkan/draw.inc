@@ -139,6 +139,7 @@ std::string Backend::PipelineList() {
 }
 
 bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& evidence) {
+  profile::Timer draw_time(profile::kEngineDraw);
   fence = 0;
   auto fail = [&](const char* reason, VkResult code = VK_ERROR_UNKNOWN) { return GraphicsError(evidence, reason, code); };
   auto& s = *state_;
@@ -162,6 +163,7 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
       (r.depth_only ? bool(r.ps.bytes) : !r.ps.Present() || r.ps.format != ShaderFormat::kSpirv))
     return fail("native-draw-shaders");
   const auto& target = color ? *color : *depth;
+  if (profile::Profiling()) s.CountDraw(r.depth_only, color, depth);
   if (!r.index_count || !r.elements || r.elements->empty() || r.streams.empty() || r.streams.size() > 8)
     return fail("native-draw-vertex-input");
   for (const auto& e : *r.elements)
@@ -174,6 +176,7 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   auto& pipeline = s.pipelines[key];
   const bool created = !pipeline;
   bool skip_draw = false;  // The pipeline is being created asynchronously (skip take).
+  profile::Timer pipeline_time(profile::kEnginePipeline);
   if (!pipeline) {
     // The take (pipeline_set.h), as in D3D12: with PC Options > Skip Unready
     // Graphics (async_shaders, the skip take) a draw whose pipeline is not
@@ -204,6 +207,7 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
       if (s.pipeline_descs.emplace(key, desc).second) s.pipeline_order.push_back(key);
     }
   }
+  pipeline_time.Stop();
   if (!ApplyDrawConstants(r.vs_constants, r.vs_constants_delta, s.vs_block) ||
       !ApplyDrawConstants(r.ps_constants, r.ps_constants_delta, s.ps_block)) return fail("native-draw-constants");
   // Uploads may close a full batch, so perform all of them before allocating
@@ -261,6 +265,7 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     }
     s.fallback_initialized = true;
   }
+  profile::Timer texture_time(profile::kEngineTexture);
   std::array<VkDescriptorSet, 4> sets{};
   std::array<std::array<VkDescriptorImageInfo, 32>, 4> infos{};
   VkSamplerCreateInfo default_sampler{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -340,6 +345,8 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   }
   if ((result = resources.Descriptors(s.draw_sets, infos, sets)) != VK_SUCCESS)
     return fail("native-vulkan-draw-descriptors", result);
+  texture_time.Stop();
+  profile::Timer upload_time(profile::kEngineUpload);
   // Each draw gets one contiguous allocation; offsets are stable even if the
   // upload page vector grows on the next draw.
   auto align = [](size_t n) { return (n + 511) & ~size_t(511); };
@@ -395,6 +402,8 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     auto& b = it->second; indices = b.buffer->buffer; index_offset = r.index_offset;
     s.DrawTransition(indices, b.state, kBufferDraw); b.last_use = s.batch.sequence;
   } else std::memcpy(cpu + index_at, r.indices.data(), index_bytes);
+  upload_time.Stop();
+  profile::Timer record_time(profile::kEngineRecord);
   const VkImage color_image = color ? color->Image() : VK_NULL_HANDLE;
   const VkImage depth_image = depth ? depth->Image() : VK_NULL_HANDLE;
   if (s.batch.draw_pass_active && (s.batch.draw_color != color_image || s.batch.draw_depth != depth_image))

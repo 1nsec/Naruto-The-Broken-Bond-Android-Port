@@ -1105,6 +1105,7 @@ DrawTranslation TranslateDraw(DrawCapture& c, GuardSink& sink) {
   // The vertices the inline indices of DrawVertices cover: one instance, from 0.
   const uint32_t vertex_count = instance_vertices ? instance_vertices : index_count;
   const uint32_t first_vertex = instanced ? 0 : start_vertex;
+  profile::Timer index_time(profile::kStreamsIndex);
   if (indirect) {
     // The index stream (one dword per vertex at offset 0, ParseVertexElements)
     // from mesh vertex x, an index entry of the buffer registry (BindBuffer),
@@ -1196,6 +1197,7 @@ DrawTranslation TranslateDraw(DrawCapture& c, GuardSink& sink) {
       max_index = std::max(max_index, v);
     }
   }
+  index_time.Stop();
   const auto index_record = MakeLazyRecord([&] {  // The first 12 inline indices, on use.
     std::string out;
     for (uint32_t i = 0; i < std::min<uint32_t>(index_count, 12) && size_t(i + 1) * index_size <= request.indices.size(); ++i) {
@@ -1232,6 +1234,7 @@ DrawTranslation TranslateDraw(DrawCapture& c, GuardSink& sink) {
     return out;
   };
   std::array<uint32_t, 3> stream0{};  // Address, bytes and endian of slot 0.
+  profile::Timer vertex_time(profile::kStreamsVertex);
   for (size_t slot = 0; slot < stream_fetch.size(); ++slot) {
     const uint32_t f = stream_fetch[slot];
     const std::array<uint32_t, 6>& words = FetchConstantSlot(f / 3);
@@ -1275,6 +1278,7 @@ DrawTranslation TranslateDraw(DrawCapture& c, GuardSink& sink) {
       stream.data = std::move(use.data);
     }
   }
+  vertex_time.Stop();
   if (quad && t.quad_slot == UINT32_MAX) guard("inline-fetch-unused", fmt::format("\"streams\":[{}]", streams_text()));
   if (instanced && (indirect ? indirect_draw_records : instanced_draw_records).fetch_add(1) < 8)
     host::Record("native-d3d-instanced-draw", fmt::format(

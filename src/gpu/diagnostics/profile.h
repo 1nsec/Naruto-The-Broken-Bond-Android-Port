@@ -50,6 +50,14 @@ enum Slot : unsigned {
   kHookShader,           // 82179200/82179380: the registration of a shader object.
   kEngineTextureCreate,  // CreateCommittedResource of a sampled copy inside UploadSampled.
   kTranslate,            // TranslateDraw, on the translator when deferred, inside kDraw otherwise.
+  // The GPU's execution of the submitted batches (Vulkan timestamps), the
+  // title thread's own time between its Swaps (its logic and its draws, without
+  // the Swap's waits), and the parts of kDrawStreams: the index buffer and the
+  // vertex streams (BindBuffer).
+  kGpu,
+  kGameFrame,
+  kStreamsIndex,
+  kStreamsVertex,
   kCount
 };
 inline constexpr const char* kSlotNames[kCount] = {
@@ -58,7 +66,7 @@ inline constexpr const char* kSlotNames[kCount] = {
     "draw", "draw_original", "draw_shaders", "draw_textures", "draw_texture_hash", "draw_shader_load",
     "draw_streams", "draw_engine", "draw_evidence", "swap", "swap_wait_idle", "clear", "resolve", "fence_wait",
     "swap_pace", "hook_create", "hook_destroy", "hook_lock", "hook_unlock", "hook_shader", "engine_texture_create",
-    "translate"};
+    "translate", "gpu", "game_frame", "streams_index", "streams_vertex"};
 enum Counter : unsigned {
   kHashedBytes, kUploadBytes, kTextureUploads, kPipelinesCreated, kShaderVariants, kSubmissions,
   // Buffer uploads of the engine, their bytes, and the stream and index bytes still carried by draws.
