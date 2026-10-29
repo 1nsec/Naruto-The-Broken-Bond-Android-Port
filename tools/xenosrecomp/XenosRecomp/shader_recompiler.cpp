@@ -1304,10 +1304,17 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     {
         return a->registerIndex.get() < b->registerIndex.get();
     });
+    // An array declared past the last register (c255) keeps the registers of
+    // the 4096-byte block: the Vulkan backend binds that many bytes, and the
+    // shader reads no register above c255 (the INDEX macro below).
+    auto declaredCount = [](const ConstantInfo* constantInfo)
+    {
+        return std::min<uint32_t>(constantInfo->registerCount.get(), 256 - std::min<uint32_t>(constantInfo->registerIndex.get(), 255));
+    };
     for (size_t i = 1; i < float4Members.size(); i++)
     {
         const ConstantInfo* previous = float4Members[i - 1];
-        if (previous->registerIndex.get() + previous->registerCount.get() > float4Members[i]->registerIndex.get())
+        if (previous->registerIndex.get() + declaredCount(previous) > float4Members[i]->registerIndex.get())
             throw std::runtime_error(fmt::format("Overlapping float4 constants: {} and {}",
                 reinterpret_cast<const char*>(constantTableData + previous->name),
                 reinterpret_cast<const char*>(constantTableData + float4Members[i]->name)));
@@ -1319,18 +1326,20 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     for (const ConstantInfo* constantInfo : float4Members)
     {
         const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
+        const uint32_t count = declaredCount(constantInfo);
 
         print("\tfloat4 {}", constantName);
 
         if (constantInfo->registerCount > 1)
-            print("[{}]", constantInfo->registerCount.get());
+            print("[{}]", count);
 
         println(" : packoffset(c{});", constantInfo->registerIndex.get());
 
         if (constantInfo->registerCount > 1)
         {
             uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
-            println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount, tailCount - 1);
+            println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount,
+                std::min(tailCount - 1, count - 1));
         }
     }
 

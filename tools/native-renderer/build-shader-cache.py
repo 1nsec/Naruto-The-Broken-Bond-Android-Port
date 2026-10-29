@@ -90,6 +90,18 @@ if args.spirv_val:
     steps += ['spirv', 'passes']
 bad = {k: v for step in steps for k, v in failures(work / step / 'report.json').items()}
 if bad:
+    # What broke, for the build log: the failed checks and the first shaders of each
+    # step with their result (no shader source).
+    for step in steps:
+        report = json.loads((work / step / 'report.json').read_text(encoding='utf-8'))
+        if report.get('broken'):
+            print(f'build-shader-cache: {step} broken checks: {report["broken"]}')
+        failed = [r for r in report.get('results', ()) if r.get('result') not in (None, 'ok', 'no-spec-constants')]
+        for r in failed[:12]:
+            interface = r.get('interface', {})
+            print(f"build-shader-cache: {step} {r.get('name', r.get('file'))}: {r.get('result')} "
+                  f"broken={r.get('broken')} error={r.get('first_error', '')[:200]} "
+                  f"bindings={[(b['set'], b['binding'], b.get('storage'), b.get('bytes')) for b in interface.get('bindings', ())]}")
     sys.exit(f'build-shader-cache: shaders that did not build: {bad}')
 manifest = out / 'shader_manifest.json'
 encoded = []

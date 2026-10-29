@@ -93,8 +93,10 @@ def check(entry: dict, interface: dict, text: str):
     for b in interface['bindings']:
         at = (b['set'], b['binding'])
         if at in UNIFORM_BUFFERS:
-            if b['storage'] != 'uniform' or not 0 < b.get('bytes', 0) <= UNIFORM_BUFFERS[at]:
-                broken.append('uniform-buffer')
+            if b['storage'] != 'uniform':
+                broken.append('uniform-buffer-storage')
+            elif not 0 < b.get('bytes', 0) <= UNIFORM_BUFFERS[at]:
+                broken.append('uniform-buffer-bytes')
         elif BINDINGS.get(at) != b['type']:
             broken.append('binding')
     if interface['push_constant_bytes'] != PUSH_CONSTANT_BYTES:
