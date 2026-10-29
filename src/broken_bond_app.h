@@ -48,6 +48,9 @@ void StopIdlePresenter();
 #include "pc/overlay_drawer.h"
 #include "pc/pad_input.h"
 #include "pc/player_assignment.h"
+#ifdef __ANDROID__
+#include "android/sampling_profiler.h"
+#endif
 #include "pc/title_screen.h"
 #include "pc/ultrawide.h"
 
@@ -193,6 +196,9 @@ class BrokenBondApp : public rex::ReXApp {
 
   void OnPostSetup() override {
     RestoreXenosAdapter();
+#ifdef __ANDROID__
+    narutobb::profiler::Start();  // With the performance log (Settings > Performance log).
+#endif
 #ifdef BROKENBOND_NATIVE_RENDERER_BOOTSTRAP
     // The overlay stays on screen while the game draws nothing (the title screen holds the boot).
     gpu::StartIdlePresenter();

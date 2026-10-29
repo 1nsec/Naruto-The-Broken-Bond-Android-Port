@@ -145,7 +145,8 @@ elseif(ANDROID)
     set_target_properties(broken_bond PROPERTIES OUTPUT_NAME main)
     # The app's on-screen controller (an SDL virtual gamepad, called through JNI),
     # and the choice of the Vulkan driver (the system's or a bundled Turnip).
-    target_sources(broken_bond PRIVATE src/android/touch_controller.cpp src/android/gpu_driver.cpp)
+    target_sources(broken_bond PRIVATE src/android/touch_controller.cpp src/android/gpu_driver.cpp
+                   src/android/sampling_profiler.cpp)
     target_link_libraries(broken_bond PRIVATE android log)
     # libadrenotools loads a Vulkan driver shipped with the app (Turnip) instead
     # of the system's; without it the game always uses the system driver.
@@ -264,6 +265,25 @@ if(ANDROID)
     endforeach()
     foreach(name IN LISTS android_jnilibs_names)
         list(APPEND android_jnilibs_commands COMMAND "${CMAKE_STRIP}" --strip-unneeded "${BROKENBOND_ANDROID_JNILIBS}/${name}")
+    endforeach()
+    # The function symbols of the game and the runtime for the sampling
+    # profiler of the performance log (src/android/sampling_profiler.cpp), from
+    # the unstripped libraries, into the app's assets.
+    set(BROKENBOND_ANDROID_SYMBOLS "${CMAKE_CURRENT_SOURCE_DIR}/android/app/src/main/assets/symbols"
+        CACHE PATH "Symbol files of the Android app's native libraries")
+    set(android_nm "${CMAKE_NM}")
+    if(NOT android_nm)
+        get_filename_component(android_toolchain_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
+        find_program(android_nm NAMES llvm-nm HINTS "${android_toolchain_bin}" REQUIRED)
+    endif()
+    list(APPEND android_jnilibs_commands COMMAND "${CMAKE_COMMAND}" -E make_directory "${BROKENBOND_ANDROID_SYMBOLS}")
+    foreach(pair "$<TARGET_FILE:broken_bond>|libmain.so" "$<TARGET_FILE:rexruntime>|librexruntime.so")
+        string(REPLACE "|" ";" pair "${pair}")
+        list(GET pair 0 library)
+        list(GET pair 1 name)
+        list(APPEND android_jnilibs_commands COMMAND "${CMAKE_COMMAND}" -DNM=${android_nm} -DLIBRARY=${library}
+             -DOUTPUT=${BROKENBOND_ANDROID_SYMBOLS}/${name}.syms
+             -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/android/symbols.cmake")
     endforeach()
     add_custom_target(android_jnilibs ${android_jnilibs_commands}
         DEPENDS broken_bond ${BROKENBOND_ADRENOTOOLS_HOOKS}

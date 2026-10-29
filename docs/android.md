@@ -177,9 +177,12 @@ workflow; its APK cannot play anything.
   `pipeline-runs/<time>/performance.csv` in the data folder (one line per second: frame times,
   stutters, the GPU's busy time, the time of the title thread, the translator and the engine and
   where it goes, render passes, what the pipelines did; the newest five sessions are kept), a
-  draw census every 30 seconds in the system log (draws per frame by render target), and once per
-  session images of the frame's render targets (`surfaces/`, to tell its passes apart). **Save logs
-  for a problem report** includes the newest three logs and the newest images.
+  draw census every 30 seconds in the system log (draws per frame by render target), once per
+  session images of the frame's render targets (`surfaces/`, to tell its passes apart), and a
+  sampling profile (`profile.txt`, every 30 seconds: the functions that take the most CPU time on
+  each busy thread, from SIGPROF samples of the process's CPU time and the symbol files the build
+  packs into the APK, `assets/symbols`). **Save logs for a problem report** includes the newest
+  three logs and profiles and the newest images.
 
 ### Files
 

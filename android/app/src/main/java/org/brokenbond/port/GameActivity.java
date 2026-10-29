@@ -169,6 +169,35 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
         if (!run.mkdirs()) return;
         Os.setenv("REX_NATIVE_FRAME_DIR", run.getAbsolutePath(), true);
         Os.setenv("REX_NATIVE_PERF_LOG", "1", true);
+        // The symbols of the game's libraries for its sampling profiler
+        // (src/android/sampling_profiler.cpp), from the APK, once per APK.
+        File symbols = new File(getFilesDir(), "symbols");
+        File stamp = new File(symbols, "installed-from");
+        String apk = getApplicationInfo().sourceDir + ":" + new File(getApplicationInfo().sourceDir).lastModified();
+        try {
+            boolean current = stamp.isFile() && apk.equals(new String(java.nio.file.Files.readAllBytes(stamp.toPath()),
+                    java.nio.charset.StandardCharsets.UTF_8));
+            if (!current) {
+                String[] names = getAssets().list("symbols");
+                //noinspection ResultOfMethodCallIgnored
+                symbols.mkdirs();
+                if (names != null) {
+                    for (String name : names) {
+                        try (java.io.InputStream in = getAssets().open("symbols/" + name);
+                             java.io.FileOutputStream out = new java.io.FileOutputStream(new File(symbols, name))) {
+                            byte[] buffer = new byte[256 * 1024];
+                            int n;
+                            while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+                        }
+                    }
+                }
+                java.nio.file.Files.write(stamp.toPath(), apk.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            Os.setenv("BROKENBOND_SYMBOLS_DIR", symbols.getAbsolutePath(), true);
+        } catch (java.io.IOException e) {
+            Log.i(TAG, "No symbol files: " + e.getMessage());
+            Os.unsetenv("BROKENBOND_SYMBOLS_DIR");
+        }
     }
 
     private static void deleteTree(File file) {

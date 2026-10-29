@@ -71,6 +71,8 @@ final class LogExport {
                         File csv = new File(runs[i], "performance.csv");
                         if (!csv.isFile()) continue;
                         addFile(zip, csv, "performance/" + runs[i].getName() + ".csv");
+                        File profile = new File(runs[i], "profile.txt");
+                        if (profile.isFile()) addFile(zip, profile, "performance/" + runs[i].getName() + "-profile.txt");
                         ++added;
                         // The surface images of the newest session that has them.
                         File[] surfaces = new File(runs[i], "surfaces").listFiles(File::isFile);
