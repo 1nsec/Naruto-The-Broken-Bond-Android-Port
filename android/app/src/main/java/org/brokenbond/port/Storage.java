@@ -26,6 +26,7 @@ final class Storage {
     static final String KEY_TOUCH_SCALE = "touch_scale";
     static final String KEY_GPU_DRIVER = "gpu_driver";  // auto, system or turnip
     static final String KEY_PERF_LOG = "performance_log";  // On by default while the port is an alpha.
+    static final String KEY_TURNIP_MODE = "turnip_mode";  // auto, sysmem or gmem (TU_DEBUG)
 
     private Storage() {}
 

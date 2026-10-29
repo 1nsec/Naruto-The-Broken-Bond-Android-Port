@@ -430,6 +430,7 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     s.batch.draw_pass_active = true;
     s.batch.draw_color = color_image; s.batch.draw_depth = depth_image;
     s.draw_counters.passes.fetch_add(1, std::memory_order_relaxed);
+    profile::Count(profile::kRenderPasses, 1);
   }
   if (color) color->last_use = s.batch.sequence;
   if (depth) depth->last_use = s.batch.sequence;

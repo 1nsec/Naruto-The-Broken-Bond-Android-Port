@@ -66,11 +66,20 @@ final class LogExport {
                 File[] runs = new File(data, "pipeline-runs").listFiles(File::isDirectory);
                 if (runs != null) {
                     Arrays.sort(runs, Comparator.<File>comparingLong(File::lastModified).reversed());
+                    boolean images = false;
                     for (int i = 0, added = 0; i < runs.length && added < MAX_PERFORMANCE_RUNS; ++i) {
                         File csv = new File(runs[i], "performance.csv");
                         if (!csv.isFile()) continue;
                         addFile(zip, csv, "performance/" + runs[i].getName() + ".csv");
                         ++added;
+                        // The surface images of the newest session that has them.
+                        File[] surfaces = new File(runs[i], "surfaces").listFiles(File::isFile);
+                        if (!images && surfaces != null && surfaces.length > 0) {
+                            for (File image : surfaces) {
+                                addFile(zip, image, "performance/" + runs[i].getName() + "-surfaces/" + image.getName());
+                            }
+                            images = true;
+                        }
                     }
                 }
                 addText(zip, "logcat.txt", logcat());

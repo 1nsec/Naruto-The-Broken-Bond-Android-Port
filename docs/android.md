@@ -166,10 +166,20 @@ workflow; its APK cannot play anything.
   area each was first drawn in). The next sessions prepare them in the background from the start,
   and those of an area while its loading screen is up, as the PC version does with the list built
   from its test boots (the APK is built without one).
+- **Uploads outside the render pass:** vertex, index and texture data the game sends in the middle
+  of a frame is copied before the frame's drawing (a prelude command list submitted first), unless
+  the frame already used that buffer or texture. On a tiled GPU (Adreno) each interrupted render
+  pass stores the render targets to memory and loads them back.
+- **Turnip rendering** (Settings, experimental): *Automatic* lets Turnip choose per render pass
+  between its on-chip tiles (gmem) and drawing straight to memory (sysmem); the two others force
+  one (`TU_DEBUG`), to compare frame rates.
 - **Performance log** (Settings, on by default during the alpha): writes
   `pipeline-runs/<time>/performance.csv` in the data folder (one line per second: frame times,
-  stutters, where the render thread spent its time, what the pipelines did; the newest five
-  sessions are kept). **Save logs for a problem report** includes the newest three.
+  stutters, the GPU's busy time, the time of the title thread, the translator and the engine and
+  where it goes, render passes, what the pipelines did; the newest five sessions are kept), a
+  draw census every 30 seconds in the system log (draws per frame by render target), and once per
+  session images of the frame's render targets (`surfaces/`, to tell its passes apart). **Save logs
+  for a problem report** includes the newest three logs and the newest images.
 
 ### Files
 

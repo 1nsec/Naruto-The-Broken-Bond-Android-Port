@@ -245,6 +245,10 @@ public class SettingsActivity extends Activity {
                 new String[] {getString(R.string.gpu_driver_auto), getString(R.string.gpu_driver_system),
                         getString(R.string.gpu_driver_turnip)},
                 new String[] {"auto", "system", "turnip"}, "auto");
+        prefChoice(R.string.setting_turnip_mode, Storage.KEY_TURNIP_MODE,
+                new String[] {getString(R.string.turnip_mode_auto), getString(R.string.turnip_mode_sysmem),
+                        getString(R.string.turnip_mode_gmem)},
+                new String[] {"auto", "sysmem", "gmem"}, "auto");
 
         header(R.string.settings_game);
         choice(R.string.setting_language, "user_language",

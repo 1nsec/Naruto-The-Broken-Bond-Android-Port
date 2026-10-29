@@ -83,6 +83,12 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
      */
     private void setUpGpuDriver() throws ErrnoException {
         Os.setenv("BROKENBOND_GPU_DRIVER", Storage.prefs(this).getString(Storage.KEY_GPU_DRIVER, "auto"), true);
+        // Settings > Turnip rendering: Turnip draws each render pass in tiles of
+        // its on-chip memory (gmem) or straight to memory (sysmem); it picks per
+        // pass unless told (TU_DEBUG, read only by Turnip).
+        String mode = Storage.prefs(this).getString(Storage.KEY_TURNIP_MODE, "auto");
+        if ("sysmem".equals(mode) || "gmem".equals(mode)) Os.setenv("TU_DEBUG", mode, true);
+        else Os.unsetenv("TU_DEBUG");
         Os.setenv("BROKENBOND_HOOK_DIR", getApplicationInfo().nativeLibraryDir, true);
         File folder = new File(getFilesDir(), "gpu/turnip");
         File driver = new File(folder, TURNIP_LIBRARY);

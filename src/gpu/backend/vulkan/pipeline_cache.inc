@@ -314,7 +314,69 @@ void Backend::State::LogDrawCensus() {
 #else
   (void)text;
 #endif
+  if (!surfaces_snapshotted && double(total) / frames > 300) SnapshotSurfaces();
   draw_census.clear();
   draw_census_since = now;
   draw_census_presents = presents;
+}
+
+void Backend::State::SnapshotSurfaces() {
+  surfaces_snapshotted = true;
+  const char* dir = std::getenv("REX_NATIVE_FRAME_DIR");
+  if (!dir || !*dir) return;
+  const std::filesystem::path folder = std::filesystem::path(dir) / "surfaces";
+  std::error_code error;
+  std::filesystem::create_directories(folder, error);
+  if (error) return;
+  const char* reason = nullptr;
+  VkResult result = VK_SUCCESS;
+  if (!CloseBatch(reason, result)) return;
+  size_t written = 0;
+  for (const auto& [size, key] : census_color_keys) {
+    auto it = surfaces.find(key);
+    if (it == surfaces.end() || !it->second.texture || it->second.desc.format != SurfaceFormat::Color8888 ||
+        it->second.desc.samples != 1)
+      continue;
+    auto& surface = it->second;
+    if (surface.last_use && !completion->WaitFor(surface.last_use, kWaitBudget)) continue;
+    const uint32_t w = surface.desc.width, h = surface.desc.height;
+    VkBufferImageCopy region{};
+    region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.imageExtent = {w, h, 1};
+    uint64_t sequence = 0;
+    std::shared_ptr<VmaBuffer> buffer;
+    if (!ReadImage(surface.Image(), surface.state, VkDeviceSize(w) * h * 4, region, sequence, buffer, reason, result))
+      continue;
+    surface.last_use = sequence;
+    // Half size above 480 pixels (2 x 2 averages): enough to tell the passes apart.
+    const uint32_t step = w > 480 ? 2 : 1, ow = w / step, oh = h / step;
+    const uint32_t row = (ow * 3 + 3) & ~3u;
+    std::vector<uint8_t> bmp(54 + size_t(row) * oh);
+    const auto put32 = [&](size_t at, uint32_t v) { std::memcpy(bmp.data() + at, &v, 4); };
+    bmp[0] = 'B'; bmp[1] = 'M';
+    put32(2, uint32_t(bmp.size())); put32(10, 54); put32(14, 40); put32(18, ow); put32(22, oh);
+    bmp[26] = 1; bmp[28] = 24; put32(34, uint32_t(size_t(row) * oh));
+    const uint8_t* rgba = buffer->mapped;
+    for (uint32_t y = 0; y < oh; ++y) {
+      uint8_t* out = bmp.data() + 54 + size_t(oh - 1 - y) * row;  // Bottom-up rows.
+      for (uint32_t x = 0; x < ow; ++x) {
+        uint32_t sum[3]{};
+        for (uint32_t dy = 0; dy < step; ++dy)
+          for (uint32_t dx = 0; dx < step; ++dx) {
+            const uint8_t* p = rgba + (size_t(y * step + dy) * w + x * step + dx) * 4;
+            for (int c = 0; c < 3; ++c) sum[c] += p[c];
+          }
+        for (int c = 0; c < 3; ++c) out[x * 3 + 2 - c] = uint8_t(sum[c] / (step * step));  // BGR.
+      }
+    }
+    const auto name = folder / fmt::format("{}x{}.bmp", w, h);
+    if (std::FILE* f = std::fopen(name.string().c_str(), "wb")) {
+      written += std::fwrite(bmp.data(), 1, bmp.size(), f) == bmp.size();
+      std::fclose(f);
+    }
+  }
+  census_color_keys.clear();
+#ifdef __ANDROID__
+  __android_log_print(ANDROID_LOG_INFO, "narutobb", "Surface images: %zu in %s", written, folder.string().c_str());
+#endif
 }

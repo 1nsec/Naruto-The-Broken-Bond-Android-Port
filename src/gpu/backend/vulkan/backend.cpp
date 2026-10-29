@@ -353,7 +353,13 @@ struct Backend::State {
   // Submits a recorded command buffer (none: only the fence, the readiness) as
   // sequence next_sequence, unless the session holds a failure (refused). A
   // failed submission poisons the owner.
-  bool Submit(VkCommandBuffer commands, VkResult& result, bool& refused);
+  bool Submit(VkCommandBuffer commands, VkResult& result, bool& refused, VkCommandBuffer prelude = VK_NULL_HANDLE);
+  // The open batch's prelude (Batch::prelude), begun at its first use; null
+  // with the result on failure.
+  VkCommandBuffer PreludeCommands(VkResult& result) {
+    if (!batch.prelude && !(batch.prelude = BeginList(result))) return VK_NULL_HANDLE;
+    return static_cast<plume::VulkanCommandList*>(batch.prelude.get())->vk;
+  }
 
   // Draws, clears, uploads and resolves are recorded into one open batch: a
   // pooled command list and persistent upload pages. A batch closes with one
@@ -392,6 +398,11 @@ struct Backend::State {
     VkDeviceSize draw_index_offset{};
     bool draw_index32 = false;
     int32_t gpu_timer = -1;  // Its pair of timestamp queries (gpu_timers), with the profile.
+    // The uploads of buffers and sampled copies that no command of the batch
+    // used yet, recorded apart and submitted before the batch's list: the draw
+    // layer's render pass goes on instead of ending at each upload (on a tiled
+    // GPU each break stores the targets and loads them again).
+    std::unique_ptr<plume::RenderCommandList> prelude;
   };
   // The GPU time of each batch for the profile (kGpu): a timestamp at its
   // start and at its end, read once the batch completed.
@@ -635,13 +646,21 @@ struct Backend::State {
   std::unordered_map<uint64_t, uint64_t> draw_census;
   std::chrono::steady_clock::time_point draw_census_since{};
   uint64_t draw_census_presents = 0;
+  // A color surface of each size drawn to, for the snapshots (SnapshotSurfaces).
+  std::unordered_map<uint64_t, uint32_t> census_color_keys;
+  bool surfaces_snapshotted = false;
   void CountDraw(bool depth_only, const Surface* color, const Surface* depth) {
     const auto size = [](const Surface* s) {
       return s ? (uint64_t(std::min(s->desc.width, 0x7FFFu)) << 15) | std::min(s->desc.height, 0x7FFFu) : 0;
     };
     ++draw_census[(uint64_t(depth_only) << 60) | (size(color) << 30) | size(depth)];
+    if (color && !surfaces_snapshotted) census_color_keys[size(color)] = color->desc.key;
   }
   void LogDrawCensus();
+  // Once, in a busy frame with the profile: an image of each color surface
+  // size the frame drew to, as BMP files in REX_NATIVE_FRAME_DIR/surfaces
+  // (which pass is which, for the performance options).
+  void SnapshotSurfaces();
   // The pipeline cache every pipeline is created through, kept on disk
   // between sessions when the app names a file (pipeline_cache.inc).
   VkPipelineCache pipeline_cache{};
@@ -755,7 +774,7 @@ class Backend::State::Hooks final : public CompletionTestHooks {
 };
 #endif
 
-bool Backend::State::Submit(VkCommandBuffer commands, VkResult& result, bool& refused) {
+bool Backend::State::Submit(VkCommandBuffer commands, VkResult& result, bool& refused, VkCommandBuffer prelude) {
   refused = false;
   VkFence fence = VK_NULL_HANDLE;
   if (!completion->Acquire(fence, result)) {
@@ -766,8 +785,9 @@ bool Backend::State::Submit(VkCommandBuffer commands, VkResult& result, bool& re
   const uint64_t sequence = next_sequence;
   auto* queue_native = static_cast<plume::VulkanCommandQueue*>(queue.get())->queue;
   VkSubmitInfo info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-  info.commandBufferCount = commands ? 1 : 0;
-  info.pCommandBuffers = commands ? &commands : nullptr;
+  const VkCommandBuffer lists[2]{prelude, commands};
+  info.commandBufferCount = (prelude ? 1u : 0u) + (commands ? 1u : 0u);
+  info.pCommandBuffers = !info.commandBufferCount ? nullptr : prelude ? lists : &lists[1];
   info.signalSemaphoreCount = submit_signal ? 1 : 0;
   info.pSignalSemaphores = submit_signal ? &submit_signal : nullptr;
 #if defined(NATIVE_RENDERER_ENGINE_FAULT_TEST)
@@ -855,6 +875,7 @@ void Backend::State::Reclaim(uint64_t completed) {
       free_draw_caches.push_back(std::move(done.graphics));
     }
     free_lists.push_back(std::move(done.list));
+    if (done.prelude) free_lists.push_back(std::move(done.prelude));
     for (auto& page : done.pages)
       if (page.buffer->size == kUploadPageBytes) {
         page.used = 0;
@@ -960,7 +981,7 @@ bool Backend::State::CloseBatch(const char*& reason, VkResult& result) {
   profile::Timer submit_time(profile::kEngineSubmit);
   EndGpuTimer(batch);
   batch_open = false;
-  if ((result = EndList(*batch.list)) != VK_SUCCESS) {
+  if ((result = EndList(*batch.list)) != VK_SUCCESS || (batch.prelude && (result = EndList(*batch.prelude)) != VK_SUCCESS)) {
     operation_poisoned = true;
     reason = "native-batch-close";
     return false;
@@ -978,7 +999,9 @@ bool Backend::State::CloseBatch(const char*& reason, VkResult& result) {
       return false;
     }
   bool refused = false;
-  if (!Submit(Commands(), result, refused)) {
+  const VkCommandBuffer prelude =
+      batch.prelude ? static_cast<plume::VulkanCommandList*>(batch.prelude.get())->vk : VK_NULL_HANDLE;
+  if (!Submit(Commands(), result, refused, prelude)) {
     batch_refused = refused;
     reason = refused ? "native-batch-refused-after-failure" : "native-batch-submit";
     return false;
@@ -1852,7 +1875,10 @@ bool Backend::UploadSampled(const DrawTexture& t, std::string& evidence) {
     regions[i].imageExtent = {std::max(t.width >> level, 1u), std::max(t.height >> level, 1u), 1};
   }
   // Every level of every face is written: the previous content is not kept.
-  const VkCommandBuffer commands = state_->Commands();
+  // Into the batch's prelude when no command of the batch used the copy yet.
+  VkCommandBuffer commands = s.last_use != state_->batch.sequence ? state_->PreludeCommands(result) : VK_NULL_HANDLE;
+  if (!commands) commands = state_->Commands();
+  else profile::Count(profile::kPreludeUploads, 1);
   Transition(commands, s.image->image, VK_IMAGE_ASPECT_COLOR_BIT, s.state, kCopyDest, true);
   vkCmdCopyBufferToImage(commands, page->buffer->buffer, s.image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                          subresources, regions.data());
@@ -1939,7 +1965,10 @@ bool Backend::UploadBuffer(const BufferUpload& u, std::string& evidence) {
     copies.push_back({at, offset, data.size()});
     at += data.size();
   }
-  const VkCommandBuffer commands = state_->Commands();
+  // Into the batch's prelude when no command of the batch used the buffer yet.
+  VkCommandBuffer commands = b.last_use != state_->batch.sequence ? state_->PreludeCommands(result) : VK_NULL_HANDLE;
+  if (!commands) commands = state_->Commands();
+  else profile::Count(profile::kPreludeUploads, 1);
   Transition(commands, b.buffer->buffer, b.state, kBufferCopyDest);
   vkCmdCopyBuffer(commands, page->buffer->buffer, b.buffer->buffer, uint32_t(copies.size()), copies.data());
   Transition(commands, b.buffer->buffer, b.state, kBufferDraw);

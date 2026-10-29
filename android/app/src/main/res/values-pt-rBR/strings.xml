@@ -60,6 +60,10 @@
     <string name="settings_reset_confirm">Substituir o naruto.toml pelo padrão do Android?</string>
     <string name="off">Desligado</string>
     <string name="setting_gpu_driver">Driver de vídeo</string>
+    <string name="setting_turnip_mode">Renderização do Turnip (experimental)</string>
+    <string name="turnip_mode_auto">Automática</string>
+    <string name="turnip_mode_sysmem">Direta (sysmem)</string>
+    <string name="turnip_mode_gmem">Em blocos (gmem)</string>
     <string name="gpu_driver_auto">Automático</string>
     <string name="gpu_driver_system">Do sistema (Qualcomm)</string>
     <string name="gpu_driver_turnip">Turnip (incluso)</string>
