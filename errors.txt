@@ -1,0 +1,207 @@
+run: https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port/actions/runs/40926011212
+commit: 09d5d12e154f3421f3930e3c2db799f9ab98d0a1
+job: android-apk-apk
+
+== errors (with context) ==
+
+== last 200 lines ==
+[826/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.84.cpp.o
+[827/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.85.cpp.o
+[828/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.86.cpp.o
+[829/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.88.cpp.o
+[830/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.87.cpp.o
+[831/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.89.cpp.o
+[832/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.90.cpp.o
+[833/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.91.cpp.o
+[834/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.92.cpp.o
+[835/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.93.cpp.o
+[836/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.94.cpp.o
+[837/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.96.cpp.o
+[838/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.95.cpp.o
+[839/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.97.cpp.o
+[840/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.98.cpp.o
+[841/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.99.cpp.o
+[842/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.100.cpp.o
+[843/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.101.cpp.o
+[844/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.102.cpp.o
+[845/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.103.cpp.o
+[846/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.104.cpp.o
+[847/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.105.cpp.o
+[848/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.106.cpp.o
+[849/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.107.cpp.o
+[850/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.108.cpp.o
+[851/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.109.cpp.o
+[852/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.110.cpp.o
+[853/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.111.cpp.o
+[854/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.112.cpp.o
+[855/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.113.cpp.o
+[856/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.114.cpp.o
+[857/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.115.cpp.o
+[858/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.116.cpp.o
+[859/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.117.cpp.o
+[860/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.118.cpp.o
+[861/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.120.cpp.o
+[862/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.119.cpp.o
+[863/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.121.cpp.o
+[864/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.122.cpp.o
+[865/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.123.cpp.o
+[866/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.124.cpp.o
+[867/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.126.cpp.o
+[868/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.125.cpp.o
+[869/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.127.cpp.o
+[870/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.128.cpp.o
+[871/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.129.cpp.o
+[872/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.130.cpp.o
+[873/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.132.cpp.o
+[874/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.131.cpp.o
+[875/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.133.cpp.o
+[876/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.134.cpp.o
+[877/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.136.cpp.o
+[878/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.137.cpp.o
+[879/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.135.cpp.o
+[880/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.138.cpp.o
+[881/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.139.cpp.o
+[882/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.140.cpp.o
+[883/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.141.cpp.o
+[884/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.142.cpp.o
+[885/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.143.cpp.o
+[886/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.144.cpp.o
+[887/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.145.cpp.o
+[888/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.146.cpp.o
+[889/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.148.cpp.o
+[890/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.147.cpp.o
+[891/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.150.cpp.o
+[892/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.149.cpp.o
+[893/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.151.cpp.o
+[894/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.152.cpp.o
+[895/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.153.cpp.o
+[896/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.154.cpp.o
+[897/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.155.cpp.o
+[898/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.156.cpp.o
+[899/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.157.cpp.o
+[900/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.158.cpp.o
+[901/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.160.cpp.o
+[902/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.159.cpp.o
+[903/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.161.cpp.o
+[904/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.162.cpp.o
+[905/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.165.cpp.o
+[906/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.166.cpp.o
+[907/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.164.cpp.o
+[908/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.163.cpp.o
+[909/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.167.cpp.o
+[910/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.168.cpp.o
+[911/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.169.cpp.o
+[912/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.170.cpp.o
+[913/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.171.cpp.o
+[914/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.172.cpp.o
+[915/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.173.cpp.o
+[916/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.174.cpp.o
+[917/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.176.cpp.o
+[918/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.175.cpp.o
+[919/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.177.cpp.o
+[920/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.178.cpp.o
+[921/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.179.cpp.o
+[922/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.180.cpp.o
+[923/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.181.cpp.o
+[924/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.182.cpp.o
+[925/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.183.cpp.o
+[926/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.184.cpp.o
+[927/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.186.cpp.o
+[928/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.185.cpp.o
+[929/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.187.cpp.o
+[930/946] Linking CXX static library libnative_renderer_plume_vulkan.a
+[931/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.188.cpp.o
+[932/946] Linking CXX static library libbroken_bond_smolv.a
+[933/946] Linking CXX static library adrenotools\libadrenotools.a
+[934/946] Linking CXX shared library adrenotools\src\hook\libhook_impl.so
+[935/946] Building C object adrenotools/src/hook/CMakeFiles/main_hook.dir/main_hook.c.o
+[936/946] Linking CXX shared library C:\nb\sdk\out\android-arm64\librexruntime.so
+[937/946] Building C object adrenotools/src/hook/CMakeFiles/file_redirect_hook.dir/file_redirect_hook.c.o
+[938/946] Building C object adrenotools/src/hook/CMakeFiles/gsl_alloc_hook.dir/gsl_alloc_hook.c.o
+[939/946] Linking CXX shared library adrenotools\src\hook\libmain_hook.so
+[940/946] Linking CXX shared library adrenotools\src\hook\libfile_redirect_hook.so
+[941/946] Linking CXX shared library adrenotools\src\hook\libgsl_alloc_hook.so
+[942/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.189.cpp.o
+[943/946] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.190.cpp.o
+[944/946] Linking CXX shared library libmain.so
+[945/946] Native libraries of the Android app -> C:/nb/android/app/src/main/jniLibs/arm64-v8a
+Downloading https://services.gradle.org/distributions/gradle-8.14.3-bin.zip
+.............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%..............100%
+
+Welcome to Gradle 8.14.3!
+
+Here are the highlights of this release:
+ - Java 24 support
+ - GraalVM Native Image toolchain selection
+ - Enhancements to test reporting
+ - Build Authoring improvements
+
+For more details see https://docs.gradle.org/8.14.3/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:checkNativeLibraries
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:javaPreCompileRelease
+> Task :app:checkReleaseAarMetadata
+> Task :app:generateReleaseResValues
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:mergeReleaseNativeLibs
+> Task :app:packageReleaseResources
+> Task :app:stripReleaseDebugSymbols
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:processReleaseManifest
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:processReleaseManifestForPackage
+> Task :app:mergeExtDexRelease
+> Task :app:mergeReleaseArtProfile
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:processReleaseResources
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:compressReleaseAssets
+
+> Task :app:compileReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:dexBuilderRelease
+> Task :app:processReleaseJavaRes NO-SOURCE
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:collectReleaseDependencies
+> Task :app:mergeReleaseJavaResource
+> Task :app:sdkReleaseDependencyData
+> Task :app:optimizeReleaseResources
+> Task :app:validateSigningRelease
+> Task :app:mergeDexRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:compileReleaseArtProfile
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+
+[Incubating] Problems report is available at: file:///C:/nb/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 1m 7s
+42 actionable tasks: 42 executed
+APK: C:\nb\dist\NarutoBrokenBond-Android-2.5-android-alpha.26.apk
