@@ -182,7 +182,9 @@ workflow; its APK cannot play anything.
 - **No busy threads:** SDL's event wait on Android never blocked (each pump queued a poll sentinel
   that woke it), which kept a whole fast core busy; the poll sentinel is off, so the UI thread
   sleeps until an event. Timed waits of the runtime no longer spin through their last fraction of a
-  millisecond, and a memory commit or a write watch hit no longer scans `/proc/self/maps`.
+  millisecond, and a memory commit (`msync` tells whether the range is mapped) or a write watch
+  hit (the access violation callback goes first; only a write it does not handle has the page's
+  protection read) no longer scans `/proc/self/maps`.
 - **Earlier submission:** a batch of 256 operations or more goes to the GPU where a draw starts a
   new render pass, so the GPU works on a frame while the rest of it is recorded, instead of waiting
   for the frame's end.

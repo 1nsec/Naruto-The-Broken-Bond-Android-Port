@@ -624,7 +624,7 @@ index 0000000..11c83e0
 +
 +}  // namespace rex
 diff --git a/src/core/memory_posix.cpp b/src/core/memory_posix.cpp
-index b52bf39..3881af4 100644
+index b52bf39..725322b 100644
 --- a/src/core/memory_posix.cpp
 +++ b/src/core/memory_posix.cpp
 @@ -53,8 +53,7 @@
@@ -637,25 +637,20 @@ index b52bf39..3881af4 100644
  #endif
  
  namespace rex {
-@@ -190,7 +189,7 @@ static bool FindEntryForAddress(void* address, LinuxMapEntry& out_entry) {
- }
- 
- // Check if [base, base+length) is fully covered by existing mappings (no gaps)
--static bool IsRangeFullyMapped(void* base_address, size_t length) {
-+[[maybe_unused]] static bool IsRangeFullyMapped(void* base_address, size_t length) {
-   if (!base_address || length == 0)
-     return false;
- 
-@@ -304,12 +303,21 @@ void* AllocFixed(void* base_address, size_t length, AllocationType allocation_ty
+@@ -304,12 +303,25 @@ void* AllocFixed(void* base_address, size_t length, AllocationType allocation_ty
    if (errno == EEXIST && base_address &&
        (allocation_type == AllocationType::kCommit ||
         allocation_type == AllocationType::kReserveCommit)) {
 +#if REX_PLATFORM_ANDROID
-+    // mprotect fails with ENOMEM where the range is not fully mapped. Scanning
-+    // /proc/self/maps (thousands of mappings on Android) for every commit took
-+    // milliseconds of the guest threads' time.
-+    if (mprotect(base_address, length, static_cast<int>(prot_requested)) == 0) {
-+      return base_address;
++    // Scanning /proc/self/maps (thousands of mappings on Android) for every
++    // commit took milliseconds of the guest threads' time. msync with MS_ASYNC
++    // changes nothing and fails with ENOMEM where the range is not fully
++    // mapped (EINVAL, an unaligned base: the scan).
++    const int mapped = msync(base_address, length, MS_ASYNC) == 0 ? 1 : errno == ENOMEM ? 0 : -1;
++    if (mapped == 1 || (mapped < 0 && IsRangeFullyMapped(base_address, length))) {
++      if (mprotect(base_address, length, static_cast<int>(prot_requested)) == 0) {
++        return base_address;
++      }
 +    }
 +#else
      // Verify the entire range is mapped before using mprotect
@@ -668,7 +663,7 @@ index b52bf39..3881af4 100644
    }
  #endif
  
-@@ -432,6 +440,8 @@ bool QueryProtect(void* base_address, size_t& length, PageAccess& access_out) {
+@@ -432,6 +444,8 @@ bool QueryProtect(void* base_address, size_t& length, PageAccess& access_out) {
  FileMappingHandle CreateFileMappingHandle(const std::filesystem::path& path, size_t length,
                                            PageAccess access, bool commit) {
  #if REX_PLATFORM_ANDROID
@@ -966,10 +961,10 @@ index 5cfea05..b029b60 100644
  
  rex::thread::TimerQueue timer_queue_;
 diff --git a/src/system/mmio_handler.cpp b/src/system/mmio_handler.cpp
-index 2b93005..3efe8cb 100644
+index 2b93005..8484215 100644
 --- a/src/system/mmio_handler.cpp
 +++ b/src/system/mmio_handler.cpp
-@@ -406,13 +406,22 @@ bool MMIOHandler::ExceptionCallback(arch::Exception* ex) {
+@@ -406,13 +406,36 @@ bool MMIOHandler::ExceptionCallback(arch::Exception* ex) {
      // clears the watch we just hit).
      // Do this under the lock so we don't introduce another race condition.
      auto lock = global_critical_region_.Acquire();
@@ -983,9 +978,23 @@ index 2b93005..3efe8cb 100644
 +#if REX_PLATFORM_ANDROID
 +    // QueryProtect scans /proc/self/maps, milliseconds with the thousands of
 +    // mappings of an Android process, on every write watch hit. A write goes
-+    // straight to the callback, which finds whether the page is still watched
-+    // and restores the access of a page another thread unwatched meanwhile.
-+    if (!is_write)
++    // to the callback first (a watched physical page, or one another thread
++    // unwatched meanwhile, which it makes writable again); only a write it
++    // does not handle has the protection checked, as before, and a page that
++    // became writable meanwhile retries the write.
++    if (is_write) {
++      if (access_violation_callback_ &&
++          access_violation_callback_(std::move(lock), access_violation_callback_context_,
++                                     fault_host_address, is_write)) {
++        return true;
++      }
++      auto relock = global_critical_region_.Acquire();
++      memory::PageAccess cur_access;
++      size_t page_length = memory::page_size();
++      memory::QueryProtect(fault_host_address, page_length, cur_access);
++      return cur_access != memory::PageAccess::kNoAccess &&
++             cur_access != memory::PageAccess::kReadOnly;
++    }
 +#endif
 +    {
 +      memory::PageAccess cur_access;
