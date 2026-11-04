@@ -23,6 +23,9 @@ Alpha of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the re
 - Water reflections, character shadows and draw distance also change **right away** from PC Options > Graphics, to compare in the same place.
 - The performance log costs less CPU: its timers ran around every draw on the game's busiest thread.
 - PC Options offers render resolutions up to 1080p on phones; a larger value left in naruto.toml is capped at 1440p instead of running out of memory.
+- **New camera on the on-screen controls:** no more camera stick. Drag a finger anywhere on the screen (outside the buttons and the left stick) to turn the camera, as in mobile games. Its sensitivity is in Settings and in PC Options > Controls.
+- The presets now set the draw distance too: Short in Performance, Medium in Balanced.
+- A **GitHub** button in the launcher opens the project's page, for new versions and problem reports.
 - **Sound in fights and cutscenes:** the game's 5.1 sound is folded to stereo by the app, as on a PC with stereo speakers, instead of by Android, which lost it on some devices.
 - The bundled Turnip driver is newer (Mesa 26.1).
 - **Less CPU waste:** a thread of the app kept the phone's fastest core busy for nothing, and the game's threads lost time to slow memory queries and spinning waits; the cores are left to the game.

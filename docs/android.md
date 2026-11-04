@@ -130,8 +130,12 @@ workflow; its APK cannot play anything.
 
 ### Controls
 
-- **On-screen controller:** touch the lower left of the screen for the left stick and the lower
-  middle for the camera stick (each appears where you touch). Each button shows its action, with
+- **On-screen controller:** touch the lower left of the screen for the left stick (it appears
+  where you touch). The camera has no stick: drag a finger anywhere else on the screen to turn it,
+  as in mobile games. Where the player turns the camera (free roaming), the drag's distance turns
+  it like the PC port's mouse (`mouse_camera.cpp`; *Camera drag sensitivity* in Settings, *Touch
+  camera sensitivity* in PC Options > Controls, `touch_camera_sensitivity` in naruto.toml);
+  elsewhere the drag pushes the right stick from where it began. Each button shows its action, with
   the pad button in a small badge: the big **X** (attack) at the lower right with **A** (jump),
   **Y** (heavy attack), **B** (block) and **RB** (kunai) around it and **RT** (sprint) above;
   **LT** (jutsus) and **LB** (inventory) on the upper left under the health bar, with the D-pad
@@ -222,6 +226,7 @@ workflow; its APK cannot play anything.
   three logs and profiles and the newest images. Its timers cost little: the counter is read
   without a barrier and scaled without divisions, each slot has its own cache line, and the
   slots timed around every draw time one call in eight on each thread (counted eight times).
+- The launcher's **GitHub** button opens the project's page (new versions and problem reports).
 - **Render resolution** goes up to 1080p in PC Options on Android; a larger value in naruto.toml
   is capped at 2x (1440p), since 4x exhausts a phone's memory.
 

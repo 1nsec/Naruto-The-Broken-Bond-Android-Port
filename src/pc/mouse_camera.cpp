@@ -15,6 +15,11 @@
 // to the stick's when a controller turns too). The stick is read only when the camera is the
 // player's to turn (not in cutscenes, menus or fights); the mouse follows the same rule, and
 // elsewhere goes back to moving the right stick.
+//
+// The on-screen controller (Android) turns the camera the same way: a finger dragged over the
+// screen, outside the buttons and the left stick, adds its motion (AddTouchLook, in screen
+// heights) to the mouse's while the camera is the player's to turn (TouchLookActive); elsewhere
+// the drag pushes the right stick (TouchControllerView.java).
 
 #include "mouse_camera.h"
 #include "free_camera.h"
@@ -38,6 +43,9 @@
 REXCVAR_DEFINE_BOOL(mouse_camera_direct, true, "Controls",
                     "The mouse turns the camera by the distance it moved (off: it pushes the "
                     "right stick like a controller)");
+REXCVAR_DEFINE_DOUBLE(touch_camera_sensitivity, 1.0, "Controls",
+                      "How far a finger dragged over the screen turns the camera (on-screen controls)")
+    .range(0.1, 5.0);
 
 extern "C" void __imp__sub_828C54E8(PPCContext& __restrict, uint8_t*);  // camera input
 extern "C" void __imp__sub_828793B0(PPCContext& __restrict, uint8_t*);  // read the right stick
@@ -52,6 +60,7 @@ constexpr uint32_t kStickX = 964, kPitch = 184, kPitchMax = 504;
 constexpr uint32_t kInvertX = 16, kInvertY = 172, kStickDisabled = 1560;
 constexpr float kTurnThreshold = 0.25f;  // The camera turns past a quarter push (820AB72C).
 constexpr float kRadiansPerPixel = 0.0025f;
+constexpr float kRadiansPerScreen = 3.0f;  // A drag the screen's height turns about 170 degrees.
 constexpr auto kIdle = std::chrono::milliseconds(500);
 
 // The player's data while the camera input runs, and whether it read the stick this step.
@@ -64,6 +73,8 @@ std::atomic<int64_t> g_last_turnable{0};  // steady clock ticks of the last step
 std::atomic<float> g_mouse_turn{0.0f};
 std::atomic<bool> g_mouse_turn_pending{false}, g_stick_turns{false};
 std::atomic<float> g_applied_turn{0.0f};
+// The finger's motion since the camera input last took it, in screen heights.
+std::atomic<float> g_touch_dx{0.0f}, g_touch_dy{0.0f};
 
 int64_t Now() { return std::chrono::steady_clock::now().time_since_epoch().count(); }
 
@@ -79,23 +90,49 @@ double Sensitivity() {
 
 bool Wanted() { return REXCVAR_GET(mouse_camera_direct) && MouseOn(); }
 
+bool Turnable() {
+  return Now() - g_last_turnable.load(std::memory_order_relaxed) <
+         std::chrono::steady_clock::duration(kIdle).count();
+}
+
+// The mouse's and the finger's motion since the last step, in radians (right and down positive).
+bool TakeLook(float& dx, float& dy) {
+  dx = dy = 0.0f;
+  bool any = false;
+  float mx = 0.0f, my = 0.0f;
+  if (Wanted() && rex::input::mnk::TakeMouseLook(&mx, &my)) {
+    const float scale = kRadiansPerPixel * static_cast<float>(std::clamp(Sensitivity(), 0.05, 20.0));
+    dx += mx * scale;
+    dy += my * scale;
+    any = true;
+  }
+  const float tx = g_touch_dx.exchange(0.0f), ty = g_touch_dy.exchange(0.0f);
+  if (tx != 0.0f || ty != 0.0f) {
+    const float scale = kRadiansPerScreen * static_cast<float>(
+        std::clamp(REXCVAR_GET(touch_camera_sensitivity), 0.1, 5.0));
+    dx += tx * scale;
+    dy += ty * scale;
+    any = true;
+  }
+  return any;
+}
+
 void Turn(uint8_t* base, uint32_t player) {
   float dx = 0.0f, dy = 0.0f;
-  if (!rex::input::mnk::TakeMouseLook(&dx, &dy)) return;
-  const float scale = kRadiansPerPixel * static_cast<float>(std::clamp(Sensitivity(), 0.05, 20.0));
+  if (!TakeLook(dx, dy)) return;
   const float sign_x = gpu::Get32(base, player + kInvertX) ? -1.0f : 1.0f;
   const float sign_y = gpu::Get32(base, player + kInvertY) ? -1.0f : 1.0f;
 
   // Down looks down like the stick pulled back: the pitch goes up.
   const float pitch_max = gpu::GetFloat(base, player + kPitchMax);
-  const float pitch = gpu::GetFloat(base, player + kPitch) + dy * scale * sign_y;
+  const float pitch = gpu::GetFloat(base, player + kPitch) + dy * sign_y;
   if (std::isfinite(pitch) && std::isfinite(pitch_max) && pitch_max > 0.0f) {
     gpu::PutFloat(base, player + kPitch, std::clamp(pitch, 0.0f, pitch_max));
   }
 
   // Right turns like the stick to the right; the camera's angle is the opposite of the push.
   if (dx == 0.0f) return;
-  const float turn = -dx * scale * sign_x;
+  const float turn = -dx * sign_x;
   const float stick = gpu::GetFloat(base, player + kStickX);
   const bool stick_turns = std::isfinite(stick) && std::fabs(stick) >= kTurnThreshold;
   if (!stick_turns) gpu::PutFloat(base, player + kStickX, turn < 0.0f ? kTurnThreshold : -kTurnThreshold);
@@ -107,9 +144,22 @@ void Turn(uint8_t* base, uint32_t player) {
 }  // namespace
 
 void UpdateMouseCamera() {
-  const bool turnable = Now() - g_last_turnable.load(std::memory_order_relaxed) <
-                        std::chrono::steady_clock::duration(kIdle).count();
+  const bool turnable = Turnable();
   rex::input::mnk::SetDirectMouseLook((Wanted() && turnable) || (FreeCameraOn() && MouseOn()));
+  if (!turnable) {  // A drag that ended in a cutscene, a menu or a fight does not turn the camera later.
+    g_touch_dx.store(0.0f);
+    g_touch_dy.store(0.0f);
+  }
+}
+
+bool TouchLookActive() { return Turnable(); }
+
+void AddTouchLook(float dx, float dy) {
+  if (!std::isfinite(dx) || !std::isfinite(dy)) return;
+  float seen = g_touch_dx.load();
+  while (!g_touch_dx.compare_exchange_weak(seen, seen + dx)) {}
+  seen = g_touch_dy.load();
+  while (!g_touch_dy.compare_exchange_weak(seen, seen + dy)) {}
 }
 
 REX_HOOK_RAW(sub_828793B0) {
@@ -130,7 +180,7 @@ REX_HOOK_RAW(sub_828C54E8) {
   t_player = 0;
   if (!turnable) return;
   g_last_turnable.store(Now(), std::memory_order_relaxed);
-  if (Wanted()) Turn(base, player);
+  Turn(base, player);  // The mouse's motion (when it turns the camera directly) and the finger's.
 }
 
 REX_HOOK_RAW(sub_82808FD8) {

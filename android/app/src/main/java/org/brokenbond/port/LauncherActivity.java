@@ -27,6 +27,8 @@ import java.io.File;
 public class LauncherActivity extends Activity {
     private static final int PICK_ISO = 1;
     private static final long MIN_ISO_BYTES = 1L << 30;  // The game's disc image is about 7 GB.
+    // The project's page: new versions (Releases) and problem reports (Issues).
+    private static final String GITHUB_URL = "https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port";
 
     private TextView status;
     private Button play;
@@ -42,6 +44,7 @@ public class LauncherActivity extends Activity {
         findViewById(R.id.settings).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.help).setOnClickListener(v -> showHelp());
         findViewById(R.id.export_logs).setOnClickListener(v -> exportLogs());
+        findViewById(R.id.github).setOnClickListener(v -> openGitHub());
         ((TextView) findViewById(R.id.version)).setText(getString(R.string.version_line, versionName()));
         GameConfig.ensureDefaults(this);
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION, 0x401000)) {
@@ -181,6 +184,15 @@ public class LauncherActivity extends Activity {
             decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN
                     | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                     | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        }
+    }
+
+    /** The project's GitHub page in the browser. */
+    private void openGitHub() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_URL)));
+        } catch (android.content.ActivityNotFoundException e) {
+            Toast.makeText(this, GITHUB_URL, Toast.LENGTH_LONG).show();
         }
     }
 }

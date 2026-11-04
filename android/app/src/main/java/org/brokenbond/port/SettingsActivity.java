@@ -135,7 +135,8 @@ public class SettingsActivity extends Activity {
         for (int i = 0; i < keys.length; ++i) config.setRaw(keys[i], values[preset][i]);
         config.setBool("water_reflections", preset != 0);  // Off in Performance: about a sixth of the open world's draws.
         config.setBool("character_shadows", preset != 0);
-        config.setInt("draw_distance", preset == 0 ? 120 : 0);  // Medium in Performance.
+        // Draw distance: short in Performance, medium in Balanced, the game's own in Quality.
+        config.setInt("draw_distance", preset == 0 ? 60 : preset == 1 ? 120 : 0);
         config.setInt("frame_rate", 30);
         config.setBool("async_shaders", true);
         if (!config.save()) {
@@ -271,6 +272,10 @@ public class SettingsActivity extends Activity {
         prefToggle(R.string.setting_touch, Storage.KEY_TOUCH, true);
         prefSlider(R.string.setting_touch_opacity, Storage.KEY_TOUCH_OPACITY, 0.85f, 0.15f, 1.0f);
         prefSlider(R.string.setting_touch_scale, Storage.KEY_TOUCH_SCALE, 1.0f, 0.7f, 1.4f);
+        choice(R.string.setting_touch_camera, "touch_camera_sensitivity",
+                new String[] {getString(R.string.sensitivity_low), getString(R.string.sensitivity_normal),
+                        getString(R.string.sensitivity_high), getString(R.string.sensitivity_very_high)},
+                new String[] {"0.5", "1.0", "1.5", "2.0"}, "1.0");
 
         header(R.string.settings_debug);
         toggle(R.string.setting_log_to_file, "log_to_file", true);

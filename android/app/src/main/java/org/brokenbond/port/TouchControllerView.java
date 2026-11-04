@@ -23,8 +23,12 @@ import java.util.List;
  *
  * <p>It is an SDL virtual gamepad (touch_controller.cpp in the game library),
  * so the game and the PC Options menu see it as a controller, like a Bluetooth
- * pad. Sticks are floating: they center where the thumb lands in their area.
- * The gear button presses Back + Start, which opens PC Options.
+ * pad. The left stick is floating: it centers where the thumb lands in its
+ * area. The camera has no stick: a finger dragged anywhere else on the screen
+ * turns it, as in mobile games (the game library turns it by the drag's
+ * distance like the PC port's mouse, mouse_camera.cpp; where the game does not
+ * let the player turn the camera, the drag pushes the right stick). The gear
+ * button presses Back + Start, which opens PC Options.
  *
  * <p>The buttons are parchment discs with the game's action on them (attack,
  * kick, jump, block, kunai, sprint, jutsu, inventory) and the pad button in a
@@ -42,6 +46,8 @@ public class TouchControllerView extends View {
     static native void nativeDetach();
     static native void nativeButton(int button, boolean pressed);
     static native void nativeAxis(int axis, int value);
+    static native boolean nativeLookActive();
+    static native void nativeLook(float dx, float dy);
 
     // Where a button's center is measured from.
     private static final int TOP_LEFT = 0, TOP_CENTER = 1, BOTTOM_LEFT = 2, BOTTOM_RIGHT = 3;
@@ -101,7 +107,11 @@ public class TouchControllerView extends View {
 
     private final List<Button> buttons = new ArrayList<>();
     private final Stick left = new Stick(AXIS_LX, AXIS_LY);
-    private final Stick right = new Stick(AXIS_RX, AXIS_RY);
+    // The camera drag: its pointer, where it was last and where the right stick it may push is
+    // centered, and whether it pushes the stick now.
+    private int cameraPointer = -1;
+    private float cameraLastX, cameraLastY, cameraBaseX, cameraBaseY, cameraRadius;
+    private boolean cameraStick;
     private final SparseArray<Button> pointerButtons = new SparseArray<>();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -191,14 +201,11 @@ public class TouchControllerView extends View {
                 b.pressedShader = new RadialGradient(b.cx - r * 0.3f, b.cy - r * 0.35f, r * 1.2f, PRESSED_LIGHT, PRESSED_DARK, Shader.TileMode.CLAMP);
             }
         }
-        // Left stick: the lower left, under the D-pad. Camera: between it and the attack buttons.
-        float cameraRight = Math.max(w * 0.55f, w - 0.70f * unit);
+        // Left stick: the lower left, under the D-pad. The camera drag takes the rest of the screen.
         left.area.set(0, h * 0.60f, w * 0.45f, h);
-        right.area.set(w * 0.45f, h * 0.40f, cameraRight, h);
-        left.radius = right.radius = 0.16f * unit;
+        left.radius = cameraRadius = 0.16f * unit;
         left.restX = w * 0.22f;
-        right.restX = right.area.centerX();
-        left.restY = right.restY = h - 0.20f * unit;
+        left.restY = h - 0.20f * unit;
         stroke.setStrokeWidth(Math.max(2f, unit * 0.007f));
     }
 
@@ -257,6 +264,56 @@ public class TouchControllerView extends View {
         }
     }
 
+    private boolean lookActive() {
+        try {
+            return nativeLookActive();
+        } catch (UnsatisfiedLinkError e) {
+            return false;
+        }
+    }
+
+    /**
+     * The camera drag moved: where the player turns the camera, its motion turns it directly (in
+     * screen heights); elsewhere it pushes the right stick by its distance from where it began to.
+     */
+    private void moveCamera(float x, float y) {
+        float dx = x - cameraLastX, dy = y - cameraLastY;
+        cameraLastX = x;
+        cameraLastY = y;
+        if (!ensureAttached()) return;
+        if (lookActive()) {
+            if (cameraStick) releaseCameraStick();
+            if ((dx != 0 || dy != 0) && getHeight() > 0) nativeLook(dx / getHeight(), dy / getHeight());
+            return;
+        }
+        if (!cameraStick) {
+            cameraStick = true;
+            cameraBaseX = x - dx;
+            cameraBaseY = y - dy;
+        }
+        float ox = x - cameraBaseX, oy = y - cameraBaseY;
+        float len = (float) Math.hypot(ox, oy);
+        if (len > cameraRadius) {
+            ox = ox / len * cameraRadius;
+            oy = oy / len * cameraRadius;
+        }
+        nativeAxis(AXIS_RX, Math.round(ox / cameraRadius * 32767));
+        nativeAxis(AXIS_RY, Math.round(oy / cameraRadius * 32767));
+    }
+
+    private void releaseCameraStick() {
+        cameraStick = false;
+        if (ensureAttached()) {
+            nativeAxis(AXIS_RX, 0);
+            nativeAxis(AXIS_RY, 0);
+        }
+    }
+
+    private void releaseCamera() {
+        cameraPointer = -1;
+        if (cameraStick) releaseCameraStick();
+    }
+
     private Button buttonAt(float x, float y) {
         for (Button b : buttons) if (b.hit(x, y)) return b;
         return null;
@@ -279,10 +336,11 @@ public class TouchControllerView extends View {
                     left.pointer = id;
                     left.baseX = left.knobX = x;
                     left.baseY = left.knobY = y;
-                } else if (right.pointer < 0 && right.area.contains(x, y)) {
-                    right.pointer = id;
-                    right.baseX = right.knobX = x;
-                    right.baseY = right.knobY = y;
+                } else if (cameraPointer < 0) {
+                    cameraPointer = id;
+                    cameraLastX = x;
+                    cameraLastY = y;
+                    cameraStick = false;
                 }
                 break;
             }
@@ -291,7 +349,7 @@ public class TouchControllerView extends View {
                     int id = e.getPointerId(i);
                     float x = e.getX(i), y = e.getY(i);
                     if (id == left.pointer) moveStick(left, x, y);
-                    else if (id == right.pointer) moveStick(right, x, y);
+                    else if (id == cameraPointer) moveCamera(x, y);
                     else {
                         // Sliding between buttons (for example A to B) follows the thumb.
                         Button now = buttonAt(x, y), before = pointerButtons.get(id);
@@ -314,7 +372,7 @@ public class TouchControllerView extends View {
                     for (int i = 0; i < pointerButtons.size(); ++i) press(pointerButtons.valueAt(i), false);
                     pointerButtons.clear();
                     if (left.pointer >= 0) releaseStick(left);
-                    if (right.pointer >= 0) releaseStick(right);
+                    if (cameraPointer >= 0) releaseCamera();
                     break;
                 }
                 int id = e.getPointerId(index);
@@ -324,7 +382,7 @@ public class TouchControllerView extends View {
                     pointerButtons.remove(id);
                 }
                 if (id == left.pointer) releaseStick(left);
-                if (id == right.pointer) releaseStick(right);
+                if (id == cameraPointer) releaseCamera();
                 break;
             }
             default:
@@ -339,7 +397,7 @@ public class TouchControllerView extends View {
         for (Button b : buttons) press(b, false);
         pointerButtons.clear();
         if (left.pointer >= 0) releaseStick(left);
-        if (right.pointer >= 0) releaseStick(right);
+        if (cameraPointer >= 0) releaseCamera();
         invalidate();
     }
 
@@ -405,7 +463,6 @@ public class TouchControllerView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         drawStick(canvas, left);
-        drawStick(canvas, right);
         for (Button b : buttons) {
             float r = b.r, cx = b.cx, cy = b.cy;
             canvas.save();

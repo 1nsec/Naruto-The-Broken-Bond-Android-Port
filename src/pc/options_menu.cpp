@@ -488,6 +488,20 @@ void OptionsMenu::BuildPages() {
     sens.step = 0.1f;
     controls.items.push_back(sens);
   }
+#ifdef __ANDROID__
+  {
+    // The on-screen controls' camera drag (mouse_camera.cpp); read at every logic step.
+    Item touch;
+    touch.kind = Kind::kSlider;
+    touch.label = "TOUCH CAMERA SENSITIVITY";
+    touch.cvar = "touch_camera_sensitivity";
+    touch.min = 0.1f;
+    touch.max = 5.0f;
+    touch.step = 0.1f;
+    touch.help = "How far a finger dragged over the screen turns the camera. Changes right away.";
+    controls.items.push_back(touch);
+  }
+#endif
   controls.items.push_back(submenu("KEY BINDINGS", 4));
   {
     Item pad = submenu("CONTROLLER LAYOUT", 11);
