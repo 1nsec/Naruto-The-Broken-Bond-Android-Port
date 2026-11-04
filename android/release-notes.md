@@ -17,6 +17,9 @@ Alpha of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the re
 - **Faster GPU work:** the game's shaders read their constants the way Adreno GPUs handle best, and data uploaded in the middle of a frame no longer interrupts its drawing.
 - Settings > **Turnip rendering** (experimental): *Automatic*, *Direct (sysmem)* or *Tiled (gmem)*. Try them in the open world and tell us which one runs faster.
 - The performance log also records a CPU profile and images of the frame's passes, which **Save logs** includes.
+- Settings > **Water reflections**: off (also in the Performance preset), the open world draws about a sixth less, and the water reflects nothing.
+- **Sound in fights and cutscenes:** the game's 5.1 sound is folded to stereo by the app, as on a PC with stereo speakers, instead of by Android, which lost it on some devices.
+- The bundled Turnip driver is newer (Mesa 26.1).
 - **Less CPU waste:** a thread of the app kept the phone's fastest core busy for nothing, and the game's threads lost time to slow memory queries and spinning waits; the cores are left to the game.
 
 ## Requirements

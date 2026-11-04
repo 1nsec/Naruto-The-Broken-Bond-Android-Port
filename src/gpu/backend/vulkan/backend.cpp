@@ -44,6 +44,7 @@
 #include <unordered_set>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
+#include <rex/cvar.h>
 #ifdef __ANDROID__
 #include <android/log.h>  // The overlay's state, once (overlay.inc).
 #include <SDL3/SDL.h>  // The ANativeWindow of the SDL window (present.inc, output.inc).
@@ -504,6 +505,11 @@ struct Backend::State {
     }
   };
   std::unordered_map<uint32_t, Surface> surfaces;
+  // The largest color surface created (the frame's main target), and
+  // whether the draws of the reflection passes are left out (water_reflections
+  // off, read at each frame's end): a color target with depth of half its size.
+  uint32_t main_color_width = 0, main_color_height = 0;
+  bool skip_reflections = false;
   std::vector<Surface> retired_surfaces;  // Released, waiting for their sequence.
   // Own textures of guest texture headers: the resolve destinations.
   struct Texture {
@@ -1435,6 +1441,10 @@ bool Backend::CreateSurface(const SurfaceDesc& guest, std::string& evidence) {
       plume::RenderFramebufferDesc(nullptr, 0, surface.texture.get()) : plume::RenderFramebufferDesc(attachment, 1));
   if (!surface.framebuffer || !static_cast<plume::VulkanFramebuffer*>(surface.framebuffer.get())->vk)
     return fail("native-surface-framebuffer");
+  if (!depth && uint64_t(desc.width) * desc.height > uint64_t(state_->main_color_width) * state_->main_color_height) {
+    state_->main_color_width = desc.width;
+    state_->main_color_height = desc.height;
+  }
   state_->surfaces.emplace(desc.key, std::move(surface));
   evidence = fmt::format("{{\"created\":true,\"key\":{},\"width\":{},\"height\":{},\"guest_format\":{},"
       "\"host_format\":\"{}\",\"samples\":{},\"live_surfaces\":{}}}", desc.key, desc.width, desc.height,
@@ -1602,6 +1612,7 @@ bool Backend::CloseFrame(void* event, uint64_t& target, std::string& evidence) {
   VkResult result = VK_SUCCESS;
   if (!state_->CloseBatch(batch_reason, result)) return fail(batch_reason, result);
   state_->pipeline_set.EndFrame();
+  state_->skip_reflections = rex::cvar::GetFlagByName("water_reflections") == "false";
   target = state_->next_sequence - 1;  // The last submission.
   const uint64_t completed = state_->completion->Completed();
   if (!state_->completion->SetEventOnCompletion(target, static_cast<HANDLE>(event)))

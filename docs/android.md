@@ -188,6 +188,9 @@ workflow; its APK cannot play anything.
 - **Earlier submission:** a batch of 256 operations or more goes to the GPU where a draw starts a
   new render pass, so the GPU works on a frame while the rest of it is recorded, instead of waiting
   for the frame's end.
+- **Water reflections** (Settings, off in the Performance preset): off, the draws of the
+  reflection pass (a color target with depth of half the main target's size; about a sixth of the
+  open world's draws) are left out, and the water reflects nothing.
 - **Turnip rendering** (Settings, experimental): *Automatic* lets Turnip choose per render pass
   between its on-chip tiles (gmem) and drawing straight to memory (sysmem); the two others force
   one (`TU_DEBUG`), to compare frame rates.

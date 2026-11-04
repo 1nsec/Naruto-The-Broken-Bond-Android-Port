@@ -274,6 +274,82 @@ index 50638d6..12387bd 100644
  
  namespace rex {
  namespace ui {
+diff --git a/src/audio/sdl/sdl_audio_driver.cpp b/src/audio/sdl/sdl_audio_driver.cpp
+index 20a2cd8..3389b52 100644
+--- a/src/audio/sdl/sdl_audio_driver.cpp
++++ b/src/audio/sdl/sdl_audio_driver.cpp
+@@ -22,7 +22,12 @@
+ #include <rex/dbg.h>
+ #include <rex/logging.h>
+ #include <rex/perf/counter.h>
++#include <rex/platform.h>
+ #include <SDL3/SDL.h>
++#if REX_PLATFORM_ANDROID
++#include <chrono>
++#include <cmath>
++#endif
+ 
+ REXCVAR_DEFINE_BOOL(audio_mute, false, "Audio", "Mute audio output");
+ 
+@@ -75,7 +80,15 @@ bool SDLAudioDriver::Initialize() {
+ 
+   // A 1-channel device gets the stereo fold too, then SDL collapses to mono.
+   // Handing it a 6ch stream instead would use SDL's own downmix.
++#if REX_PLATFORM_ANDROID
++  // Android reports a 6-channel default device on stereo phones and folds the
++  // 5.1 stream itself (AAudio, the AudioTrack path), and on a Retroid Pocket 5
++  // the fights and some cutscenes had no sound. The stereo fold of the PC's
++  // stereo devices runs here instead.
++  if (true) {
++#else
+   if (obtained_spec.channels <= 2) {
++#endif
+     SDL_DestroyAudioStream(sdl_stream_);
+     sdl_stream_ = nullptr;
+     desired_spec.channels = 2;
+@@ -124,6 +137,42 @@ void SDLAudioDriver::SubmitFrame(uint32_t frame_ptr) {
+ 
+   std::memcpy(output_frame, input_frame, frame_samples_ * sizeof(float));
+ 
++#if REX_PLATFORM_ANDROID
++  // The guest's 5.1 levels by channel every 10 s (the frames are sequential
++  // channels of big-endian floats), to tell silence from a mix that lives in
++  // channels a stereo fold weighs down.
++  {
++    static std::array<float, frame_channels_> peak{};
++    static uint64_t frames = 0, silent = 0;
++    static auto last = std::chrono::steady_clock::now();
++    bool sound = false;
++    for (uint32_t c = 0; c < frame_channels_; ++c) {
++      for (uint32_t s = 0; s < channel_samples_; ++s) {
++        uint32_t bits;
++        std::memcpy(&bits, &output_frame[c * channel_samples_ + s], sizeof(bits));
++        bits = __builtin_bswap32(bits);
++        float value;
++        std::memcpy(&value, &bits, sizeof(value));
++        value = std::fabs(value);
++        if (value > peak[c]) peak[c] = value;
++        sound = sound || value > 0.0f;
++      }
++    }
++    ++frames;
++    if (!sound) ++silent;
++    const auto now = std::chrono::steady_clock::now();
++    if (now - last >= std::chrono::seconds(10)) {
++      REXAPU_INFO("audio levels of the last {} frames ({} silent): FL {:.3f} FR {:.3f} FC {:.3f} LFE {:.3f} "
++                  "BL {:.3f} BR {:.3f}; output {} ch",
++                  frames, silent, peak[0], peak[1], peak[2], peak[3], peak[4], peak[5],
++                  static_cast<int>(sdl_device_channels_));
++      peak = {};
++      frames = silent = 0;
++      last = now;
++    }
++  }
++#endif
++
+   static uint32_t sdl_submit_count = 0;
+   if (sdl_submit_count < 10) {
+     REXAPU_DEBUG("SDLAudioDriver::SubmitFrame: frame_ptr={:08X} queued_count={}", frame_ptr,
 diff --git a/src/core/CMakeLists.txt b/src/core/CMakeLists.txt
 index 1ddafd0..a9a29ec 100644
 --- a/src/core/CMakeLists.txt

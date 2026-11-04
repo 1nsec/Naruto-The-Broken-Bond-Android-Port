@@ -29,6 +29,11 @@ REXCVAR_DEFINE_BOOL(async_shaders, true, "broken_bond/Graphics",
                     "Skip a draw while its graphics pipeline is created instead of waiting (fewer stutters on "
                     "slow drivers, objects may pop in)")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+// The water reflections: the scene drawn again into a half-size target with
+// depth (the Vulkan backend leaves those draws out when off; on Android the
+// open world's reflection is about a sixth of its draws).
+REXCVAR_DEFINE_BOOL(water_reflections, true, "broken_bond/Graphics",
+                    "Draw the water reflections (off: faster, the water reflects nothing; Vulkan only)");
 // Brightness: an exponent on the title's gamma ramp.
 REXCVAR_DEFINE_DOUBLE(brightness, 0.5, "broken_bond/Graphics",
                       "Brightness of the native renderer's output (0.5 = the game's own)")

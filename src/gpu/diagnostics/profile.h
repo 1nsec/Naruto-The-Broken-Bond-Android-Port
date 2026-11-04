@@ -108,6 +108,8 @@ enum Counter : unsigned {
   // target); why draw passes ended: another target, a barrier, another command
   // (clear, resolve, copy), the batch's end; clears, and those that ended a pass.
   kPassMergedDraws, kPassEndTarget, kPassEndBarrier, kPassEndCommand, kPassEndBatch, kClears, kClearsInPass,
+  // Draws of the water reflection left out (water_reflections off).
+  kReflectionDrawsSkipped,
   kCounterCount
 };
 inline constexpr const char* kCounterNames[kCounterCount] = {
@@ -118,7 +120,8 @@ inline constexpr const char* kCounterNames[kCounterCount] = {
     "watch_notifications", "watch_pages", "clip_plane_draws", "pipelines_async", "pipeline_skipped_draws",
     "stage_waits", "stage_depth", "pipelines_warm", "pipelines_warm_slow", "pipelines_prefetched",
     "pipeline_wait_us_max", "render_passes", "prelude_uploads", "early_submits", "pass_merged_draws",
-    "pass_end_target", "pass_end_barrier", "pass_end_command", "pass_end_batch", "clears", "clears_in_pass"};
+    "pass_end_target", "pass_end_barrier", "pass_end_command", "pass_end_batch", "clears", "clears_in_pass",
+    "reflection_draws_skipped"};
 
 struct Accumulator {
   std::atomic<uint64_t> ns{0}, calls{0};

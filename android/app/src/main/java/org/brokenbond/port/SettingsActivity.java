@@ -133,6 +133,7 @@ public class SettingsActivity extends Activity {
         String[] keys = {"internal_resolution_scale", "msaa_samples", "transparency_antialiasing", "swap_post_effect",
                 "upscaling", "anisotropic_override"};
         for (int i = 0; i < keys.length; ++i) config.setRaw(keys[i], values[preset][i]);
+        config.setBool("water_reflections", preset != 0);  // Off in Performance: about a sixth of the open world's draws.
         config.setInt("frame_rate", 30);
         config.setBool("async_shaders", true);
         if (!config.save()) {
@@ -238,6 +239,7 @@ public class SettingsActivity extends Activity {
                 new String[] {"\"bilinear\"", "\"cas\"", "\"fsr\""}, "\"bilinear\"");
         toggle(R.string.setting_vsync, "vsync", true);
         toggle(R.string.setting_transparency_aa, "transparency_antialiasing", false);
+        toggle(R.string.setting_water_reflections, "water_reflections", true);
         toggle(R.string.setting_async_shaders, "async_shaders", true);
         toggle(R.string.setting_show_fps, "show_fps", false);
         prefToggle(R.string.setting_performance_log, Storage.KEY_PERF_LOG, true);

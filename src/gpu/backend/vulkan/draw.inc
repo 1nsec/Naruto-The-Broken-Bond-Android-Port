@@ -167,6 +167,15 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
       (r.depth_only ? bool(r.ps.bytes) : !r.ps.Present() || r.ps.format != ShaderFormat::kSpirv))
     return fail("native-draw-shaders");
   if (profile::Profiling()) s.CountDraw(r.depth_only, color, depth);
+  // Water reflections off: a draw to a color target with depth of half the
+  // main target's size (the reflected scene) is left out; its clears and
+  // resolves still run, so the water samples a defined, empty reflection.
+  if (s.skip_reflections && color && depth && uint64_t(color->desc.width) * 2 == s.main_color_width &&
+      uint64_t(color->desc.height) * 2 == s.main_color_height) {
+    profile::Count(profile::kReflectionDrawsSkipped, 1);
+    evidence.clear();
+    return true;
+  }
   uint32_t color_key = color ? r.color_key : 0, depth_key = depth ? r.depth_key : 0;  // The surfaces drawn to.
   // A draw that leaves out one attachment of the open draw pass stays in it:
   // with its depth (tests off: no depth access) for a draw without depth test
