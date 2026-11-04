@@ -219,7 +219,11 @@ workflow; its APK cannot play anything.
   last ran on, then the functions that take the most CPU time on each busy thread, from SIGPROF
   samples of each thread's own CPU time and the symbol files the build packs into the APK,
   `assets/symbols`). **Save logs for a problem report** includes the newest
-  three logs and profiles and the newest images.
+  three logs and profiles and the newest images. Its timers cost little: the counter is read
+  without a barrier and scaled without divisions, each slot has its own cache line, and the
+  slots timed around every draw time one call in eight on each thread (counted eight times).
+- **Render resolution** goes up to 1080p in PC Options on Android; a larger value in naruto.toml
+  is capped at 2x (1440p), since 4x exhausts a phone's memory.
 
 ### Files
 

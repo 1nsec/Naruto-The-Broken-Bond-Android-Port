@@ -15,7 +15,8 @@ namespace gpu {
 // The reason Initialize refuses a render mode, or null.
 inline const char* RenderModeError(const RenderMode& mode) {
   const ResolutionScale& scale = mode.scale;
-  if (!(scale.x >= kMinResolutionScale && scale.x <= 4.0f && scale.y >= kMinResolutionScale && scale.y <= 4.0f))
+  if (!(scale.x >= kMinResolutionScale && scale.x <= kMaxResolutionScale && scale.y >= kMinResolutionScale &&
+        scale.y <= kMaxResolutionScale))
     return "native-resolution-scale";
   if (mode.msaa_samples > 1 && mode.msaa_samples != 2 && mode.msaa_samples != 4 && mode.msaa_samples != 8)
     return "native-msaa-samples";

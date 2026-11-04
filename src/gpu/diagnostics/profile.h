@@ -125,7 +125,9 @@ inline constexpr const char* kCounterNames[kCounterCount] = {
     "pass_end_target", "pass_end_barrier", "pass_end_command", "pass_end_batch", "clears", "clears_in_pass",
     "reflection_draws_skipped", "shadow_draws_skipped", "distance_draws_skipped"};
 
-struct Accumulator {
+// One cache line each: the title thread, the translator and the engine owner
+// add to their own slots at every draw, which must not share a line.
+struct alignas(64) Accumulator {
   std::atomic<uint64_t> ns{0}, calls{0};
 };
 inline std::array<Accumulator, kCount> slots;
@@ -147,16 +149,19 @@ inline bool QuietRecords() {
 // The generic timer's virtual counter, which the kernel lets user space read
 // (the vDSO's clock): a profile timer runs around each draw on several
 // threads, and clock_gettime took a large share of their time on a
-// Snapdragon 865.
+// Snapdragon 865. No barrier before the read (a timer of a few microseconds
+// needs no ordering, and the barrier drained the pipeline at every timer) and
+// a fixed-point scale instead of two divisions.
 inline uint64_t Now() {
-  static const uint64_t frequency = [] {
+  static const uint64_t scale = [] {
     uint64_t hz;
     asm volatile("mrs %0, cntfrq_el0" : "=r"(hz));
-    return hz ? hz : 19200000;
+    if (!hz) hz = 19200000;
+    return uint64_t((static_cast<unsigned __int128>(1000000000ull) << 32) / hz);  // ns per tick, 32.32
   }();
   uint64_t ticks;
-  asm volatile("isb\n mrs %0, cntvct_el0" : "=r"(ticks)::"memory");
-  return ticks / frequency * 1000000000ull + ticks % frequency * 1000000000ull / frequency;
+  asm volatile("mrs %0, cntvct_el0" : "=r"(ticks));
+  return uint64_t((static_cast<unsigned __int128>(ticks) * scale) >> 32);
 }
 #else
 inline uint64_t Now() {
@@ -164,9 +169,9 @@ inline uint64_t Now() {
       std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 #endif
-inline void Add(Slot slot, uint64_t ns) {
+inline void Add(Slot slot, uint64_t ns, uint64_t calls = 1) {
   slots[slot].ns.fetch_add(ns, std::memory_order_relaxed);
-  slots[slot].calls.fetch_add(1, std::memory_order_relaxed);
+  slots[slot].calls.fetch_add(calls, std::memory_order_relaxed);
 }
 // The profile runs with the diagnostic instruments (gpu::Diagnostics) and in
 // the measurement mode, which does not need them, and for the performance log
@@ -185,18 +190,38 @@ inline void Max(Counter counter, uint64_t value) {
   while (seen < value && !counters[counter].compare_exchange_weak(seen, value, std::memory_order_relaxed)) {}
 }
 
+// The slots timed around every draw, thousands of times per frame, whose
+// calls cost about the same each time: one call in kSampleEvery is timed on
+// each thread and counts kSampleEvery times (the per-second sums stay right on
+// average; the timers cost an eighth). The slots that take long only now and
+// then (a pipeline creation, a texture read, a shader load) time every call.
+inline constexpr uint64_t kSampleEvery = 8;
+constexpr bool Sampled(Slot slot) {
+  return slot == kEngineDraw || slot == kDraw || slot == kDrawOriginal || slot == kDrawShaders ||
+         slot == kDrawStreams || slot == kDrawEngine || slot == kDrawEvidence || slot == kTranslate ||
+         slot == kStreamsIndex || slot == kStreamsVertex;
+}
+
 class Timer {
  public:
-  explicit Timer(Slot slot) : slot_(Profiling() ? slot : kCount), start_(slot_ == kCount ? 0 : Now()) {}
+  explicit Timer(Slot slot) : slot_(Take(slot)), start_(slot_ == kCount ? 0 : Now()) {}
   ~Timer() { Stop(); }
   void Stop() {
     if (slot_ == kCount) return;
-    Add(slot_, Now() - start_);
+    const uint64_t ns = Now() - start_;
+    if (Sampled(slot_)) Add(slot_, ns * kSampleEvery, kSampleEvery);
+    else Add(slot_, ns);
     slot_ = kCount;
   }
   Timer(const Timer&) = delete;
   Timer& operator=(const Timer&) = delete;
  private:
+  static Slot Take(Slot slot) {
+    if (!Profiling()) return kCount;
+    if (!Sampled(slot)) return slot;
+    thread_local std::array<uint8_t, kCount> calls{};
+    return calls[slot]++ % kSampleEvery == 0 ? slot : kCount;
+  }
   Slot slot_;
   uint64_t start_;
 };

@@ -259,11 +259,12 @@ void LoadSettings() {
   const bool shared = rex::cvar::HasNonDefaultValue("resolution_scale");
   const auto axis = [&](int32_t own, std::string_view own_name) {
     const int32_t value = shared && !rex::cvar::HasNonDefaultValue(own_name) ? plugin.resolution_scale : own;
-    return float(std::clamp(value, 1, 4));
+    return std::min(float(std::clamp(value, 1, 4)), kMaxResolutionScale);
   };
   const double internal_scale = REXCVAR_GET(internal_resolution_scale);
   if (std::isfinite(internal_scale) && internal_scale > 0) {
-    s.resolution_scale.x = s.resolution_scale.y = std::clamp(float(internal_scale), kMinResolutionScale, 4.0f);
+    s.resolution_scale.x = s.resolution_scale.y =
+        std::clamp(float(internal_scale), kMinResolutionScale, kMaxResolutionScale);
   } else {
     s.resolution_scale.x = axis(plugin.draw_resolution_scale_x, "draw_resolution_scale_x");
     s.resolution_scale.y = axis(plugin.draw_resolution_scale_y, "draw_resolution_scale_y");

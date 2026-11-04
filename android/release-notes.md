@@ -21,6 +21,8 @@ Alpha of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the re
 - Settings > **Character shadows**: off (also in the Performance preset), a little faster; the characters cast no shadow.
 - Settings > **Draw distance** (experimental): *Medium* (in the Performance preset) or *Short* hide small objects far from the camera, so the open world draws less. Tell us if something close to you disappears.
 - Water reflections, character shadows and draw distance also change **right away** from PC Options > Graphics, to compare in the same place.
+- The performance log costs less CPU: its timers ran around every draw on the game's busiest thread.
+- PC Options offers render resolutions up to 1080p on phones; a larger value left in naruto.toml is capped at 1440p instead of running out of memory.
 - **Sound in fights and cutscenes:** the game's 5.1 sound is folded to stereo by the app, as on a PC with stereo speakers, instead of by Android, which lost it on some devices.
 - The bundled Turnip driver is newer (Mesa 26.1).
 - **Less CPU waste:** a thread of the app kept the phone's fastest core busy for nothing, and the game's threads lost time to slow memory queries and spinning waits; the cores are left to the game.
