@@ -197,9 +197,9 @@ inline void Max(Counter counter, uint64_t value) {
 // then (a pipeline creation, a texture read, a shader load) time every call.
 inline constexpr uint64_t kSampleEvery = 8;
 constexpr bool Sampled(Slot slot) {
-  return slot == kEngineDraw || slot == kDraw || slot == kDrawOriginal || slot == kDrawShaders ||
-         slot == kDrawStreams || slot == kDrawEngine || slot == kDrawEvidence || slot == kTranslate ||
-         slot == kStreamsIndex || slot == kStreamsVertex;
+  return slot == kEngineDraw || slot == kEngineUpload || slot == kEngineRecord || slot == kDraw ||
+         slot == kDrawOriginal || slot == kDrawShaders || slot == kDrawStreams || slot == kDrawEngine ||
+         slot == kDrawEvidence || slot == kTranslate || slot == kStreamsIndex || slot == kStreamsVertex;
 }
 
 class Timer {
@@ -217,7 +217,7 @@ class Timer {
   Timer& operator=(const Timer&) = delete;
  private:
   static Slot Take(Slot slot) {
-    if (!Profiling()) return kCount;
+    if (slot == kCount || !Profiling()) return kCount;
     if (!Sampled(slot)) return slot;
     thread_local std::array<uint8_t, kCount> calls{};
     return calls[slot]++ % kSampleEvery == 0 ? slot : kCount;

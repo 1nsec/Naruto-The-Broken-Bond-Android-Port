@@ -256,7 +256,9 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   auto& pipeline = s.pipelines[key];
   const bool created = !pipeline;
   bool skip_draw = false;  // The pipeline is being created asynchronously (skip take).
-  profile::Timer pipeline_time(profile::kEnginePipeline);
+  // Timed only when the pipeline is absent (its take, wait or creation); the
+  // lookup of a present one is part of the draw.
+  profile::Timer pipeline_time(created ? profile::kEnginePipeline : profile::kCount);
   if (!pipeline) {
     // The take (pipeline_set.h), as in D3D12: with PC Options > Skip Unready
     // Graphics (async_shaders, the skip take) a draw whose pipeline is not
