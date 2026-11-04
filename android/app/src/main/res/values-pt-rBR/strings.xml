@@ -36,7 +36,7 @@
     <string name="preset_performance">Desempenho</string>
     <string name="preset_balanced">Equilibrado</string>
     <string name="preset_quality">Qualidade</string>
-    <string name="preset_note">Desempenho: 540p, sem anti-aliasing, filtro de textura nem reflexo da água, para o Snapdragon 865 e parecidos. Equilibrado: 720p, o original. Qualidade: 1080p com suavização de bordas, para celulares mais novos.</string>
+    <string name="preset_note">Desempenho: 540p, sem anti-aliasing, filtro de textura, reflexo da água nem sombras dos personagens, distância de visão média, para o Snapdragon 865 e parecidos. Equilibrado: 720p, o original. Qualidade: 1080p com suavização de bordas, para celulares mais novos.</string>
     <string name="preset_applied">Predefinição aplicada</string>
     <string name="setting_resolution">Resolução de renderização</string>
     <string name="setting_frame_rate">Taxa de quadros</string>
@@ -47,6 +47,11 @@
     <string name="setting_transparency_aa">Anti-aliasing de transparência</string>
     <string name="setting_async_shaders">Pular gráficos não prontos (menos travadas)</string>
     <string name="setting_water_reflections">Reflexo da água (desligado: mais rápido no mundo aberto)</string>
+    <string name="setting_character_shadows">Sombras dos personagens (desligado: um pouco mais rápido)</string>
+    <string name="setting_draw_distance">Distância de visão (experimental: menor esconde objetos pequenos distantes)</string>
+    <string name="draw_distance_full">Máxima (a do jogo)</string>
+    <string name="draw_distance_medium">Média</string>
+    <string name="draw_distance_short">Curta</string>
     <string name="setting_show_fps">Mostrar FPS</string>
     <string name="setting_performance_log">Registro de desempenho (ligado durante o alfa; vai junto com os logs)</string>
     <string name="setting_language">Idioma do jogo</string>

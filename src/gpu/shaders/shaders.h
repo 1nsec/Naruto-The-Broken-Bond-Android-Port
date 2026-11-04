@@ -101,6 +101,10 @@ struct ShaderEntry {
   uint32_t candidates = 0, differing = 0;
   bool samplers_read = false, samplers_ok = false;
   std::vector<ShaderSampler> samplers;
+  // A VS of one rigid mesh with its own world matrix, from the constant table
+  // at birth: g_mWorldViewProj at c0, g_mWorld at c12, no g_aSkinMatrices (the
+  // characters) and no g_vInstanceParams (DrawRequest::rigid_world).
+  bool rigid_world = false;
 };
 // The record of a bound shader object (container, metadata, microcode).
 std::string ShaderRecord(uint8_t* base, uint32_t object, bool vertex);

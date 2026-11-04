@@ -505,11 +505,34 @@ struct Backend::State {
     }
   };
   std::unordered_map<uint32_t, Surface> surfaces;
-  // The largest color surface created (the frame's main target), and
-  // whether the draws of the reflection passes are left out (water_reflections
-  // off, read at each frame's end): a color target with depth of half its size.
+  // The largest color surface created (the frame's main target), and the
+  // performance options, read at each frame's end (draw.inc, LeftOut): the
+  // draws of the reflection passes left out (water_reflections off: a color
+  // target with depth of half its size), those of the characters' shadows
+  // (character_shadows off: a square color target without depth, at most half
+  // the main target's height) and the draw distance (draw_distance, 0: off).
   uint32_t main_color_width = 0, main_color_height = 0;
-  bool skip_reflections = false;
+  bool skip_reflections = false, skip_character_shadows = false;
+  float draw_distance = 0;
+  // The draws with depth by the depth of their mesh's origin, with the
+  // profile, logged with the draw census: the rigid meshes by size (index
+  // count up to 1536, up to 6144, more) and depth (below 25, 50, 100, 200, 400
+  // units, farther), the rigid meshes placed at the world's origin, the others.
+  std::array<std::array<uint64_t, 6>, 3> depth_census{};
+  uint64_t depth_census_world = 0, depth_census_other = 0, depth_census_left_out = 0;
+  // The counter of a draw the target options leave out, kCounterCount when
+  // drawn. Their clears and resolves still run, so the water and the ground
+  // sample a defined, empty target.
+  profile::Counter LeftOutByTarget(const Surface* color, const Surface* depth) const {
+    if (skip_reflections && color && depth && uint64_t(color->desc.width) * 2 == main_color_width &&
+        uint64_t(color->desc.height) * 2 == main_color_height) return profile::kReflectionDrawsSkipped;
+    if (skip_character_shadows && color && !depth && color->desc.width == color->desc.height &&
+        uint64_t(color->desc.height) * 2 <= main_color_height) return profile::kShadowDrawsSkipped;
+    return profile::kCounterCount;
+  }
+  // The same for the draw distance, of a draw with depth once its constants
+  // are applied (draw.inc); counts the depth census with the profile.
+  profile::Counter LeftOutByDistance(const DrawRequest& r);
   std::vector<Surface> retired_surfaces;  // Released, waiting for their sequence.
   // Own textures of guest texture headers: the resolve destinations.
   struct Texture {
@@ -1613,6 +1636,9 @@ bool Backend::CloseFrame(void* event, uint64_t& target, std::string& evidence) {
   if (!state_->CloseBatch(batch_reason, result)) return fail(batch_reason, result);
   state_->pipeline_set.EndFrame();
   state_->skip_reflections = rex::cvar::GetFlagByName("water_reflections") == "false";
+  state_->skip_character_shadows = rex::cvar::GetFlagByName("character_shadows") == "false";
+  const float distance = std::strtof(rex::cvar::GetFlagByName("draw_distance").c_str(), nullptr);
+  state_->draw_distance = std::isfinite(distance) && distance > 0 ? distance : 0;
   target = state_->next_sequence - 1;  // The last submission.
   const uint64_t completed = state_->completion->Completed();
   if (!state_->completion->SetEventOnCompletion(target, static_cast<HANDLE>(event)))

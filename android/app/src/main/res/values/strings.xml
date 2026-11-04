@@ -37,7 +37,7 @@
     <string name="preset_performance">Performance</string>
     <string name="preset_balanced">Balanced</string>
     <string name="preset_quality">Quality</string>
-    <string name="preset_note">Performance: 540p, no anti-aliasing, texture filtering or water reflections, for the Snapdragon 865 and similar. Balanced: 720p, the original. Quality: 1080p with edge smoothing, for newer phones.</string>
+    <string name="preset_note">Performance: 540p, no anti-aliasing, texture filtering, water reflections or character shadows, medium draw distance, for the Snapdragon 865 and similar. Balanced: 720p, the original. Quality: 1080p with edge smoothing, for newer phones.</string>
     <string name="preset_applied">Preset applied</string>
     <string name="setting_resolution">Render resolution</string>
     <string name="setting_frame_rate">Frame rate</string>
@@ -48,6 +48,11 @@
     <string name="setting_transparency_aa">Transparency anti-aliasing</string>
     <string name="setting_async_shaders">Skip unready graphics (fewer stutters)</string>
     <string name="setting_water_reflections">Water reflections (off: faster in the open world)</string>
+    <string name="setting_character_shadows">Character shadows (off: a little faster)</string>
+    <string name="setting_draw_distance">Draw distance (experimental: shorter hides small distant objects)</string>
+    <string name="draw_distance_full">Full (the game\'s)</string>
+    <string name="draw_distance_medium">Medium</string>
+    <string name="draw_distance_short">Short</string>
     <string name="setting_show_fps">Show FPS</string>
     <string name="setting_performance_log">Performance log (on during the alpha; saved with the logs for a problem report)</string>
     <string name="setting_language">Game language</string>

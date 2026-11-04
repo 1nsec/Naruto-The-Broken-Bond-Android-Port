@@ -1106,6 +1106,7 @@ DrawTranslation TranslateDraw(DrawCapture& c, GuardSink& sink) {
     }
     request.instance_count = instance_vertices ? index_count / instance_vertices : 1;
   }
+  request.rigid_world = c.vs_entry && c.vs_entry->rigid_world && !instanced && !indirect;
   const int32_t mesh_base = indirect ? 0 : instance_base;  // The base vertex of the mesh streams.
   // The vertices the inline indices of DrawVertices cover: one instance, from 0.
   const uint32_t vertex_count = instance_vertices ? instance_vertices : index_count;

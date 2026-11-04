@@ -34,6 +34,20 @@ REXCVAR_DEFINE_BOOL(async_shaders, true, "broken_bond/Graphics",
 // open world's reflection is about a sixth of its draws).
 REXCVAR_DEFINE_BOOL(water_reflections, true, "broken_bond/Graphics",
                     "Draw the water reflections (off: faster, the water reflects nothing; Vulkan only)");
+// The characters' shadows: their silhouettes drawn into small square color
+// targets (256 x 256 and 128 x 128 at 720p) that the ground then samples. The
+// Vulkan backend leaves those draws out when off; the targets stay cleared.
+REXCVAR_DEFINE_BOOL(character_shadows, true, "broken_bond/Graphics",
+                    "Draw the characters' shadows (off: a little faster; Vulkan only)");
+// A draw distance of the renderer's own: the scene draws of rigid meshes
+// (DrawRequest::rigid_world) whose origin lies farther in front of the camera
+// than this many game units are left out (twice as far for the larger meshes;
+// the largest ones, the characters and the instanced vegetation always stay).
+// 0 draws everything the game sends.
+REXCVAR_DEFINE_INT32(draw_distance, 0, "broken_bond/Graphics",
+                     "Leave out the small objects farther than this many game units (0 = the game's own draw "
+                     "distance; experimental, Vulkan only)")
+    .range(0, 10000);
 // Brightness: an exponent on the title's gamma ramp.
 REXCVAR_DEFINE_DOUBLE(brightness, 0.5, "broken_bond/Graphics",
                       "Brightness of the native renderer's output (0.5 = the game's own)")

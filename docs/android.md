@@ -188,9 +188,24 @@ workflow; its APK cannot play anything.
 - **Earlier submission:** a batch of 256 operations or more goes to the GPU where a draw starts a
   new render pass, so the GPU works on a frame while the rest of it is recorded, instead of waiting
   for the frame's end.
-- **Water reflections** (Settings, off in the Performance preset): off, the draws of the
-  reflection pass (a color target with depth of half the main target's size; about a sixth of the
-  open world's draws) are left out, and the water reflects nothing.
+- **Water reflections** (Settings and PC Options, off in the Performance preset): off, the draws
+  of the reflection pass (a color target with depth of half the main target's size; about a sixth
+  of the open world's draws) are left out, and the water reflects nothing. Their constants and
+  texture copies still reach the renderer, so the draws after them are unchanged.
+- **Character shadows** (Settings and PC Options, off in the Performance preset): off, the draws
+  of the characters' silhouettes into their shadow maps (square color targets without depth,
+  256 x 256 and 128 x 128 at 720p) are left out; the maps stay cleared and the ground shows no
+  shadow. A small gain: about 50 small draws per frame.
+- **Draw distance** (Settings and PC Options, experimental; Medium in the Performance preset): a
+  distance of the renderer's own, in game units (Medium 120, Short 60; `draw_distance` in
+  naruto.toml, 0 = the game's). The scene draws of rigid meshes with their own world matrix (the
+  vertex shader has `g_mWorldViewProj` at c0 and `g_mWorld` at c12, no bone palette, no
+  instancing) are left out when the origin of the mesh is farther in front of the camera than the
+  distance (c3.w, the clip w of the origin), up to 1536 indices, or twice the distance, up to 6144.
+  Larger meshes (ground, houses), meshes placed at the world's origin, characters and instanced
+  vegetation always stay. With the performance log, logcat gets a *Depth census* every 30 s: the
+  draws per frame by origin depth and mesh size, and those left out.
+- The water reflections, character shadows and draw distance change right away from PC Options.
 - **Turnip rendering** (Settings, experimental): *Automatic* lets Turnip choose per render pass
   between its on-chip tiles (gmem) and drawing straight to memory (sysmem); the two others force
   one (`TU_DEBUG`), to compare frame rates.

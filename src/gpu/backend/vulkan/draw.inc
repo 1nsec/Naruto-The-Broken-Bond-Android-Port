@@ -142,6 +142,42 @@ std::string Backend::PipelineList() {
   return out + "]";
 }
 
+// The draw distance (draw_distance). A rigid mesh with its own world matrix
+// (DrawRequest::rigid_world) has the clip w of its origin, the depth in front
+// of the camera, at c3.w (its VS computes oPos.w = dot(c3, position)) and its
+// place in the world at (c12.w, c13.w, c14.w). Left out: the meshes of up to
+// 1536 indices whose origin is farther than the distance, those of up to 6144
+// farther than twice the distance. The larger meshes stay (the origin of the
+// ground and the houses says little about their nearest part), as do the
+// meshes placed at the world's origin (geometry in world coordinates), the
+// characters (bone palette) and the instanced vegetation (not rigid_world).
+profile::Counter Backend::State::LeftOutByDistance(const DrawRequest& r) {
+  const bool census = profile::Profiling();
+  if (!r.rigid_world) {
+    if (census) ++depth_census_other;
+    return profile::kCounterCount;
+  }
+  if (!census && draw_distance <= 0) return profile::kCounterCount;
+  const auto constant = [&](uint32_t reg, uint32_t component) {
+    float value;
+    std::memcpy(&value, vs_block.data() + reg * 16 + component * 4, sizeof(value));
+    return value;
+  };
+  const float depth = constant(3, 3);
+  const bool world_origin = constant(12, 3) == 0 && constant(13, 3) == 0 && constant(14, 3) == 0;
+  const unsigned size = r.index_count <= 1536 ? 0 : r.index_count <= 6144 ? 1 : 2;
+  if (census) {
+    if (world_origin) ++depth_census_world;
+    else ++depth_census[size][depth < 25 ? 0 : depth < 50 ? 1 : depth < 100 ? 2 : depth < 200 ? 3 : depth < 400 ? 4 : 5];
+  }
+  if (draw_distance > 0 && !world_origin && size < 2 && std::isfinite(depth) &&
+      depth > draw_distance * (size ? 2.0f : 1.0f)) {
+    if (census) ++depth_census_left_out;
+    return profile::kDistanceDrawsSkipped;
+  }
+  return profile::kCounterCount;
+}
+
 bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& evidence) {
   profile::Timer draw_time(profile::kEngineDraw);
   fence = 0;
@@ -167,22 +203,17 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
       (r.depth_only ? bool(r.ps.bytes) : !r.ps.Present() || r.ps.format != ShaderFormat::kSpirv))
     return fail("native-draw-shaders");
   if (profile::Profiling()) s.CountDraw(r.depth_only, color, depth);
-  // Water reflections off: a draw to a color target with depth of half the
-  // main target's size (the reflected scene) is left out; its clears and
-  // resolves still run, so the water samples a defined, empty reflection.
-  if (s.skip_reflections && color && depth && uint64_t(color->desc.width) * 2 == s.main_color_width &&
-      uint64_t(color->desc.height) * 2 == s.main_color_height) {
-    profile::Count(profile::kReflectionDrawsSkipped, 1);
-    evidence.clear();
-    return true;
-  }
+  // The performance options leave some draws out (LeftOutByTarget, then the
+  // draw distance once the constants are applied, below).
+  profile::Counter left_out = s.LeftOutByTarget(color, depth);
+  const bool scene_draw = depth != nullptr;  // Before the pass merge attaches one.
   uint32_t color_key = color ? r.color_key : 0, depth_key = depth ? r.depth_key : 0;  // The surfaces drawn to.
   // A draw that leaves out one attachment of the open draw pass stays in it:
   // with its depth (tests off: no depth access) for a draw without depth test
   // on the pass's color target, with its color (write mask 0, no fragment
   // shader) for a depth-only draw on the pass's depth target. On a tiled GPU
   // each new pass stores the targets and loads them back.
-  if (s.batch_open && s.batch.draw_pass_active) {
+  if (left_out == profile::kCounterCount && s.batch_open && s.batch.draw_pass_active) {
     if (color && !depth && s.batch.draw_depth && color->Image() == s.batch.draw_color) {
       auto it = s.surfaces.find(s.batch.draw_depth_key);
       if (it != s.surfaces.end() && it->second.Image() == s.batch.draw_depth) {
@@ -204,6 +235,20 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   for (const auto& e : *r.elements)
     if (e.slot >= r.streams.size() || !r.streams[e.slot].stride) return fail("native-draw-vertex-element");
   if (!s.EnsureGraphics(evidence)) return false;
+  // The constants and the texture copies first: a draw left out or skipped
+  // keeps them current for the next draws (the requests carry only the
+  // registers written since the last one). Uploads may close a full batch, so
+  // all of them go before this draw's descriptors and retained resources.
+  if (!ApplyDrawConstants(r.vs_constants, r.vs_constants_delta, s.vs_block) ||
+      !ApplyDrawConstants(r.ps_constants, r.ps_constants_delta, s.ps_block)) return fail("native-draw-constants");
+  for (const auto& t : r.textures) if (!t.resolved && !t.data.empty())
+    if (!UploadSampled(t, evidence)) return false;
+  if (left_out == profile::kCounterCount && scene_draw) left_out = s.LeftOutByDistance(r);
+  if (left_out != profile::kCounterCount) {
+    profile::Count(left_out, 1);
+    evidence.clear();
+    return true;
+  }
   PipelineDesc desc{r.vs, r.ps, r.elements, r.layout_id ? r.layout_id : ElementsId(*r.elements)};
   if (!DrawStateWords(r, target.desc.samples, depth != nullptr, color != nullptr, desc.state))
     return fail("native-draw-topology-uncovered");
@@ -243,12 +288,6 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     }
   }
   pipeline_time.Stop();
-  if (!ApplyDrawConstants(r.vs_constants, r.vs_constants_delta, s.vs_block) ||
-      !ApplyDrawConstants(r.ps_constants, r.ps_constants_delta, s.ps_block)) return fail("native-draw-constants");
-  // Uploads may close a full batch, so perform all of them before allocating
-  // this draw's descriptors and retaining its resources.
-  for (const auto& t : r.textures) if (!t.resolved && !t.data.empty())
-    if (!UploadSampled(t, evidence)) return false;
   if (skip_draw) {
     // The constants and the texture copies stay current for the next draws;
     // nothing is recorded.

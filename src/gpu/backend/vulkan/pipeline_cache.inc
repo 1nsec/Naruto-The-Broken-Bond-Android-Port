@@ -292,6 +292,8 @@ void Backend::State::LogDrawCensus() {
     draw_census_since = now;
     draw_census_presents = presents;
     draw_census.clear();
+    depth_census = {};
+    depth_census_world = depth_census_other = depth_census_left_out = 0;
     return;
   }
   if (now - draw_census_since < std::chrono::seconds(30)) return;
@@ -309,12 +311,27 @@ void Backend::State::LogDrawCensus() {
     text += fmt::format(" [{}{} color {} depth {}: {:.1f}]", (key >> 60) & 1 ? "depth-only" : "draw", "",
                         size((key >> 30) & 0x3FFFFFFF), size(key & 0x3FFFFFFF), double(sorted[i].second) / frames);
   }
+  // The draws with depth by the depth of their mesh's origin (LeftOutByDistance).
+  std::string depths = fmt::format("{} frames, per frame:", frames);
+  const char* kinds[] = {"small", "medium", "large"};
+  for (size_t kind = 0; kind < depth_census.size(); ++kind) {
+    depths += fmt::format(" [{} <25/50/100/200/400/more:", kinds[kind]);
+    for (const uint64_t count : depth_census[kind]) depths += fmt::format(" {:.1f}", double(count) / frames);
+    depths += "]";
+  }
+  depths += fmt::format(" [world origin: {:.1f}] [other: {:.1f}] [distance {:.0f}: {:.1f} left out]",
+                        double(depth_census_world) / frames, double(depth_census_other) / frames, draw_distance,
+                        double(depth_census_left_out) / frames);
 #ifdef __ANDROID__
   __android_log_print(ANDROID_LOG_INFO, "narutobb", "Draw census: %s", text.c_str());
+  __android_log_print(ANDROID_LOG_INFO, "narutobb", "Depth census: %s", depths.c_str());
 #else
   (void)text;
+  (void)depths;
 #endif
   if (!surfaces_snapshotted && double(total) / frames > 300) SnapshotSurfaces();
+  depth_census = {};
+  depth_census_world = depth_census_other = depth_census_left_out = 0;
   draw_census.clear();
   draw_census_since = now;
   draw_census_presents = presents;

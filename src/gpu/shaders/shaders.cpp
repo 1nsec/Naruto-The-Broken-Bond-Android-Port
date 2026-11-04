@@ -333,6 +333,11 @@ void RegisterShaderObject(uint8_t* base, uint32_t object, bool vertex, uint32_t 
   entry->code_base = Get32(base, object + (vertex ? 0x20 : 0x18));
   const char* why = "";
   const bool read = ReadBoundShader(base, object, vertex, entry->bound, &why);
+  if (read && vertex)
+    entry->rigid_world = FindFloatConstant(base, entry->bound, "g_mWorldViewProj") == 0 &&
+                         FindFloatConstant(base, entry->bound, "g_mWorld") == 12 &&
+                         FindFloatConstant(base, entry->bound, "g_aSkinMatrices") < 0 &&
+                         FindFloatConstant(base, entry->bound, "g_vInstanceParams") < 0;
   ++shader_births;
   if (!read) ++shader_births_unreadable;
   bool replaced = false;

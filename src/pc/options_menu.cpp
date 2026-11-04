@@ -422,6 +422,16 @@ void OptionsMenu::BuildPages() {
   graphics.items.push_back(choice("UPSCALING", "upscaling",
                                   {{"BILINEAR", "bilinear"}, {"AMD CAS", "cas"}, {"AMD FSR", "fsr"}},
                                   "How the picture is stretched to your screen. CAS and FSR are sharper."));
+#ifdef __ANDROID__
+  // The Vulkan backend reads these at each frame's end (gpu/settings.cpp).
+  graphics.items.push_back(toggle("WATER REFLECTIONS", "water_reflections",
+                                  "Off is faster in the open world; the water then reflects nothing. Changes right away."));
+  graphics.items.push_back(toggle("CHARACTER SHADOWS", "character_shadows",
+                                  "Off is a little faster. Changes right away."));
+  graphics.items.push_back(choice("DRAW DISTANCE", "draw_distance",
+                                  {{"FULL (ORIGINAL)", "0"}, {"MEDIUM", "120"}, {"SHORT", "60"}},
+                                  "Experimental: shorter hides small distant objects for speed. Changes right away."));
+#endif
   {
     Item bright;
     bright.kind = Kind::kSlider;
