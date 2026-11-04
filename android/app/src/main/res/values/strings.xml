@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Naruto: The Broken Bond</string>
-    <string name="alpha_badge">ANDROID ALPHA · unofficial fan port · bring your own game</string>
+    <string name="alpha_badge">ANDROID BETA · unofficial fan port · bring your own game</string>
     <string name="version_line">Version %1$s · native Vulkan renderer · ReXGlue</string>
     <string name="play">Play</string>
     <string name="pick_iso">Choose game ISO…</string>
@@ -22,7 +22,7 @@
     <string name="no_vulkan_title">Vulkan 1.1 not found</string>
     <string name="no_vulkan_message">This device does not report Vulkan 1.1, which the renderer needs. The game will probably not start.</string>
     <string name="help_title">How to play</string>
-    <string name="help_message">1. Choose your own Xbox 360 ISO of Naruto: The Broken Bond (no game files are included).\n\n2. Tap Play. The first start takes a while; new areas can stutter once while their graphics are prepared.\n\n3. On-screen controls: the left stick moves; drag a finger anywhere else on the screen to turn the camera; the gear opens PC Options. A Bluetooth or USB controller works too (the on-screen controls hide while one is connected).\n\n4. The back gesture opens a menu to continue, hide the on-screen controls, or quit.\n\nSaves, settings (naruto.toml) and logs are in:\n%1$s\n\nThis is an alpha for Snapdragon (Adreno) phones. If it crashes, tap \"Save logs for a problem report\" and send the zip it saves in Downloads.</string>
+    <string name="help_message">1. Choose your own Xbox 360 ISO of Naruto: The Broken Bond (no game files are included).\n\n2. Tap Play. The first start takes a while; new areas can stutter once while their graphics are prepared.\n\n3. On-screen controls: the left stick moves; drag a finger anywhere else on the screen to turn the camera; the gear opens PC Options. A Bluetooth or USB controller works too (the on-screen controls hide while one is connected).\n\n4. The back gesture opens a menu to continue, hide the on-screen controls, or quit.\n\nSaves, settings (naruto.toml) and logs are in:\n%1$s\n\nThis is a beta for Snapdragon (Adreno) phones. If it crashes, tap \"Save logs for a problem report\" and send the zip it saves in Downloads.</string>
     <string name="menu_continue">Continue</string>
     <string name="menu_hide_touch">Hide on-screen controls</string>
     <string name="menu_show_touch">Show on-screen controls</string>
@@ -55,7 +55,7 @@
     <string name="draw_distance_medium">Medium</string>
     <string name="draw_distance_short">Short</string>
     <string name="setting_show_fps">Show FPS</string>
-    <string name="setting_performance_log">Performance log (on during the alpha; saved with the logs for a problem report)</string>
+    <string name="setting_performance_log">Performance log (on during the beta; saved with the logs for a problem report)</string>
     <string name="setting_language">Game language</string>
     <string name="setting_skip_intros">Skip intro videos</string>
     <string name="setting_title_screen">PC title screen</string>

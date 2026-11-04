@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="alpha_badge">ALPHA ANDROID · port de fã não oficial · use seu próprio jogo</string>
+    <string name="alpha_badge">BETA ANDROID · port de fã não oficial · use seu próprio jogo</string>
     <string name="version_line">Versão %1$s · renderer nativo Vulkan · ReXGlue</string>
     <string name="play">Jogar</string>
     <string name="pick_iso">Escolher a ISO do jogo…</string>
@@ -21,7 +21,7 @@
     <string name="no_vulkan_title">Vulkan 1.1 não encontrado</string>
     <string name="no_vulkan_message">Este aparelho não informa Vulkan 1.1, que o renderer precisa. O jogo provavelmente não vai iniciar.</string>
     <string name="help_title">Como jogar</string>
-    <string name="help_message">1. Escolha a sua própria ISO de Xbox 360 do Naruto: The Broken Bond (nenhum arquivo do jogo vem junto).\n\n2. Toque em Jogar. A primeira vez demora; áreas novas podem travar uma vez enquanto os gráficos são preparados.\n\n3. Controles na tela: o analógico esquerdo anda; arraste o dedo em qualquer outro lugar da tela para girar a câmera; a engrenagem abre as Opções de PC. Controle Bluetooth ou USB também funciona (os controles na tela somem enquanto um estiver conectado).\n\n4. O gesto de voltar abre um menu para continuar, esconder os controles na tela ou sair.\n\nSaves, configurações (naruto.toml) e logs ficam em:\n%1$s\n\nEsta é uma alpha para celulares Snapdragon (Adreno). Se fechar sozinho, toque em \"Salvar logs para relatar um problema\" e mande o zip que ele salva em Downloads.</string>
+    <string name="help_message">1. Escolha a sua própria ISO de Xbox 360 do Naruto: The Broken Bond (nenhum arquivo do jogo vem junto).\n\n2. Toque em Jogar. A primeira vez demora; áreas novas podem travar uma vez enquanto os gráficos são preparados.\n\n3. Controles na tela: o analógico esquerdo anda; arraste o dedo em qualquer outro lugar da tela para girar a câmera; a engrenagem abre as Opções de PC. Controle Bluetooth ou USB também funciona (os controles na tela somem enquanto um estiver conectado).\n\n4. O gesto de voltar abre um menu para continuar, esconder os controles na tela ou sair.\n\nSaves, configurações (naruto.toml) e logs ficam em:\n%1$s\n\nEsta é uma beta para celulares Snapdragon (Adreno). Se fechar sozinho, toque em \"Salvar logs para relatar um problema\" e mande o zip que ele salva em Downloads.</string>
     <string name="menu_continue">Continuar</string>
     <string name="menu_hide_touch">Esconder controles na tela</string>
     <string name="menu_show_touch">Mostrar controles na tela</string>
@@ -54,7 +54,7 @@
     <string name="draw_distance_medium">Média</string>
     <string name="draw_distance_short">Curta</string>
     <string name="setting_show_fps">Mostrar FPS</string>
-    <string name="setting_performance_log">Registro de desempenho (ligado durante o alfa; vai junto com os logs)</string>
+    <string name="setting_performance_log">Registro de desempenho (ligado durante a beta; vai junto com os logs)</string>
     <string name="setting_language">Idioma do jogo</string>
     <string name="setting_skip_intros">Pular vídeos de introdução</string>
     <string name="setting_title_screen">Tela de título do PC</string>

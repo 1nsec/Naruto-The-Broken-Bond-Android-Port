@@ -1,10 +1,11 @@
-# Android (alpha)
+# Android (beta)
 
 This repository builds the port as an Android app: the same recompiled game, its native renderer
-on Vulkan, and the PC options menu, with a launcher and on-screen controls. It is an **alpha**:
-it starts and runs on a Retroid Pocket 5 (Snapdragon 865, with the bundled Turnip driver), but
-expect crashes, graphics problems and slowdowns. Logs from real devices are what moves it forward
-(see [Reporting problems](#reporting-problems)).
+on Vulkan, and the PC options menu, with a launcher and on-screen controls. It is a **beta**: it
+plays at 30 FPS on a Retroid Pocket 5 (Snapdragon 865, with the bundled Turnip driver; the open
+world with a short draw distance), but it has been tested on few devices, so expect the odd crash,
+graphics problem or stutter. Logs from real devices are what moves it forward (see
+[Reporting problems](#reporting-problems)).
 
 > **No game files are included, and none are downloaded.** The game code is generated from your
 > own `default.xex` and the shaders from your own `xeshader.sdb`, on your PC. The app reads your
@@ -55,7 +56,7 @@ Then, in PowerShell 7 at the repository root:
 ./scripts/build-android.ps1
 ```
 
-The result is `dist/NarutoBrokenBond-Android-2.5-android-alpha.apk`. With a phone connected over
+The result is `dist/NarutoBrokenBond-Android-2.5-android-beta.apk`. With a phone connected over
 USB (developer options, USB debugging on), `-Install` also installs it with `adb`.
 
 What the script does:
@@ -213,7 +214,7 @@ workflow; its APK cannot play anything.
 - **Turnip rendering** (Settings, experimental): *Automatic* lets Turnip choose per render pass
   between its on-chip tiles (gmem) and drawing straight to memory (sysmem); the two others force
   one (`TU_DEBUG`), to compare frame rates.
-- **Performance log** (Settings, on by default during the alpha): writes
+- **Performance log** (Settings, on by default during the beta): writes
   `pipeline-runs/<time>/performance.csv` in the data folder (one line per second: frame times,
   stutters, the GPU's busy time, the time of the title thread, the translator and the engine and
   where it goes, render passes, what the pipelines did; the newest five sessions are kept), a

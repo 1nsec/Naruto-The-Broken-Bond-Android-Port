@@ -15,7 +15,8 @@ name: Android APK
 # against stand-ins, without the secret, to check the Windows build. Its APK
 # cannot play anything and is never released. A push to release/android-apk
 # builds the APK like "Run workflow" with the defaults: version
-# 2.5-android-alpha.<run number>, as a draft release.
+# 2.5-android-beta.<run number>, as a draft release (the run number is also
+# the APK's version code, so each release installs over the one before).
 
 on:
   workflow_dispatch:
@@ -28,7 +29,7 @@ on:
       version:
         description: "Version name; the release tag is v<version>"
         type: string
-        default: 2.5-android-alpha.1
+        default: 2.5-android-beta
       release:
         description: "draft: only you see it until you publish it. prerelease: public right away. none: build artifact only."
         type: choice
@@ -46,7 +47,7 @@ concurrency:
 
 env:
   MODE: ${{ inputs.mode || (github.ref == 'refs/heads/release/android-apk' && 'apk' || 'test') }}
-  VERSION: ${{ inputs.version || (github.ref == 'refs/heads/release/android-apk' && format('2.5-android-alpha.{0}', github.run_number) || '2.5-android-alpha-test') }}
+  VERSION: ${{ inputs.version || (github.ref == 'refs/heads/release/android-apk' && format('2.5-android-beta.{0}', github.run_number) || '2.5-android-beta-test') }}
   RELEASE: ${{ inputs.release || (github.ref == 'refs/heads/release/android-apk' && 'draft' || 'none') }}
   NDK_VERSION: "29.0.14206865"  # The same as scripts/build-android.ps1.
   # A short path keeps the deep build folders under Windows' path length limit.
@@ -306,7 +307,7 @@ jobs:
             gh release upload $tag $apk --clobber -R $env:GITHUB_REPOSITORY
           } else {
             gh release create $tag $apk -R $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA `
-              --title "Android Alpha ($env:VERSION)" --notes-file android/release-notes.md $kind
+              --title "Android Beta ($env:VERSION)" --notes-file android/release-notes.md $kind
           }
           if ($LASTEXITCODE) { exit 1 }
 

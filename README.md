@@ -5,7 +5,7 @@
 **The Xbox 360 game, recompiled to run natively on Android phones.**<br>
 Unofficial fan port · bring your own game
 
-![Status: alpha](https://img.shields.io/badge/status-alpha-f28c28?style=for-the-badge)
+![Status: beta](https://img.shields.io/badge/status-beta-f28c28?style=for-the-badge)
 ![Android 10+](https://img.shields.io/badge/Android-10%2B-3ddc84?style=for-the-badge&logo=android&logoColor=white)
 ![GPU: Snapdragon / Adreno](https://img.shields.io/badge/GPU-Snapdragon%20%2F%20Adreno-e4002b?style=for-the-badge&logo=qualcomm&logoColor=white)
 ![Vulkan](https://img.shields.io/badge/renderer-Vulkan-ac162c?style=for-the-badge&logo=vulkan&logoColor=white)
@@ -26,8 +26,9 @@ Unofficial fan port · bring your own game
 > Media or Microsoft. Naruto is a trademark of its owners.
 
 > [!WARNING]
-> **Alpha:** these are the first builds to run on phones. Expect crashes and graphics problems, and
-> please [report them](#reporting-problems): logs from real phones are what move the port forward.
+> **Beta:** the game plays through on a Snapdragon 865 handheld at 30 FPS, but it has been tested on
+> few devices. Expect the odd crash, graphics problem or stutter, and please
+> [report them](#reporting-problems): logs from real phones are what move the port forward.
 
 ## What it is
 
@@ -63,7 +64,7 @@ Pick your ISO once, adjust the settings for your phone, and tap **Play**.
 <td>
 
 **🕹️ Touch or controller**<br>
-On-screen controls with floating sticks, or any Bluetooth / USB controller.
+On-screen controls with a floating stick and drag-to-turn camera, or any Bluetooth / USB controller.
 
 </td>
 <td>
@@ -109,7 +110,7 @@ textures need a format their Vulkan drivers lack.
 | | |
 |---|---|
 | **Buttons** | Each shows its action: **X** attack (the big one), **Y** heavy attack, **A** jump, **B** block, **RB** kunai, **RT** sprint, **LT** jutsus, **LB** inventory; the small badge names the pad button |
-| **Sticks** | Touch the lower left to move and the lower middle to turn the camera; each stick appears where your thumb lands |
+| **Move and camera** | Touch the lower left to move (the stick appears where your thumb lands); drag a finger anywhere else on the screen to turn the camera |
 | **Gear button** | Opens **PC Options** (Back + Start), with every graphics and game option |
 | **Controllers** | Bluetooth and USB controllers and the built-in controls of handhelds like the Retroid Pocket work (Xbox, PlayStation, Switch Pro and most Android gamepads) and are player 1; the on-screen controls hide while one is connected; **Back + Start** opens PC Options |
 | **Back gesture** | Opens a menu to continue, hide or show the on-screen controls, or quit |
@@ -145,10 +146,11 @@ first.
 <details>
 <summary><b>It runs slowly or gets hot.</b></summary>
 
-Tap **Performance** in **Settings > Graphics** (540p, no anti-aliasing), or lower the render
+Tap **Performance** in **Settings > Graphics** (540p, no anti-aliasing, water reflections or
+character shadows, short draw distance), or lower the render
 resolution further, and keep the frame rate at 30 FPS. The first time an area is played it can stutter while its graphics are
 prepared; they are kept for the next sessions. To report slowness, play the slow part and send
-the zip of **Save logs for a problem report**: during the alpha it includes a performance log
+the zip of **Save logs for a problem report**: during the beta it includes a performance log
 (Settings > Performance log).
 </details>
 

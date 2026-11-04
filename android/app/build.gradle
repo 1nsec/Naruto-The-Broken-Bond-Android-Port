@@ -6,7 +6,7 @@ plugins {
     id "com.android.application"
 }
 
-def portVersion = (System.getenv("BROKENBOND_VERSION") ?: project.findProperty("brokenbondVersion") ?: "2.5-android-alpha").toString()
+def portVersion = (System.getenv("BROKENBOND_VERSION") ?: project.findProperty("brokenbondVersion") ?: "2.5-android-beta").toString()
 def portVersionCode = (System.getenv("BROKENBOND_VERSION_CODE") ?: project.findProperty("brokenbondVersionCode") ?: "1").toString().toInteger()
 
 android {

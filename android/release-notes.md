@@ -1,34 +1,28 @@
 <!-- Notes of the GitHub release made by .github/workflows/android-apk.yml. -->
-Alpha of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the recompiled game with its native renderer on Vulkan, PC Options, a launcher and on-screen controls.
+Beta of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the recompiled game with its native renderer on Vulkan, PC Options, a launcher and on-screen controls.
 
-> **Alpha:** expect crashes, graphics problems and slowdowns. Logs from your phone help fix them (see below).
+> **Beta:** the game plays at 30 FPS on a Snapdragon 865 handheld (Retroid Pocket 5), the open world included, but it has been tested on few devices. Expect the odd crash, graphics problem or stutter; logs from your phone help fix them (see below).
 
 > **No game files are included.** You need your own Xbox 360 ISO of Naruto: The Broken Bond.
 
-## New in this alpha
+## New in the beta
 
-- **PC Options, the FPS counter and the PC title screen now show up on Android.** The Vulkan renderer did not draw them before, which left a black screen with the title music.
-- A built-in or connected controller (Retroid Pocket, Bluetooth, USB) is **player 1**; the on-screen controller no longer takes its place.
-- **Fewer stutters:** graphics the driver is still preparing are skipped for a moment instead of freezing the game (Settings > Skip unready graphics), and prepared graphics are kept for the next sessions, so an area stutters only the first time it is played.
-- The game always fills the screen (no status or navigation bar).
-- **Graphics presets** in Settings: Performance (540p), Balanced (720p) and Quality (1080p). The render resolution now goes below 720p on phones (the 540p choice used to stay at 720p).
-- Settings > **Performance log** (on by default during the alpha): records the frame times, so that a problem report shows where the game slows down.
-- Cutscenes no longer flash black with the FPS counter on: while the game is slow to show a frame, the last image stays on screen.
-- **Faster GPU work:** the game's shaders read their constants the way Adreno GPUs handle best, and data uploaded in the middle of a frame no longer interrupts its drawing.
-- Settings > **Turnip rendering** (experimental): *Automatic*, *Direct (sysmem)* or *Tiled (gmem)*. Try them in the open world and tell us which one runs faster.
-- The performance log also records a CPU profile and images of the frame's passes, which **Save logs** includes.
-- Settings > **Water reflections**: off (also in the Performance preset), the open world draws about a sixth less, and the water reflects nothing.
-- Settings > **Character shadows**: off (also in the Performance preset), a little faster; the characters cast no shadow.
-- Settings > **Draw distance** (experimental): *Medium* (in the Performance preset) or *Short* hide small objects far from the camera, so the open world draws less. Tell us if something close to you disappears.
-- Water reflections, character shadows and draw distance also change **right away** from PC Options > Graphics, to compare in the same place.
-- The performance log costs less CPU: its timers ran around every draw on the game's busiest thread.
-- PC Options offers render resolutions up to 1080p on phones; a larger value left in naruto.toml is capped at 1440p instead of running out of memory.
-- **New camera on the on-screen controls:** no more camera stick. Drag a finger anywhere on the screen (outside the buttons and the left stick) to turn the camera, as in mobile games. Its sensitivity is in Settings and in PC Options > Controls.
-- The presets now set the draw distance too: Short in Performance, Medium in Balanced.
-- A **GitHub** button in the launcher opens the project's page, for new versions and problem reports.
+- **Camera on the on-screen controls:** no more camera stick. Drag a finger anywhere on the screen (outside the buttons and the left stick) to turn the camera, as in mobile games. Its sensitivity is in Settings and in PC Options > Controls.
+- **Performance mode:** Settings > **Water reflections**, **Character shadows** and **Draw distance** (Full, Medium or Short: small objects far from the camera are not drawn). They also change **right away** from PC Options > Graphics, to compare in the same place. The presets set them: Performance (540p, no reflections or shadows, short draw distance), Balanced (720p, medium draw distance) and Quality (1080p).
 - **Sound in fights and cutscenes:** the game's 5.1 sound is folded to stereo by the app, as on a PC with stereo speakers, instead of by Android, which lost it on some devices.
+- **Faster:** the game's shaders read their constants the way Adreno GPUs handle best, the GPU gets its work earlier and in fewer passes, no thread of the app wastes a core, and the performance log costs little CPU.
+- A **GitHub** button in the launcher opens the project's page, for new versions and problem reports.
 - The bundled Turnip driver is newer (Mesa 26.1).
-- **Less CPU waste:** a thread of the app kept the phone's fastest core busy for nothing, and the game's threads lost time to slow memory queries and spinning waits; the cores are left to the game.
+- PC Options offers render resolutions up to 1080p on phones; a larger value left in naruto.toml is capped at 1440p instead of running out of memory.
+
+## Since the first alphas
+
+- PC Options, the FPS counter and the PC title screen show up on Android.
+- A built-in or connected controller (Retroid Pocket, Bluetooth, USB) is **player 1**; the on-screen controller hides while one is connected.
+- **Fewer stutters:** graphics the driver is still preparing are skipped for a moment instead of freezing the game (Settings > Skip unready graphics), and prepared graphics are kept for the next sessions, so an area stutters only the first time it is played.
+- The game always fills the screen, and cutscenes no longer flash black while the game is slow to show a frame.
+- Settings > **Performance log** (on by default during the beta): frame times, a CPU profile and images of the frame's passes, which **Save logs** includes.
+- Settings > **Turnip rendering** (experimental): *Automatic*, *Direct (sysmem)* or *Tiled (gmem)*.
 
 ## Requirements
 
@@ -44,7 +38,7 @@ Alpha of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the re
 
 The gear button on screen, or **Back + Start** on a controller, opens **PC Options**. The on-screen controls hide while a controller is connected. The back gesture opens a menu to continue, hide the controls or quit.
 
-Saves, settings and logs are in `Android/data/org.brokenbond.port/files/`. A newer alpha installs over this one and keeps them, but **uninstalling the app deletes this folder:** back up `hdd/` first.
+Saves, settings and logs are in `Android/data/org.brokenbond.port/files/`. A newer version installs over this one and keeps them, but **uninstalling the app deletes this folder:** back up `hdd/` first.
 
 ## Reporting problems
 
