@@ -15,6 +15,7 @@ import hashlib
 import os
 import tempfile
 import threading
+import time
 import zlib
 from pathlib import Path
 
@@ -93,7 +94,20 @@ class Store:
         try:
             with os.fdopen(fd, 'wb') as out:
                 out.write(zlib.compress(data, 6) if compressed else data)
-            os.replace(temp, path)
+            for attempt in range(20):
+                try:
+                    os.replace(temp, path)
+                    return
+                except PermissionError:
+                    # Windows refuses to replace a file that another thread or build has open
+                    # (a reader, or the same key written at the same time). The key names the
+                    # content, so a file already there is as good as this one.
+                    if path.exists():
+                        Path(temp).unlink(missing_ok=True)
+                        return
+                    if attempt == 19:
+                        raise
+                    time.sleep(0.05)
         except BaseException:
             Path(temp).unlink(missing_ok=True)
             raise
