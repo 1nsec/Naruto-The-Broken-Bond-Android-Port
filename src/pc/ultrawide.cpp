@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <utility>
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -61,8 +62,13 @@ double TargetAspect() {
   if (mode == "21:9") return 21.5 / 9.0;  // 3440x1440 and 2560x1080 screens
   if (mode == "32:9") return 32.0 / 9.0;
   if (mode == "auto") {
-    const double w = GetSystemMetrics(SM_CXSCREEN);
-    const double h = GetSystemMetrics(SM_CYSCREEN);
+    double w = GetSystemMetrics(SM_CXSCREEN);
+    double h = GetSystemMetrics(SM_CYSCREEN);
+#ifdef __ANDROID__
+    // The display's mode is in its natural orientation (portrait on a phone);
+    // the game is always landscape.
+    if (h > w) std::swap(w, h);
+#endif
     if (h > 0 && w / h > 1.85) return w / h;
   }
   return kNativeAspect;

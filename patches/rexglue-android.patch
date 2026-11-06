@@ -543,7 +543,7 @@ index 4fe1ca6..cf0691f 100644
  #include <rex/thread/fiber.h>
  
 diff --git a/src/core/filesystem_posix.cpp b/src/core/filesystem_posix.cpp
-index ef5bdf4..087b798 100644
+index ef5bdf4..e44f4dc 100644
 --- a/src/core/filesystem_posix.cpp
 +++ b/src/core/filesystem_posix.cpp
 @@ -30,6 +30,10 @@
@@ -568,7 +568,7 @@ index ef5bdf4..087b798 100644
  #else
    char buff[FILENAME_MAX] = "";
    readlink("/proc/self/exe", buff, FILENAME_MAX);
-@@ -302,5 +310,37 @@ std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
+@@ -302,5 +310,46 @@ std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
    return result;
  }
  
@@ -584,23 +584,32 @@ index ef5bdf4..087b798 100644
 +  return source.starts_with("content://") || source.starts_with("fd:");
 +}
 +
++// fd:<n> or /proc/self/fd/<n>: a duplicate of the launcher's descriptor, which
++// the caller owns. Not opened again through /proc/self/fd: that opens the
++// file anew under the app's own identity, and the shared storage refuses a
++// file the app holds only a document permission for (a disc image picked in
++// an earlier session then failed to map); the provider's descriptor itself
++// reads. The duplicate keeps the descriptor's access mode (mode is ignored).
 +int OpenAndroidContentFileDescriptor(const std::string_view uri, const char* mode) {
-+  if (!uri.starts_with("fd:")) {
++  (void)mode;
++  std::string_view number;
++  if (uri.starts_with("fd:")) {
++    number = uri.substr(3);
++  } else if (uri.starts_with("/proc/self/fd/")) {
++    number = uri.substr(14);
++  } else {
 +    return -1;
 +  }
 +  int fd = -1;
 +  try {
-+    fd = std::stoi(std::string(uri.substr(3)));
++    fd = std::stoi(std::string(number));
 +  } catch (...) {
 +    return -1;
 +  }
 +  if (fd < 0) {
 +    return -1;
 +  }
-+  // The caller owns the returned descriptor.
-+  int flags = O_CLOEXEC;
-+  flags |= (mode && std::string_view(mode).find('w') != std::string_view::npos) ? O_RDWR : O_RDONLY;
-+  return open(("/proc/self/fd/" + std::to_string(fd)).c_str(), flags);
++  return fcntl(fd, F_DUPFD_CLOEXEC, 0);
 +}
 +#endif  // REX_PLATFORM_ANDROID
 +
@@ -699,6 +708,29 @@ index 0000000..11c83e0
 +}
 +
 +}  // namespace rex
+diff --git a/src/core/mapped_memory_posix.cpp b/src/core/mapped_memory_posix.cpp
+index 8ee8e34..2e147ea 100644
+--- a/src/core/mapped_memory_posix.cpp
++++ b/src/core/mapped_memory_posix.cpp
+@@ -114,7 +114,17 @@ std::unique_ptr<MappedMemory> MappedMemory::Open(const std::filesystem::path& pa
+       open_flags |= O_RDWR;
+       break;
+   }
+-  int file_descriptor = open(path.c_str(), open_flags);
++  int file_descriptor = -1;
++#if REX_PLATFORM_ANDROID
++  // A descriptor the launcher opened (/proc/self/fd/<n>, the picked disc
++  // image): duplicated, not opened again by its path (filesystem_posix.cpp).
++  if (path.native().starts_with("/proc/self/fd/")) {
++    file_descriptor = rex::filesystem::OpenAndroidContentFileDescriptor(
++        path.native(), mode == Mode::kReadWrite ? "rw" : "r");
++  }
++  if (file_descriptor < 0)
++#endif
++    file_descriptor = open(path.c_str(), open_flags);
+   if (file_descriptor < 0) {
+     return nullptr;
+   }
 diff --git a/src/core/memory_posix.cpp b/src/core/memory_posix.cpp
 index b52bf39..725322b 100644
 --- a/src/core/memory_posix.cpp

@@ -181,9 +181,15 @@ bool Backend::State::DrawStage(OutputImage& stage, BackImage& back, std::string&
     const uint32_t value = channel == 3 ? 0 : gamma[channel * 256 + i];
     ramp[4 * i + channel] = brightness ? uint32_t(std::lround(1023.0 * std::pow(std::min(value, 1023u) / 1023.0, exponent))) : value;
   }
-  const double aspect_scale = std::min(double(swap_extent.width) / stage.width, double(swap_extent.height) / stage.height);
-  const uint32_t vw = std::max(1u, uint32_t(std::lround(stage.width * aspect_scale)));
-  const uint32_t vh = std::max(1u, uint32_t(std::lround(stage.height * aspect_scale)));
+  // Largest rect of the image's aspect, centered; the rest is black. With a
+  // wider aspect ratio (PC Options > Display; auto takes the screen's,
+  // ultrawide.cpp), the game drew a wider view into its 16:9 image, which this
+  // stretches back out, as the D3D12 backend does.
+  const double wide = overlay::TargetAspect();
+  const double image_width = wide > 1.8 ? stage.height * wide : double(stage.width);
+  const double aspect_scale = std::min(double(swap_extent.width) / image_width, double(swap_extent.height) / stage.height);
+  const uint32_t vw = std::clamp<uint32_t>(uint32_t(std::lround(image_width * aspect_scale)), 1, swap_extent.width);
+  const uint32_t vh = std::clamp<uint32_t>(uint32_t(std::lround(stage.height * aspect_scale)), 1, swap_extent.height);
   const uint32_t x = (swap_extent.width - vw) / 2, y = (swap_extent.height - vh) / 2;
   const auto bits = [](float f) { return std::bit_cast<uint32_t>(f); };
   if (present_mode.effect != PresentEffect::kBilinear || present_mode.post_effect != SwapPostEffect::kNone) {

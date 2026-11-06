@@ -7,6 +7,8 @@ Beta of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the rec
 
 ## New in the beta
 
+- **Full screen:** Settings > **Screen** > *Full screen* (or PC Options > Display > Aspect ratio > Automatic) fills a phone's wide screen with a wider view of the game instead of black bars on the sides.
+- **The picked ISO keeps working:** on some phones the game could not open the ISO again in a later session and went straight back to the launcher, so it had to be picked every time.
 - **Camera on the on-screen controls:** no more camera stick. Drag a finger anywhere on the screen (outside the buttons and the left stick) to turn the camera, as in mobile games. Its sensitivity is in Settings and in PC Options > Controls.
 - **Performance mode:** Settings > **Water reflections**, **Character shadows** and **Draw distance** (Full, Medium or Short: small objects far from the camera are not drawn). They also change **right away** from PC Options > Graphics, to compare in the same place. The presets set them: Performance (540p, no reflections or shadows, short draw distance), Balanced (720p, medium draw distance) and Quality (1080p).
 - **Sound in fights and cutscenes:** the game's 5.1 sound is folded to stereo by the app, as on a PC with stereo speakers, instead of by Android, which lost it on some devices.

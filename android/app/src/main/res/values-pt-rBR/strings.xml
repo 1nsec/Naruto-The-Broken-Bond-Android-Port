@@ -44,6 +44,9 @@
     <string name="setting_msaa">Anti-aliasing (MSAA)</string>
     <string name="setting_fxaa">Suavização de bordas</string>
     <string name="setting_upscaling">Upscaling</string>
+    <string name="setting_aspect">Tela</string>
+    <string name="aspect_original">16:9 (original, com barras pretas)</string>
+    <string name="aspect_full">Tela inteira (visão mais larga)</string>
     <string name="setting_vsync">Sincronização vertical</string>
     <string name="setting_transparency_aa">Anti-aliasing de transparência</string>
     <string name="setting_async_shaders">Pular gráficos não prontos (menos travadas)</string>

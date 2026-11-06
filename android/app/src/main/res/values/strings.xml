@@ -45,6 +45,9 @@
     <string name="setting_msaa">Anti-aliasing (MSAA)</string>
     <string name="setting_fxaa">Edge smoothing</string>
     <string name="setting_upscaling">Upscaling</string>
+    <string name="setting_aspect">Screen</string>
+    <string name="aspect_original">16:9 (original, black bars)</string>
+    <string name="aspect_full">Full screen (wider view)</string>
     <string name="setting_vsync">Vertical sync</string>
     <string name="setting_transparency_aa">Transparency anti-aliasing</string>
     <string name="setting_async_shaders">Skip unready graphics (fewer stutters)</string>

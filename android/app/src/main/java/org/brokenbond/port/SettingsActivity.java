@@ -240,6 +240,10 @@ public class SettingsActivity extends Activity {
         choice(R.string.setting_upscaling, "upscaling",
                 new String[] {"Bilinear", "AMD CAS", "AMD FSR"},
                 new String[] {"\"bilinear\"", "\"cas\"", "\"fsr\""}, "\"bilinear\"");
+        // Full screen: the game draws a wider view (ultrawide.cpp, aspect_ratio auto) that fills the phone's screen.
+        choice(R.string.setting_aspect, "aspect_ratio",
+                new String[] {getString(R.string.aspect_original), getString(R.string.aspect_full)},
+                new String[] {"\"16:9\"", "\"auto\""}, "\"16:9\"");
         toggle(R.string.setting_vsync, "vsync", true);
         toggle(R.string.setting_transparency_aa, "transparency_antialiasing", false);
         toggle(R.string.setting_water_reflections, "water_reflections", true);

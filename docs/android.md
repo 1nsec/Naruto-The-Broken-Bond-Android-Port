@@ -228,6 +228,15 @@ workflow; its APK cannot play anything.
   without a barrier and scaled without divisions, each slot has its own cache line, and the
   slots timed around every draw time one call in eight on each thread (counted eight times).
 - The launcher's **GitHub** button opens the project's page (new versions and problem reports).
+- **Screen** (Settings; PC Options > Display > Aspect ratio): *Full screen* is `aspect_ratio = "auto"`:
+  the game draws a view as wide as the screen into its 16:9 image (`ultrawide.cpp`; the display's
+  size is taken in landscape) and the Vulkan present stretches it back out, like the D3D12 one. The
+  HUD is stretched with it.
+- **The picked ISO:** the launcher opens it with the document permission it keeps and passes the
+  descriptor as `/proc/self/fd/<n>`; the runtime duplicates that descriptor instead of opening the
+  path again (the SDK patch, `mapped_memory_posix.cpp`). Opening the path anew goes through the
+  shared storage under the app's own identity, which a tester's phone (Android 16) refused in later
+  sessions ("Disc image could not be mapped").
 - **Render resolution** goes up to 1080p in PC Options on Android; a larger value in naruto.toml
   is capped at 2x (1440p), since 4x exhausts a phone's memory.
 
