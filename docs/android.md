@@ -232,11 +232,16 @@ workflow; its APK cannot play anything.
   and Instagram, and the disc line (tap to change) on the left; on the right,
   cards with the graphics preset (`Presets.java`, shared with Settings), render resolution
   (360p to 1080p), screen (16:9 or full screen) and frame rate (30 or 60), saved to naruto.toml at
-  once, and tiles for Settings, DLC, Help, logs and GitHub. `EmberBackground.java` draws the
-  background (embers and leaves, about 30 frames per second while the launcher is on screen); the
+  once, and tiles for Settings, DLC, Help, logs and GitHub. The cards, tiles and choices are
+  parchment with red-seal choices and a red-seal Play, the style of the on-screen controls.
+  `ChakraBackground.java` draws the background (an orange chakra on the left and a blue one on the
+  right, clouds that drift and breathe and specks that rise, about 30 frames per second while the
+  launcher is on screen); the
   columns slide in at the start, the logo floats, Play breathes and a band of light crosses it
   (`ShineDrawable.java`), and the tiles sink under the finger. The loops stop while the launcher is
-  not on screen.
+  not on screen. Its sounds (`LauncherSounds.java`, Settings > Launcher sounds) are synthesized by
+  `tools/android/make-launcher-sounds.py` (a scroll, a paper flick, a wooden clack, a kunai);
+  nothing is sampled from the games or the anime.
 - The launcher's **GitHub** button opens the project's page (new versions and problem reports); the
   credit line under the logo opens its author's (1nsec).
 - **DLC** (launcher): the player picks the game's downloadable content packages (STFS files, CON,

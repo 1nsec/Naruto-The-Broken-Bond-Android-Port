@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The chosen one: a red seal stamped on the parchment. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <corners android:radius="999dp" />
-    <gradient android:angle="0" android:startColor="#FFFFB443" android:endColor="#FFEA4A1F" />
+    <corners android:radius="8dp" />
+    <gradient android:angle="270" android:startColor="#FFC8402B" android:endColor="#FF8E1B10" />
+    <stroke android:width="1dp" android:color="#FF5A0F08" />
 </shape>

@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <org.brokenbond.port.EmberBackground
+    <org.brokenbond.port.ChakraBackground
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
@@ -51,7 +51,10 @@
                 android:stateListAnimator="@null"
                 android:text="@string/play"
                 android:textAllCaps="true"
-                android:textColor="#FF1A1208"
+                android:shadowColor="#FF3E0A05"
+                android:shadowDy="2"
+                android:shadowRadius="3"
+                android:textColor="#FFF4E7C9"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -65,9 +68,9 @@
                 android:letterSpacing="0.04"
                 android:padding="2dp"
                 android:shadowColor="#CCE0501E"
-                android:shadowRadius="12"
+                android:shadowRadius="14"
                 android:text="@string/credit"
-                android:textColor="@color/accent"
+                android:textColor="#FFF4E7C9"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
@@ -131,7 +134,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
                     android:text="@string/alpha_badge"
-                    android:textColor="@color/accent"
+                    android:textColor="#FFD8C096"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>

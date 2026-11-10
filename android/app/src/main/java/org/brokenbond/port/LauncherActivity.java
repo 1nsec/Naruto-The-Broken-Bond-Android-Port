@@ -51,21 +51,33 @@ public class LauncherActivity extends Activity {
     private static final String[] RESOLUTIONS = {"0.5", "0.75", "1.0", "1.5"};
     // The launcher's motion besides the background: the logo floats, Play breathes and shines.
     private final java.util.List<ValueAnimator> loops = new java.util.ArrayList<>();
+    private LauncherSounds sounds;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
+        sounds = new LauncherSounds(this);
         disc = findViewById(R.id.pick_iso);
         play = findViewById(R.id.play);
-        disc.setOnClickListener(v -> pickIso());
+        disc.setOnClickListener(v -> {
+            sounds.play(LauncherSounds.CLACK);
+            pickIso();
+        });
         play.setOnClickListener(v -> {
+            sounds.play(hasDisc ? LauncherSounds.KUNAI : LauncherSounds.CLACK);
             if (hasDisc) startGame();
             else pickIso();
         });
         findViewById(R.id.credit).setOnClickListener(v -> open(AUTHOR_URL));
-        findViewById(R.id.youtube).setOnClickListener(v -> open(YOUTUBE_URL));
-        findViewById(R.id.instagram).setOnClickListener(v -> open(INSTAGRAM_URL));
+        findViewById(R.id.youtube).setOnClickListener(v -> {
+            sounds.play(LauncherSounds.CLACK);
+            open(YOUTUBE_URL);
+        });
+        findViewById(R.id.instagram).setOnClickListener(v -> {
+            sounds.play(LauncherSounds.CLACK);
+            open(INSTAGRAM_URL);
+        });
         ((TextView) findViewById(R.id.version)).setText(getString(R.string.version_line, versionName()));
         GameConfig.ensureDefaults(this);
         config = GameConfig.load(this);
@@ -91,6 +103,12 @@ public class LauncherActivity extends Activity {
     }
 
     @Override
+    protected void onDestroy() {
+        sounds.release();
+        super.onDestroy();
+    }
+
+    @Override
     protected void onPause() {
         for (ValueAnimator loop : loops) loop.cancel();
         loops.clear();
@@ -99,6 +117,7 @@ public class LauncherActivity extends Activity {
 
     /** The left column slides in from the left, the cards of the panel one after another from the right. */
     private void animateIn() {
+        sounds.play(LauncherSounds.SCROLL);  // The panel unrolls.
         View left = findViewById(R.id.left);
         left.setAlpha(0f);
         left.setTranslationX(-dp(40));
@@ -152,6 +171,7 @@ public class LauncherActivity extends Activity {
         LinearLayout panel = findViewById(R.id.panel);
         preset = new SegmentedControl(this, new String[] {getString(R.string.preset_performance),
                 getString(R.string.preset_balanced), getString(R.string.preset_quality)}, null, index -> {
+            sounds.play(LauncherSounds.FLICK);
             Presets.apply(config, index);
             save();
             showChoices();
@@ -160,6 +180,7 @@ public class LauncherActivity extends Activity {
         resolution = new SegmentedControl(this, new String[] {"360p", "540p", "720p", "1080p"},
                 new String[] {getString(R.string.res_fast), getString(R.string.res_light),
                         getString(R.string.res_original), getString(R.string.res_sharp)}, index -> {
+            sounds.play(LauncherSounds.FLICK);
             config.setRaw("internal_resolution_scale", RESOLUTIONS[index]);
             save();
             showChoices();
@@ -167,10 +188,12 @@ public class LauncherActivity extends Activity {
         panel.addView(card(R.string.setting_resolution, resolution), cardParams());
         screen = new SegmentedControl(this, new String[] {getString(R.string.screen_169), getString(R.string.screen_full)},
                 null, index -> {
+            sounds.play(LauncherSounds.FLICK);
             config.setRaw("aspect_ratio", index == 0 ? "\"16:9\"" : "\"auto\"");
             save();
         });
         frameRate = new SegmentedControl(this, new String[] {"30 FPS", "60 FPS"}, null, index -> {
+            sounds.play(LauncherSounds.FLICK);
             config.setInt("frame_rate", index == 0 ? 30 : 60);
             save();
         });
@@ -184,12 +207,12 @@ public class LauncherActivity extends Activity {
         panel.addView(row, cardParams());
         LinearLayout tiles = new LinearLayout(this);
         tiles.setOrientation(LinearLayout.HORIZONTAL);
-        tile(tiles, R.drawable.ic_touch_options, R.string.tile_settings,
+        tile(tiles, R.drawable.ic_touch_options, R.string.tile_settings, LauncherSounds.SCROLL,
                 v -> startActivity(new Intent(this, SettingsActivity.class)));
-        tile(tiles, R.drawable.ic_dlc, R.string.tile_dlc, v -> showDlc());
-        tile(tiles, R.drawable.ic_help, R.string.tile_help, v -> showHelp());
-        tile(tiles, R.drawable.ic_logs, R.string.tile_logs, v -> exportLogs());
-        tile(tiles, R.drawable.ic_code, R.string.tile_github, v -> open(GITHUB_URL));
+        tile(tiles, R.drawable.ic_dlc, R.string.tile_dlc, LauncherSounds.SCROLL, v -> showDlc());
+        tile(tiles, R.drawable.ic_help, R.string.tile_help, LauncherSounds.SCROLL, v -> showHelp());
+        tile(tiles, R.drawable.ic_logs, R.string.tile_logs, LauncherSounds.CLACK, v -> exportLogs());
+        tile(tiles, R.drawable.ic_code, R.string.tile_github, LauncherSounds.CLACK, v -> open(GITHUB_URL));
         panel.addView(tiles, cardParams());
     }
 
@@ -213,13 +236,13 @@ public class LauncherActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackgroundResource(R.drawable.bg_card);
-        card.setPadding(dp(12), dp(8), dp(12), dp(10));
+        card.setPadding(dp(12), dp(6), dp(12), dp(8));
         TextView label = new TextView(this);
         label.setText(title);
-        label.setTextColor(getColor(R.color.accent));
+        label.setTextColor(0xFF8E1B10);  // Red ink on the parchment.
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         label.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        label.setPadding(dp(2), 0, 0, dp(6));
+        label.setPadding(dp(2), 0, 0, dp(4));
         card.addView(label);
         card.addView(content);
         return card;
@@ -228,19 +251,22 @@ public class LauncherActivity extends Activity {
     private LinearLayout.LayoutParams cardParams() {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.topMargin = dp(8);
+        params.topMargin = dp(6);
         return params;
     }
 
-    private void tile(LinearLayout row, int icon, int label, View.OnClickListener action) {
+    private void tile(LinearLayout row, int icon, int label, int sound, View.OnClickListener action) {
         LinearLayout tile = new LinearLayout(this);
         tile.setOrientation(LinearLayout.VERTICAL);
         tile.setGravity(Gravity.CENTER);
         tile.setBackgroundResource(R.drawable.bg_tile);
-        tile.setPadding(dp(4), dp(10), dp(4), dp(8));
+        tile.setPadding(dp(4), dp(7), dp(4), dp(6));
         tile.setClickable(true);
         tile.setFocusable(true);
-        tile.setOnClickListener(action);
+        tile.setOnClickListener(v -> {
+            sounds.play(sound);
+            action.onClick(v);
+        });
         tile.setOnTouchListener((v, event) -> {
             if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN)
                 v.animate().scaleX(0.94f).scaleY(0.94f).setDuration(90).start();
@@ -251,11 +277,12 @@ public class LauncherActivity extends Activity {
         });
         ImageView image = new ImageView(this);
         image.setImageResource(icon);
-        image.setColorFilter(getColor(R.color.accent));
+        image.setColorFilter(0xFF4A3420);
         tile.addView(image, new LinearLayout.LayoutParams(dp(26), dp(26)));
         TextView text = new TextView(this);
         text.setText(label);
-        text.setTextColor(getColor(R.color.text));
+        text.setTextColor(0xFF4A3420);
+        text.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         text.setSingleLine(true);
         text.setPadding(0, dp(4), 0, 0);

@@ -93,6 +93,7 @@
     <string name="setting_skip_intros">Skip intro videos</string>
     <string name="setting_title_screen">PC title screen</string>
     <string name="setting_mute">Mute audio</string>
+    <string name="setting_launcher_sounds">Launcher sounds</string>
     <string name="setting_touch">Show on-screen controls</string>
     <string name="setting_touch_opacity">Opacity</string>
     <string name="setting_touch_scale">Size</string>

@@ -8,8 +8,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * A row of choices in a dark pill, the chosen one on an orange pill: the
- * launcher's quick settings. Each choice can have a small line under its name.
+ * A row of choices pressed into a parchment card, the chosen one stamped as a
+ * red seal: the launcher's quick settings. Each choice can have a small line
+ * under its name.
  */
 final class SegmentedControl extends LinearLayout {
     interface Listener {
@@ -34,7 +35,7 @@ final class SegmentedControl extends LinearLayout {
             LinearLayout option = new LinearLayout(context);
             option.setOrientation(VERTICAL);
             option.setGravity(Gravity.CENTER);
-            option.setPadding(dp(6), dp(subLabels != null ? 5 : 8), dp(6), dp(subLabels != null ? 5 : 8));
+            option.setPadding(dp(6), dp(subLabels != null ? 4 : 6), dp(6), dp(subLabels != null ? 4 : 6));
             TextView name = new TextView(context);
             name.setText(labels[i]);
             name.setGravity(Gravity.CENTER);
@@ -68,8 +69,8 @@ final class SegmentedControl extends LinearLayout {
         for (int i = 0; i < options.length; ++i) {
             boolean on = i == index;
             options[i].setBackgroundResource(on ? R.drawable.bg_segment_on : 0);
-            names[i].setTextColor(on ? 0xFF1A1208 : 0xFFF3ECE4);
-            if (notes[i] != null) notes[i].setTextColor(on ? 0xCC1A1208 : 0xFFA89A8C);
+            names[i].setTextColor(on ? 0xFFF4E7C9 : 0xFF4A3420);
+            if (notes[i] != null) notes[i].setTextColor(on ? 0xDDF4E7C9 : 0xFF7A5A34);
         }
     }
 

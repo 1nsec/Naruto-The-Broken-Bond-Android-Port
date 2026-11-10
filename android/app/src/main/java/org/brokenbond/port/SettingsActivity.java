@@ -356,6 +356,7 @@ public class SettingsActivity extends Activity {
         toggle(R.string.setting_skip_intros, "skip_intros", false);
         toggle(R.string.setting_title_screen, "show_title_screen", true);
         toggle(R.string.setting_mute, "audio_mute", false);
+        prefToggle(R.string.setting_launcher_sounds, Storage.KEY_LAUNCHER_SOUNDS, true);
 
         header(R.string.settings_touch);
         prefToggle(R.string.setting_touch, Storage.KEY_TOUCH, true);

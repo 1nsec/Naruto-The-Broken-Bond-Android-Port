@@ -92,6 +92,7 @@
     <string name="setting_skip_intros">Pular vídeos de introdução</string>
     <string name="setting_title_screen">Tela de título do PC</string>
     <string name="setting_mute">Sem som</string>
+    <string name="setting_launcher_sounds">Sons do launcher</string>
     <string name="setting_touch">Mostrar controles na tela</string>
     <string name="setting_touch_opacity">Opacidade</string>
     <string name="setting_touch_scale">Tamanho</string>
