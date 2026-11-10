@@ -5,7 +5,13 @@
 **The Xbox 360 game, recompiled to run natively on Android phones.**<br>
 Unofficial fan port · bring your own game
 
+### Android port by [1nsec](https://github.com/1nsec)
+
+This is the port's official page: [github.com/1nsec/Naruto-The-Broken-Bond-Android-Port](https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port).<br>
+Copies posted on other sites are re-uploads, often with someone else's name on them; download the APK from [Releases](../../releases) here.
+
 ![Status: beta](https://img.shields.io/badge/status-beta-f28c28?style=for-the-badge)
+![Android port by 1nsec](https://img.shields.io/badge/Android%20port%20by-1nsec-f28c28?style=for-the-badge)
 ![Android 10+](https://img.shields.io/badge/Android-10%2B-3ddc84?style=for-the-badge&logo=android&logoColor=white)
 ![GPU: Snapdragon / Adreno](https://img.shields.io/badge/GPU-Snapdragon%20%2F%20Adreno-e4002b?style=for-the-badge&logo=qualcomm&logoColor=white)
 ![Vulkan](https://img.shields.io/badge/renderer-Vulkan-ac162c?style=for-the-badge&logo=vulkan&logoColor=white)

@@ -1,6 +1,8 @@
 <!-- Notes of the GitHub release made by .github/workflows/android-apk.yml. -->
 Beta of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the recompiled game with its native renderer on Vulkan, PC Options, a launcher and on-screen controls.
 
+**Android port by [1nsec](https://github.com/1nsec).** The official page is [github.com/1nsec/Naruto-The-Broken-Bond-Android-Port](https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port): copies on other sites are re-uploads.
+
 > **Beta:** the game plays at 30 FPS on a Snapdragon 865 handheld (Retroid Pocket 5), the open world included, but it has been tested on few devices. Expect the odd crash, graphics problem or stutter; logs from your phone help fix them (see below).
 
 > **No game files are included.** You need your own Xbox 360 ISO of Naruto: The Broken Bond.
