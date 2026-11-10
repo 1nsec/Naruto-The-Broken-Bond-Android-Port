@@ -1,5 +1,8 @@
 package org.brokenbond.port;
 
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -44,6 +47,8 @@ public class LauncherActivity extends Activity {
     // The quick settings of the right panel (naruto.toml, as Settings writes them).
     private SegmentedControl preset, resolution, screen, frameRate;
     private static final String[] RESOLUTIONS = {"0.5", "0.75", "1.0", "1.5"};
+    // The launcher's motion besides the background: the logo floats, Play breathes and shines.
+    private final java.util.List<ValueAnimator> loops = new java.util.ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +66,7 @@ public class LauncherActivity extends Activity {
         GameConfig.ensureDefaults(this);
         config = GameConfig.load(this);
         buildPanel();
+        if (savedInstanceState == null) animateIn();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION, 0x401000)) {
             new AlertDialog.Builder(this)
                     .setTitle(R.string.no_vulkan_title)
@@ -77,6 +83,60 @@ public class LauncherActivity extends Activity {
         config = GameConfig.load(this);  // Settings may have changed it.
         refresh();
         showChoices();
+        startLoops();
+    }
+
+    @Override
+    protected void onPause() {
+        for (ValueAnimator loop : loops) loop.cancel();
+        loops.clear();
+        super.onPause();
+    }
+
+    /** The left column slides in from the left, the cards of the panel one after another from the right. */
+    private void animateIn() {
+        View left = findViewById(R.id.left);
+        left.setAlpha(0f);
+        left.setTranslationX(-dp(40));
+        left.animate().alpha(1f).translationX(0f).setDuration(500).setStartDelay(80)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        LinearLayout panel = findViewById(R.id.panel);
+        for (int i = 0; i < panel.getChildCount(); ++i) {
+            View child = panel.getChildAt(i);
+            child.setAlpha(0f);
+            child.setTranslationX(dp(48));
+            child.animate().alpha(1f).translationX(0f).setDuration(450).setStartDelay(160 + 70L * i)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        }
+    }
+
+    /** The loops of the logo and of Play, while the launcher is on screen. */
+    private void startLoops() {
+        for (ValueAnimator loop : loops) loop.cancel();
+        loops.clear();
+        View logo = findViewById(R.id.logo);
+        ObjectAnimator floating = ObjectAnimator.ofFloat(logo, View.TRANSLATION_Y, -dp(4), dp(4));
+        floating.setDuration(2600);
+        floating.setRepeatCount(ValueAnimator.INFINITE);
+        floating.setRepeatMode(ValueAnimator.REVERSE);
+        floating.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+        loops.add(floating);
+        ObjectAnimator breathing = ObjectAnimator.ofPropertyValuesHolder(play,
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.035f), PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.035f));
+        breathing.setDuration(1300);
+        breathing.setRepeatCount(ValueAnimator.INFINITE);
+        breathing.setRepeatMode(ValueAnimator.REVERSE);
+        breathing.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+        loops.add(breathing);
+        // A band of light crossing Play every few seconds.
+        ShineDrawable shine = new ShineDrawable();
+        play.setForeground(shine);
+        ValueAnimator sweep = ValueAnimator.ofFloat(-0.4f, 1.8f);
+        sweep.setDuration(3200);
+        sweep.setRepeatCount(ValueAnimator.INFINITE);
+        sweep.addUpdateListener(a -> shine.setPosition((float) a.getAnimatedValue()));
+        loops.add(sweep);
+        for (ValueAnimator loop : loops) loop.start();
     }
 
     /**
@@ -177,6 +237,14 @@ public class LauncherActivity extends Activity {
         tile.setClickable(true);
         tile.setFocusable(true);
         tile.setOnClickListener(action);
+        tile.setOnTouchListener((v, event) -> {
+            if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN)
+                v.animate().scaleX(0.94f).scaleY(0.94f).setDuration(90).start();
+            else if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP
+                    || event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL)
+                v.animate().scaleX(1f).scaleY(1f).setDuration(140).start();
+            return false;
+        });
         ImageView image = new ImageView(this);
         image.setImageResource(icon);
         image.setColorFilter(getColor(R.color.accent));
