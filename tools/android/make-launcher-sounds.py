@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The launcher's sounds, synthesized: original sounds in the spirit of a ninja
 game's menus (a scroll unrolling, a wooden clack, a puff of smoke, and for Play
-a drummer's call and a drum, after the theater).
+the theater's clappers, the kunai landing and a drum).
 Nothing is sampled. Writes android/app/src/main/res/raw/ui_*.ogg (ffmpeg with
 libvorbis), or .wav when ffmpeg is missing.
 
@@ -93,25 +93,6 @@ def poof():
     return finish(air + 0.45 * billow + 0.8 * thump, 0.75, 0.06)
 
 
-def formants(source, tracks, step=32):
-    """A cascade of resonators (a voice's formants) whose frequencies and widths change over time."""
-    out = source.copy()
-    for freq, width in tracks:
-        y = np.zeros_like(out)
-        y1 = y2 = 0.0
-        for start in range(0, len(out), step):
-            f, w = freq[start], width[start]
-            c = -np.exp(-2 * np.pi * w / RATE)
-            b = 2 * np.exp(-np.pi * w / RATE) * np.cos(2 * np.pi * f / RATE)
-            a = 1 - b - c
-            for n in range(start, min(start + step, len(out))):
-                v = a * out[n] + b * y1 + c * y2
-                y2, y1 = y1, v
-                y[n] = v
-        out = y
-    return out
-
-
 def tsuzumi(seconds=0.9):
     """A shoulder drum's 'pon': a ringing, hollow tone that bends down, and the slap of the hand."""
     x = t(seconds)
@@ -123,45 +104,54 @@ def tsuzumi(seconds=0.9):
     return tone * np.minimum(x / 0.001, 1) + 0.7 * slap
 
 
+def hyoshigi():
+    """The theater's wooden clappers struck together: a hard, bright crack."""
+    s = 0.12
+    x = 0.9 * mode(1250, 0.03, s) + 0.55 * mode(2700, 0.018, s, 0.4) + 0.3 * mode(4100, 0.01, s, 1.1)
+    click = band(rng.standard_normal(len(t(s))), 3000, 10000) * np.exp(-t(s) / 0.0015)
+    return x * np.minimum(t(s) / 0.0005, 1) + 0.7 * click
+
+
+def landing():
+    """A kunai or a shuriken landing in wood: a short knock with a little steel in it."""
+    s = 0.09
+    x = 0.8 * mode(560, 0.018, s) + 0.35 * mode(1400, 0.01, s, 0.5) + 0.3 * mode(3300, 0.02, s, 0.9)
+    x += 0.4 * band(rng.standard_normal(len(t(s))), 1500, 7000) * np.exp(-t(s) / 0.003)
+    return x
+
+
+def whoosh(seconds, low, high):
+    """Air cut by something thrown: noise through a band that rises, swelling then gone."""
+    noise = rng.standard_normal(len(t(seconds)))
+    out = np.zeros_like(noise)
+    pieces = 16
+    for i in range(pieces):
+        a, b = i * len(noise) // pieces, (i + 1) * len(noise) // pieces
+        f = low + (high - low) * (i / pieces) ** 1.5
+        out[a:b] = band(noise, f, f * 2.2, 2)[a:b]
+    x = t(seconds) / seconds
+    return out * np.sin(np.pi * x) ** 2
+
+
 def play():
-    """Play: a drummer's call, 'yo-o', and the drum's 'pon', as in the theater the games take after."""
-    voice_length = 0.62
-    x = t(voice_length)
-    # The pitch: a step up out of the 'i', a held call with a wide vibrato, a fall at the end.
-    pitch = 250 + 150 / (1 + np.exp(-(x - 0.07) / 0.012))
-    pitch *= 1 + 0.035 * np.clip((x - 0.15) / 0.2, 0, 1) * np.sin(2 * np.pi * 6.2 * x)
-    pitch *= 1 - 0.22 * np.clip((x - 0.46) / 0.16, 0, 1) ** 2
-    pitch *= 1 + 0.004 * signal.lfilter([0.02], [1, -0.98], rng.standard_normal(len(x))) * 30
-    phase = np.cumsum(pitch) / RATE
-    p = phase % 1.0
-    # A glottal pulse (open 60% of the period), and its derivative for the lips.
-    pulse = np.where(p < 0.4, 0.5 * (1 - np.cos(np.pi * p / 0.4)),
-                     np.where(p < 0.6, np.cos(0.5 * np.pi * (p - 0.4) / 0.2), 0.0))
-    source = np.diff(pulse, prepend=0.0)
-    source += 0.04 * band(rng.standard_normal(len(x)), 500, 8000) * (pulse > 0.05)
-    # 'i' into 'yo' into a held, open 'o' (a shout raises the first formant).
-    glide = 1 / (1 + np.exp(-(x - 0.075) / 0.015))
-    tracks = [
-        (300 + 300 * glide, 80 + 40 * glide),
-        (2250 - 1300 * glide, 110 + 0 * glide),
-        (2950 - 450 * glide, 160 + 0 * glide),
-        (3500 + 0 * x, 260 + 0 * x),
-        (4400 + 0 * x, 320 + 0 * x),
-    ]
-    voice = formants(source, tracks)
-    env = np.minimum(x / 0.03, 1) * (1 - np.clip((x - 0.42) / 0.2, 0, 1)) ** 1.4
-    voice *= env * (1 + 0.15 * np.clip((x - 0.1) / 0.2, 0, 1))
-    voice = voice / (np.max(np.abs(voice)) + 1e-9)
-    s = 1.55
+    """Play: the clappers twice, the throws cutting the air, each one landing (in time with the
+    launcher's volley, EffectsView), and a shoulder drum's 'pon' with the last."""
+    s = 1.5
     out = np.zeros(len(t(s)))
-    place(out, 0.8 * voice, 0.0)
-    place(out, 1.0 * tsuzumi(), 0.66)
-    # A small hall around both.
+    place(out, 0.85 * hyoshigi(), 0.0)
+    place(out, 1.0 * hyoshigi(), 0.17)
+    place(out, 0.35 * whoosh(0.34, 500, 2600), 0.06)
+    place(out, 0.25 * whoosh(0.3, 700, 3200), 0.2)
+    for at, gain in ((0.38, 0.5), (0.43, 0.45), (0.49, 0.5), (0.55, 0.45)):
+        place(out, gain * landing(), at)
+    place(out, 0.55 * landing(), 0.62)
+    place(out, 1.0 * tsuzumi(), 0.62)
+    # A small hall around it all.
     ir_t = t(0.9)
     ir = rng.standard_normal(len(ir_t)) * np.exp(-ir_t / 0.16)
     ir[: int(0.015 * RATE)] = 0
     ir /= np.sqrt(np.sum(ir ** 2))
-    out = out + 0.22 * signal.fftconvolve(out, ir)[: len(out)]
+    out = out + 0.25 * signal.fftconvolve(out, ir)[: len(out)]
     return finish(out, 0.8, 0.08)
 
 

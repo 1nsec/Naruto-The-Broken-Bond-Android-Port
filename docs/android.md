@@ -245,7 +245,8 @@ workflow; its APK cannot play anything.
   edges over about 0.6 s and shake it; the game starts 0.9 s after the tap. Its sounds
   (`LauncherSounds.java`, Settings > Launcher sounds) are synthesized by
   `tools/android/make-launcher-sounds.py` (a scroll as it opens, a puff of smoke, a wooden clack, and
-  for Play a drummer's call and a shoulder drum), and its music (`LauncherMusic.java`, Settings >
+  for Play the theater's wooden clappers, the kunai landing in time with the volley and a shoulder
+  drum), and its music (`LauncherMusic.java`, Settings >
   Launcher music) by `tools/android/make-launcher-music.py`: a 40-second loop for flute, koto,
   bass, pad, taiko and shime written for the port. Nothing is sampled from the games or the anime.
   The music fades in, pauses with the launcher, fades out for Play and does not start over music

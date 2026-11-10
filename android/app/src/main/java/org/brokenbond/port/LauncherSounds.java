@@ -8,7 +8,8 @@ import android.media.SoundPool;
  * The launcher's sounds (res/raw, synthesized by tools/android/make-launcher-sounds.py):
  * a scroll unrolling when the launcher opens, a puff of smoke for a choice and
  * for the shortcuts that open a screen, a wooden clack for the other taps, and
- * a drummer's call with a drum for Play. Settings > Launcher sounds turns them off.
+ * for Play the theater's clappers, the kunai landing and a drum. Settings >
+ * Launcher sounds turns them off.
  */
 final class LauncherSounds {
     static final int SCROLL = 0, POOF = 1, CLACK = 2, PLAY = 3;
