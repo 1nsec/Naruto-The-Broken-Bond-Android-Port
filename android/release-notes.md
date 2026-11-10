@@ -10,7 +10,7 @@ Beta of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the rec
 ## New in the beta
 
 - **New launcher:** parchment cards with red-seal choices, in the style of the on-screen controls, over an orange and a blue chakra that drift and glow. Play and the disc on the left, with who made the port and his YouTube and Instagram; on the right, the graphics preset, render resolution, screen and frame rate in one tap, and shortcuts to Settings, DLC, Help, logs and GitHub. A choice goes up in a puff of smoke and comes back as a red seal; Play strikes the theater's clappers while kunai and shuriken are thrown at it, and a drum sounds as they land. It has its own music, a theme written for the port (flute, koto and taiko), and its own sounds, all original; Settings turns them off, and can play any song on your phone instead of the theme.
-- **DLC:** the launcher's **DLC** button adds the game's downloadable content from your own Xbox 360 (the package files of `Content/0000000000000000/55530825/00000002/`); the game installs them at its next start.
+- **DLC:** the launcher's **DLC** button adds the game's downloadable content from your own Xbox 360 (the package files of `Content/0000000000000000/55530825/00000002/`, or a .zip with them inside); the game installs them at its next start.
 - **Your own GPU drivers:** Settings > GPU driver > **Add driver (.zip)** installs other Turnip builds (the adrenotools packages published for Android emulators), next to the Turnip the app carries. Snapdragon (Adreno) only.
 - **Auto-rotate:** the game turns with the phone between the two landscape sides.
 - The launcher shows who made the Android port (**1nsec**), and its GitHub button has an icon.

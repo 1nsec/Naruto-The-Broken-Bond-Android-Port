@@ -255,8 +255,10 @@ workflow; its APK cannot play anything.
 - The launcher's **GitHub** button opens the project's page (new versions and problem reports); the
   credit line under the logo opens its author's (1nsec).
 - **DLC** (launcher): the player picks the game's downloadable content packages (STFS files, CON,
-  LIVE or PIRS, content type `00000002` of title `55530825`); the launcher checks their header and
-  copies them into `dlc/` in the data folder. At the next start, once the title's module is loaded
+  LIVE or PIRS, content type `00000002` of title `55530825`), or .zip archives with packages inside
+  (each entry is checked, the others skipped); the launcher checks their header and copies them into
+  `dlc/` in the data folder under their own file name (up to 42 characters, the length of the
+  packages' hash names). At the next start, once the title's module is loaded
   and before its main thread runs (`OnPostLaunchModule`), `src/pc/dlc_packages.cpp` installs each
   one with the SDK's content manager (`ContentManager::InstallContent`: extracted into
   `hdd/0000000000000000/55530825/00000002/<file name>/` with its `.header`, display name and license

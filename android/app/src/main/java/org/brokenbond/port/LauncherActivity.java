@@ -514,8 +514,8 @@ public class LauncherActivity extends Activity {
             for (Uri uri : uris) {
                 String file = Storage.displayName(this, uri);
                 try {
-                    String name = DlcPackages.add(this, uri);
-                    report.append(getString(R.string.dlc_added, name)).append('\n');
+                    for (String name : DlcPackages.add(this, uri))
+                        report.append(getString(R.string.dlc_added, name)).append('\n');
                 } catch (Exception e) {
                     report.append(getString(R.string.dlc_add_failed, file, e.getMessage())).append('\n');
                 }

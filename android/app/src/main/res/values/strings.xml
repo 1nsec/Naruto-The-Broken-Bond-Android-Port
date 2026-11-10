@@ -27,7 +27,7 @@
     <string name="tile_logs">Logs</string>
     <string name="tile_github">GitHub</string>
     <string name="dlc">DLC (downloadable content)</string>
-    <string name="dlc_message">Add the game\'s downloadable content from your own Xbox 360: the package files of the content folder (Content/0000000000000000/55530825/00000002/). The game installs them at its next start.</string>
+    <string name="dlc_message">Add the game\'s downloadable content from your own Xbox 360: the package files of the content folder (Content/0000000000000000/55530825/00000002/), or a .zip with them inside. The game installs them at its next start.</string>
     <string name="dlc_none">No DLC yet.</string>
     <string name="dlc_pending">(installs at the next start)</string>
     <string name="dlc_add">Add DLC…</string>

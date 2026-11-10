@@ -26,7 +26,7 @@
     <string name="tile_logs">Logs</string>
     <string name="tile_github">GitHub</string>
     <string name="dlc">DLC (conteúdo extra)</string>
-    <string name="dlc_message">Adicione as DLCs do jogo do seu próprio Xbox 360: os arquivos de pacote da pasta de conteúdo (Content/0000000000000000/55530825/00000002/). O jogo instala na próxima vez que abrir.</string>
+    <string name="dlc_message">Adicione as DLCs do jogo do seu próprio Xbox 360: os arquivos de pacote da pasta de conteúdo (Content/0000000000000000/55530825/00000002/), ou um .zip com eles dentro. O jogo instala na próxima vez que abrir.</string>
     <string name="dlc_none">Nenhuma DLC ainda.</string>
     <string name="dlc_pending">(instala na próxima vez que o jogo abrir)</string>
     <string name="dlc_add">Adicionar DLC…</string>

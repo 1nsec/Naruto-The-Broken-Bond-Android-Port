@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -11,15 +12,18 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * The game's downloadable content (Xbox Live Marketplace packages).
  *
- * <p>The launcher copies a package the player picks into dlc/ in the data
- * folder after checking its header: an STFS package (magic CON, LIVE or PIRS)
- * of content type 0x00000002 for this game's title. At the next start the game
+ * <p>The launcher copies a package the player picks (or each one in a .zip)
+ * into dlc/ in the data folder after checking its header: an STFS package
+ * (magic CON, LIVE or PIRS) of content type 0x00000002 for this game's title. At the next start the game
  * installs what waits there (src/pc/dlc_packages.cpp, the SDK's content
  * manager) into hdd/0000000000000000/55530825/00000002/&lt;file name&gt;/ and
  * deletes the copy. The display names of the packages are kept in the
@@ -76,22 +80,48 @@ final class DlcPackages {
     }
 
     /**
-     * Copies the package at uri into dlc/ and returns its display name. Throws
-     * with a message for the player when it is not this game's downloadable
-     * content.
+     * Copies the packages at uri into dlc/ and returns their display names:
+     * a package, or a .zip with packages inside (as DLC is often shared, in
+     * its Content/.../55530825/00000002/ folders). Throws with a message for
+     * the player when there is none of this game's downloadable content.
      */
-    static String add(Context context, Uri uri) throws IOException {
-        byte[] header = new byte[0x511];
-        try (InputStream in = context.getContentResolver().openInputStream(uri)) {
-            if (in == null) throw new IOException("cannot open");
-            int read = 0;
-            while (read < header.length) {
-                int n = in.read(header, read, header.length - read);
-                if (n < 0) break;
-                read += n;
-            }
-            if (read < header.length) throw new IOException(context.getString(R.string.dlc_not_package));
+    static List<String> add(Context context, Uri uri) throws IOException {
+        byte[] magic = new byte[4];
+        try (InputStream in = open(context, uri)) {
+            readFully(in, magic);
         }
+        if (magic[0] == 'P' && magic[1] == 'K' && magic[2] == 3 && magic[3] == 4) return addZip(context, uri);
+        try (InputStream in = open(context, uri)) {
+            return Collections.singletonList(addOne(context, in, Storage.displayName(context, uri)));
+        }
+    }
+
+    private static List<String> addZip(Context context, Uri uri) throws IOException {
+        List<String> names = new ArrayList<>();
+        String problem = null;
+        try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(open(context, uri)))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                if (entry.isDirectory()) continue;
+                String file = entry.getName();
+                file = file.substring(file.lastIndexOf('/') + 1);
+                try {
+                    names.add(addOne(context, zip, file));
+                } catch (IOException e) {
+                    // Another file of the archive (a readme, a picture): the next one.
+                    if (problem == null || e.getMessage().equals(context.getString(R.string.dlc_other_game)))
+                        problem = e.getMessage();
+                }
+            }
+        }
+        if (names.isEmpty()) throw new IOException(problem != null ? problem : context.getString(R.string.dlc_not_package));
+        return names;
+    }
+
+    /** Copies one package from in (left open) into dlc/ under file, checking its header first. */
+    private static String addOne(Context context, InputStream in, String file) throws IOException {
+        byte[] header = new byte[0x511];
+        if (readFully(in, header) < header.length) throw new IOException(context.getString(R.string.dlc_not_package));
         String magic = new String(header, 0, 4, StandardCharsets.US_ASCII);
         if (!magic.equals("CON ") && !magic.equals("LIVE") && !magic.equals("PIRS"))
             throw new IOException(context.getString(R.string.dlc_not_package));
@@ -102,18 +132,17 @@ final class DlcPackages {
         int end = name.indexOf('\0');
         if (end >= 0) name = name.substring(0, end);
         name = name.trim();
-        // The installed folder takes the file's name (at most 40 characters for the game's
-        // content data): the package's own name when it fits, otherwise one from its header.
-        String file = Storage.displayName(context, uri);
-        if (file == null || !file.matches("[A-Za-z0-9_.-]{1,40}")) {
+        // The installed folder takes the file's name (the game's content data holds 42
+        // characters, the length of the packages' own hash names) when it fits, otherwise
+        // one from its header.
+        if (file == null || !file.matches("[A-Za-z0-9_.-]{1,42}")) {
             file = String.format(Locale.ROOT, "DLC_%08X", Arrays.hashCode(Arrays.copyOfRange(header, 0x344, 0x511)));
         }
         File folder = pending(context);
         if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("cannot create " + folder);
         File target = new File(folder, file), partial = new File(folder, "." + file + ".part");
-        try (InputStream in = context.getContentResolver().openInputStream(uri);
-             FileOutputStream out = new FileOutputStream(partial)) {
-            if (in == null) throw new IOException("cannot open");
+        try (FileOutputStream out = new FileOutputStream(partial)) {
+            out.write(header);
             byte[] buffer = new byte[1 << 20];
             int n;
             while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
@@ -127,6 +156,23 @@ final class DlcPackages {
         if (!partial.renameTo(target)) throw new IOException("cannot move the package into " + folder);
         Storage.prefs(context).edit().putString(NAME_PREFIX + file, name.isEmpty() ? file : name).apply();
         return name.isEmpty() ? file : name;
+    }
+
+    private static InputStream open(Context context, Uri uri) throws IOException {
+        InputStream in = context.getContentResolver().openInputStream(uri);
+        if (in == null) throw new IOException("cannot open");
+        return in;
+    }
+
+    /** Reads until buffer is full or the stream ends; returns how much was read. */
+    private static int readFully(InputStream in, byte[] buffer) throws IOException {
+        int read = 0;
+        while (read < buffer.length) {
+            int n = in.read(buffer, read, buffer.length - read);
+            if (n < 0) break;
+            read += n;
+        }
+        return read;
     }
 
     /** Removes every package, installed or waiting. */
