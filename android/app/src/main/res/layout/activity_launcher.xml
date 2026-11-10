@@ -1,115 +1,118 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- The launcher: the game's logo, Play and the disc on the left; quick settings and shortcuts
+     on the right (built by LauncherActivity), over an animated background. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background"
-    android:orientation="horizontal"
-    android:padding="24dp">
+    android:background="@color/background">
+
+    <org.brokenbond.port.EmberBackground
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:orientation="vertical">
-
-        <ImageView
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:adjustViewBounds="true"
-            android:contentDescription="@string/app_name"
-            android:scaleType="fitCenter"
-            android:src="@drawable/logo" />
-
-        <TextView
-            android:id="@+id/version"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textColor="@color/muted"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/credit"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:background="?android:attr/selectableItemBackground"
-            android:padding="4dp"
-            android:text="@string/credit"
-            android:textColor="@color/accent"
-            android:textSize="15sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <ScrollView
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_marginStart="24dp"
-        android:layout_weight="1">
+        android:orientation="horizontal"
+        android:paddingStart="24dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="12dp">
 
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0.85"
+            android:gravity="center"
             android:orientation="vertical">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/alpha_badge"
-                android:textColor="@color/accent"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:contentDescription="@string/app_name"
+                android:maxHeight="150dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/logo" />
 
             <TextView
-                android:id="@+id/status"
-                android:layout_width="match_parent"
+                android:id="@+id/credit"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="16dp"
-                android:textColor="@color/text"
-                android:textSize="15sp" />
+                android:background="?android:attr/selectableItemBackground"
+                android:letterSpacing="0.04"
+                android:padding="4dp"
+                android:shadowColor="#CCE0501E"
+                android:shadowRadius="12"
+                android:text="@string/credit"
+                android:textColor="@color/accent"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/play"
-                style="@style/LauncherButton.Primary"
-                android:text="@string/play" />
+                android:layout_width="match_parent"
+                android:layout_height="62dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_play"
+                android:elevation="6dp"
+                android:letterSpacing="0.25"
+                android:stateListAnimator="@null"
+                android:text="@string/play"
+                android:textAllCaps="true"
+                android:textColor="#FF1A1208"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
-            <Button
+            <TextView
                 android:id="@+id/pick_iso"
-                style="@style/LauncherButton"
-                android:text="@string/pick_iso" />
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:ellipsize="middle"
+                android:gravity="center"
+                android:maxLines="2"
+                android:padding="4dp"
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
 
-            <Button
-                android:id="@+id/settings"
-                style="@style/LauncherButton"
-                android:text="@string/settings" />
-
-            <Button
-                android:id="@+id/help"
-                style="@style/LauncherButton"
-                android:text="@string/help" />
-
-            <Button
-                android:id="@+id/dlc"
-                style="@style/LauncherButton"
-                android:drawableStart="@drawable/ic_dlc"
-                android:drawablePadding="10dp"
-                android:text="@string/dlc" />
-
-            <Button
-                android:id="@+id/export_logs"
-                style="@style/LauncherButton"
-                android:text="@string/export_logs" />
-
-            <Button
-                android:id="@+id/github"
-                style="@style/LauncherButton"
-                android:drawableStart="@drawable/ic_code"
-                android:drawablePadding="10dp"
-                android:text="@string/github" />
+            <TextView
+                android:id="@+id/version"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="#80A89A8C"
+                android:textSize="11sp" />
         </LinearLayout>
-    </ScrollView>
-</LinearLayout>
+
+        <ScrollView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="20dp"
+            android:layout_weight="1.15"
+            android:fillViewport="true"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="@string/alpha_badge"
+                    android:textColor="@color/accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+</FrameLayout>

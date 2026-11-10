@@ -8,10 +8,15 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -32,25 +37,30 @@ public class LauncherActivity extends Activity {
     // Who made the Android port (the credit line under the logo).
     private static final String AUTHOR_URL = "https://github.com/1nsec";
 
-    private TextView status;
+    private TextView disc;
     private Button play;
+    private boolean hasDisc;
+    private GameConfig config;
+    // The quick settings of the right panel (naruto.toml, as Settings writes them).
+    private SegmentedControl preset, resolution, screen, frameRate;
+    private static final String[] RESOLUTIONS = {"0.5", "0.75", "1.0", "1.5"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
-        status = findViewById(R.id.status);
+        disc = findViewById(R.id.pick_iso);
         play = findViewById(R.id.play);
-        findViewById(R.id.pick_iso).setOnClickListener(v -> pickIso());
-        play.setOnClickListener(v -> startGame());
-        findViewById(R.id.settings).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
-        findViewById(R.id.help).setOnClickListener(v -> showHelp());
-        findViewById(R.id.export_logs).setOnClickListener(v -> exportLogs());
-        findViewById(R.id.github).setOnClickListener(v -> open(GITHUB_URL));
+        disc.setOnClickListener(v -> pickIso());
+        play.setOnClickListener(v -> {
+            if (hasDisc) startGame();
+            else pickIso();
+        });
         findViewById(R.id.credit).setOnClickListener(v -> open(AUTHOR_URL));
-        findViewById(R.id.dlc).setOnClickListener(v -> showDlc());
         ((TextView) findViewById(R.id.version)).setText(getString(R.string.version_line, versionName()));
         GameConfig.ensureDefaults(this);
+        config = GameConfig.load(this);
+        buildPanel();
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION, 0x401000)) {
             new AlertDialog.Builder(this)
                     .setTitle(R.string.no_vulkan_title)
@@ -64,7 +74,127 @@ public class LauncherActivity extends Activity {
     protected void onResume() {
         super.onResume();
         hideSystemBars();
+        config = GameConfig.load(this);  // Settings may have changed it.
         refresh();
+        showChoices();
+    }
+
+    /**
+     * The right panel: the graphics preset, the render resolution, the screen
+     * and the frame rate in cards, and the shortcut tiles (Settings, DLC, Help,
+     * logs, GitHub). A choice is saved to naruto.toml at once.
+     */
+    private void buildPanel() {
+        LinearLayout panel = findViewById(R.id.panel);
+        preset = new SegmentedControl(this, new String[] {getString(R.string.preset_performance),
+                getString(R.string.preset_balanced), getString(R.string.preset_quality)}, null, index -> {
+            Presets.apply(config, index);
+            save();
+            showChoices();
+        });
+        panel.addView(card(R.string.setting_preset, preset), cardParams());
+        resolution = new SegmentedControl(this, new String[] {"360p", "540p", "720p", "1080p"},
+                new String[] {getString(R.string.res_fast), getString(R.string.res_light),
+                        getString(R.string.res_original), getString(R.string.res_sharp)}, index -> {
+            config.setRaw("internal_resolution_scale", RESOLUTIONS[index]);
+            save();
+            showChoices();
+        });
+        panel.addView(card(R.string.setting_resolution, resolution), cardParams());
+        screen = new SegmentedControl(this, new String[] {getString(R.string.screen_169), getString(R.string.screen_full)},
+                null, index -> {
+            config.setRaw("aspect_ratio", index == 0 ? "\"16:9\"" : "\"auto\"");
+            save();
+        });
+        frameRate = new SegmentedControl(this, new String[] {"30 FPS", "60 FPS"}, null, index -> {
+            config.setInt("frame_rate", index == 0 ? 30 : 60);
+            save();
+        });
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        left.setMarginEnd(dp(8));
+        row.addView(card(R.string.setting_aspect, screen), left);
+        row.addView(card(R.string.setting_frame_rate, frameRate),
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        panel.addView(row, cardParams());
+        LinearLayout tiles = new LinearLayout(this);
+        tiles.setOrientation(LinearLayout.HORIZONTAL);
+        tile(tiles, R.drawable.ic_touch_options, R.string.tile_settings,
+                v -> startActivity(new Intent(this, SettingsActivity.class)));
+        tile(tiles, R.drawable.ic_dlc, R.string.tile_dlc, v -> showDlc());
+        tile(tiles, R.drawable.ic_help, R.string.tile_help, v -> showHelp());
+        tile(tiles, R.drawable.ic_logs, R.string.tile_logs, v -> exportLogs());
+        tile(tiles, R.drawable.ic_code, R.string.tile_github, v -> open(GITHUB_URL));
+        panel.addView(tiles, cardParams());
+    }
+
+    /** The quick settings as naruto.toml has them. */
+    private void showChoices() {
+        if (preset == null) return;
+        preset.setChosen(Presets.current(config));
+        double scale = config.getDouble("internal_resolution_scale", 1.0);
+        int chosen = -1;
+        for (int i = 0; i < RESOLUTIONS.length; ++i) if (scale == Double.parseDouble(RESOLUTIONS[i])) chosen = i;
+        resolution.setChosen(chosen);
+        screen.setChosen("auto".equals(config.getString("aspect_ratio", "16:9")) ? 1 : 0);
+        frameRate.setChosen(config.getDouble("frame_rate", 30) >= 60 ? 1 : 0);
+    }
+
+    private void save() {
+        if (!config.save()) Toast.makeText(this, R.string.settings_save_failed, Toast.LENGTH_LONG).show();
+    }
+
+    private LinearLayout card(int title, View content) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackgroundResource(R.drawable.bg_card);
+        card.setPadding(dp(12), dp(8), dp(12), dp(10));
+        TextView label = new TextView(this);
+        label.setText(title);
+        label.setTextColor(getColor(R.color.accent));
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        label.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        label.setPadding(dp(2), 0, 0, dp(6));
+        card.addView(label);
+        card.addView(content);
+        return card;
+    }
+
+    private LinearLayout.LayoutParams cardParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = dp(8);
+        return params;
+    }
+
+    private void tile(LinearLayout row, int icon, int label, View.OnClickListener action) {
+        LinearLayout tile = new LinearLayout(this);
+        tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setGravity(Gravity.CENTER);
+        tile.setBackgroundResource(R.drawable.bg_tile);
+        tile.setPadding(dp(4), dp(10), dp(4), dp(8));
+        tile.setClickable(true);
+        tile.setFocusable(true);
+        tile.setOnClickListener(action);
+        ImageView image = new ImageView(this);
+        image.setImageResource(icon);
+        image.setColorFilter(getColor(R.color.accent));
+        tile.addView(image, new LinearLayout.LayoutParams(dp(26), dp(26)));
+        TextView text = new TextView(this);
+        text.setText(label);
+        text.setTextColor(getColor(R.color.text));
+        text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        text.setSingleLine(true);
+        text.setPadding(0, dp(4), 0, 0);
+        tile.addView(text);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        if (row.getChildCount() > 0) params.setMarginStart(dp(6));
+        row.addView(tile, params);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private String versionName() {
@@ -83,16 +213,15 @@ public class LauncherActivity extends Activity {
             prefs.edit().remove(Storage.KEY_ISO_URI).remove(Storage.KEY_ISO_NAME).apply();
             uri = null;
         }
+        hasDisc = uri != null || local != null;
         if (uri != null) {
-            status.setText(getString(R.string.iso_selected, prefs.getString(Storage.KEY_ISO_NAME, "?")));
-            play.setEnabled(true);
+            disc.setText(getString(R.string.disc_selected, prefs.getString(Storage.KEY_ISO_NAME, "?")));
         } else if (local != null) {
-            status.setText(getString(R.string.iso_found, local.getName()));
-            play.setEnabled(true);
+            disc.setText(getString(R.string.disc_found, local.getName()));
         } else {
-            status.setText(getString(R.string.iso_missing, Storage.assetsDir(this).getAbsolutePath()));
-            play.setEnabled(false);
+            disc.setText(R.string.disc_missing);
         }
+        play.setText(hasDisc ? R.string.play : R.string.play_pick);
     }
 
     private boolean hasPermission(Uri uri) {

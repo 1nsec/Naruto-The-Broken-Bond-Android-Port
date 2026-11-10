@@ -227,6 +227,12 @@ workflow; its APK cannot play anything.
   three logs and profiles and the newest images. Its timers cost little: the counter is read
   without a barrier and scaled without divisions, each slot has its own cache line, and the
   slots timed around every draw time one call in eight on each thread (counted eight times).
+- **Launcher** (`activity_launcher.xml`, `LauncherActivity.java`): the logo, the credit, Play
+  (Choose ISO while there is none) and the disc line (tap to change) on the left; on the right,
+  cards with the graphics preset (`Presets.java`, shared with Settings), render resolution
+  (360p to 1080p), screen (16:9 or full screen) and frame rate (30 or 60), saved to naruto.toml at
+  once, and tiles for Settings, DLC, Help, logs and GitHub. `EmberBackground.java` draws the
+  background (embers and leaves, about 30 frames per second while the launcher is on screen).
 - The launcher's **GitHub** button opens the project's page (new versions and problem reports); the
   credit line under the logo opens its author's (1nsec).
 - **DLC** (launcher): the player picks the game's downloadable content packages (STFS files, CON,

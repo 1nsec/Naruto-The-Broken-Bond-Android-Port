@@ -130,20 +130,7 @@ public class SettingsActivity extends Activity {
     }
 
     private void applyPreset(int preset) {
-        // Render resolution, anti-aliasing, edge smoothing, upscaling, texture filtering.
-        String[][] values = {
-                {"0.75", "1", "false", "\"none\"", "\"bilinear\"", "0"},
-                {"1.0", "1", "false", "\"none\"", "\"bilinear\"", "2"},
-                {"1.5", "1", "false", "\"fxaa\"", "\"bilinear\"", "4"}};
-        String[] keys = {"internal_resolution_scale", "msaa_samples", "transparency_antialiasing", "swap_post_effect",
-                "upscaling", "anisotropic_override"};
-        for (int i = 0; i < keys.length; ++i) config.setRaw(keys[i], values[preset][i]);
-        config.setBool("water_reflections", preset != 0);  // Off in Performance: about a sixth of the open world's draws.
-        config.setBool("character_shadows", preset != 0);
-        // Draw distance: short in Performance, medium in Balanced, the game's own in Quality.
-        config.setInt("draw_distance", preset == 0 ? 60 : preset == 1 ? 120 : 0);
-        config.setInt("frame_rate", 30);
-        config.setBool("async_shaders", true);
+        Presets.apply(config, preset);
         if (!config.save()) {
             Toast.makeText(this, R.string.settings_save_failed, Toast.LENGTH_LONG).show();
             return;

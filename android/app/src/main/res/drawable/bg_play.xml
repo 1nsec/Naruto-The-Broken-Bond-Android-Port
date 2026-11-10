@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's Play button: an orange to red pill, darker while pressed. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="999dp" />
+            <gradient android:angle="0" android:startColor="#FFD9902A" android:endColor="#FFC2351A" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="999dp" />
+            <gradient android:angle="0" android:startColor="#FFFFC048" android:endColor="#FFEA4A1F" />
+        </shape>
+    </item>
+</selector>
