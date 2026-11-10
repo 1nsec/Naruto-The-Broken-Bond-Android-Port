@@ -1,0 +1,207 @@
+run: https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port/actions/runs/42875160023
+commit: dc6c89105a99185afa2e861de5c6a2f39b316319
+job: android
+
+== errors (with context) ==
+
+== last 200 lines ==
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/src/studies/audio_trace.cpp:24:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/hook.h:21:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/ppc/context.h:20:
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[725/757] Building CXX object CMakeFiles/broken_bond.dir/src/studies/kernel_io_exports.cpp.o
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/src/studies/kernel_io_exports.cpp:7:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/src/gpu/host/kernel_exports.h:2:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/hook.h:21:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/ppc/context.h:20:
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[726/757] Building CXX object CMakeFiles/broken_bond.dir/src/studies/export_trace.cpp.o
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/src/studies/export_trace.cpp:16:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/src/studies/export_trace.h:8:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/ppc/context.h:20:
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[727/757] Building CXX object CMakeFiles/broken_bond.dir/src/studies/kernel_xma_exports.cpp.o
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/src/studies/kernel_xma_exports.cpp:7:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/src/gpu/host/kernel_exports.h:2:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/hook.h:21:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/ppc/context.h:20:
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[728/757] Building CXX object CMakeFiles/broken_bond.dir/resources_posix.cpp.o
+[729/757] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/diagnostics/diagnostics_posix.cpp.o
+[730/757] Building CXX object CMakeFiles/broken_bond.dir/src/pc/pad_input_sdl.cpp.o
+[731/757] Building CXX object CMakeFiles/broken_bond.dir/src/android/touch_controller.cpp.o
+[732/757] Building CXX object CMakeFiles/broken_bond.dir/src/android/gpu_driver.cpp.o
+[733/757] Building CXX object CMakeFiles/broken_bond.dir/src/android/sampling_profiler.cpp.o
+[734/757] Building CXX object CMakeFiles/broken_bond.dir/sdk/src/ui/windowed_app_main_sdl.cpp.o
+[735/757] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/backend/vulkan/completion.cpp.o
+[736/757] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/backend/vulkan/shader_contract.cpp.o
+[737/757] Building CXX object CMakeFiles/broken_bond.dir/src/pc/crash_handler_posix.cpp.o
+[738/757] Building CXX object CMakeFiles/broken_bond.dir/src/platform/win32_posix.cpp.o
+[739/757] Building CXX object CMakeFiles/broken_bond.dir/src/gpu/backend/vulkan/backend.cpp.o
+[740/757] Linking CXX static library libbroken_bond_smolv.a
+[741/757] Linking CXX static library libnative_renderer_plume_vulkan.a
+[742/757] Linking CXX static library adrenotools/libadrenotools.a
+[743/757] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_init.cpp.o
+[744/757] Building C object adrenotools/src/hook/CMakeFiles/main_hook.dir/main_hook.c.o
+[745/757] Building C object adrenotools/src/hook/CMakeFiles/file_redirect_hook.dir/file_redirect_hook.c.o
+[746/757] Building C object adrenotools/src/hook/CMakeFiles/gsl_alloc_hook.dir/gsl_alloc_hook.c.o
+[747/757] Linking CXX shared library adrenotools/src/hook/libhook_impl.so
+[748/757] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_register.cpp.o
+[749/757] Linking CXX shared library adrenotools/src/hook/libmain_hook.so
+[750/757] Linking CXX shared library adrenotools/src/hook/libfile_redirect_hook.so
+[751/757] Linking CXX shared library adrenotools/src/hook/libgsl_alloc_hook.so
+[752/757] Building CXX object CMakeFiles/broken_bond_recomp.dir/generated/default/broken_bond_recomp.0.cpp.o
+[753/757] Linking CXX shared library /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/out/android-arm64/librexruntime.so
+[754/757] Building CXX object CMakeFiles/broken_bond.dir/sdk/src/ui/rex_app.cpp.o
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/src/ui/rex_app.cpp:12:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/rex_app.h:24:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/runtime.h:30:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/system/kernel_state.h:30:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/system/thread_state.h:17:
+In file included from /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/ppc/context.h:20:
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:93: warning: value size does not match register size specified by the constraint and modifier [-Wasm-operand-widths]
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                             ^
+/home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/sdk/include/rex/platform/fpscr.h:78:81: note: use constraint modifier "w"
+   78 |   static inline void setcsr(u32 csr) noexcept { __asm__ __volatile__("msr fpcr, %0" : : "r"(csr)); }
+      |                                                                                 ^~
+      |                                                                                 %w0
+1 warning generated.
+[755/757] Linking CXX shared library libmain.so
+[756/757] Native libraries of the Android app -> /home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/android/app/src/main/jniLibs/arm64-v8a
+===== gradle-build =====
+Downloading https://services.gradle.org/distributions/gradle-8.14.3-bin.zip
+.............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%..............100%
+
+Welcome to Gradle 8.14.3!
+
+Here are the highlights of this release:
+ - Java 24 support
+ - GraalVM Native Image toolchain selection
+ - Enhancements to test reporting
+ - Build Authoring improvements
+
+For more details see https://docs.gradle.org/8.14.3/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:checkNativeLibraries
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:javaPreCompileRelease
+> Task :app:generateReleaseResValues
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:mergeReleaseNativeLibs
+> Task :app:generateReleaseResources
+> Task :app:stripReleaseDebugSymbols
+> Task :app:packageReleaseResources
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:mergeReleaseResources
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:mergeReleaseArtProfile
+> Task :app:mergeExtDexRelease
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:processReleaseManifestForPackage
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:processReleaseJavaRes NO-SOURCE
+> Task :app:collectReleaseDependencies
+> Task :app:mergeReleaseJavaResource
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:compressReleaseAssets
+> Task :app:processReleaseResources
+
+> Task :app:compileReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:optimizeReleaseResources
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+
+[Incubating] Problems report is available at: file:///home/runner/work/Naruto-The-Broken-Bond-Android-Port/Naruto-The-Broken-Bond-Android-Port/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 28s
+42 actionable tasks: 42 executed
+===== apk-check =====
+APK: android/app/build/outputs/apk/release/app-release.apk (9.9M)
+   193044  1981-01-01 01:01   classes.dex
+  1768264  1981-01-01 01:01   lib/arm64-v8a/libSDL3.so
+  1374336  1981-01-01 01:01   lib/arm64-v8a/libc++_shared.so
+     4168  1981-01-01 01:01   lib/arm64-v8a/libfile_redirect_hook.so
+     4464  1981-01-01 01:01   lib/arm64-v8a/libgsl_alloc_hook.so
+    38432  1981-01-01 01:01   lib/arm64-v8a/libhook_impl.so
+  4696048  1981-01-01 01:01   lib/arm64-v8a/libmain.so
+     4368  1981-01-01 01:01   lib/arm64-v8a/libmain_hook.so
+  7545064  1981-01-01 01:01   lib/arm64-v8a/librexruntime.so
+ 13993736  1981-01-01 01:01   assets/gpu/libvulkan_freedreno.so
+     1816  1981-01-01 01:01   assets/gpu/turnip-license.rst
+      144  1981-01-01 01:01   assets/gpu/turnip.json
+     1299  1981-01-01 01:01   assets/licenses/libadrenotools-BSD-2-Clause.txt
+    11357  1981-01-01 01:01   assets/licenses/material-symbols-apache-2.0.txt
+     4092  1981-01-01 01:01   assets/naruto.toml
+  2773939  1981-01-01 01:01   assets/symbols/libmain.so.syms
+  3782148  1981-01-01 01:01   assets/symbols/librexruntime.so.syms
+== libSDL3.so: libm.so libOpenSLES.so libdl.so liblog.so libandroid.so libc++_shared.so libc.so 
+== libc++_shared.so: libc.so libm.so libdl.so 
+== libfile_redirect_hook.so: libhook_impl.so libandroid.so libdl.so liblog.so libm.so libc++_shared.so libc.so 
+== libgsl_alloc_hook.so: libhook_impl.so libandroid.so libdl.so liblog.so libm.so libc++_shared.so libc.so 
+== libhook_impl.so: liblog.so libandroid.so libdl.so libm.so libc++_shared.so libc.so 
+== libmain.so: libandroid.so liblog.so librexruntime.so libSDL3.so libdl.so libm.so libc++_shared.so libc.so 
+== libmain_hook.so: libhook_impl.so libandroid.so libdl.so liblog.so libm.so libc++_shared.so libc.so 
+== librexruntime.so: libSDL3.so libdl.so liblog.so libandroid.so libm.so libc++_shared.so libc.so 
+APK check passed
