@@ -227,8 +227,9 @@ workflow; its APK cannot play anything.
   three logs and profiles and the newest images. Its timers cost little: the counter is read
   without a barrier and scaled without divisions, each slot has its own cache line, and the
   slots timed around every draw time one call in eight on each thread (counted eight times).
-- **Launcher** (`activity_launcher.xml`, `LauncherActivity.java`): the logo, the credit, Play
-  (Choose ISO while there is none) and the disc line (tap to change) on the left; on the right,
+- **Launcher** (`activity_launcher.xml`, `LauncherActivity.java`): the logo, Play (Choose ISO
+  while there is none), under it the author's credit (his GitHub page) and links to his YouTube
+  and Instagram, and the disc line (tap to change) on the left; on the right,
   cards with the graphics preset (`Presets.java`, shared with Settings), render resolution
   (360p to 1080p), screen (16:9 or full screen) and frame rate (30 or 60), saved to naruto.toml at
   once, and tiles for Settings, DLC, Help, logs and GitHub. `EmberBackground.java` draws the

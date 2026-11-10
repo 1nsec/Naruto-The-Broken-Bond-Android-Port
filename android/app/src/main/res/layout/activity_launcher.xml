@@ -38,20 +38,6 @@
                 android:scaleType="fitCenter"
                 android:src="@drawable/logo" />
 
-            <TextView
-                android:id="@+id/credit"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="?android:attr/selectableItemBackground"
-                android:letterSpacing="0.04"
-                android:padding="4dp"
-                android:shadowColor="#CCE0501E"
-                android:shadowRadius="12"
-                android:text="@string/credit"
-                android:textColor="@color/accent"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
             <Button
                 android:id="@+id/play"
                 android:layout_width="match_parent"
@@ -68,6 +54,40 @@
                 android:textColor="#FF1A1208"
                 android:textSize="20sp"
                 android:textStyle="bold" />
+
+            <!-- Who made the port, and where to follow him, under Play. -->
+            <TextView
+                android:id="@+id/credit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:letterSpacing="0.04"
+                android:padding="2dp"
+                android:shadowColor="#CCE0501E"
+                android:shadowRadius="12"
+                android:text="@string/credit"
+                android:textColor="@color/accent"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/youtube"
+                    style="@style/LauncherChip"
+                    android:text="@string/link_youtube" />
+
+                <TextView
+                    android:id="@+id/instagram"
+                    style="@style/LauncherChip"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/link_instagram" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/pick_iso"

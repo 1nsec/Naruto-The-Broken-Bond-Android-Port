@@ -39,6 +39,8 @@ public class LauncherActivity extends Activity {
     private static final String GITHUB_URL = "https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port";
     // Who made the Android port (the credit line under the logo).
     private static final String AUTHOR_URL = "https://github.com/1nsec";
+    private static final String YOUTUBE_URL = "https://www.youtube.com/@1nsec";
+    private static final String INSTAGRAM_URL = "https://www.instagram.com/1nsecore";
 
     private TextView disc;
     private Button play;
@@ -62,6 +64,8 @@ public class LauncherActivity extends Activity {
             else pickIso();
         });
         findViewById(R.id.credit).setOnClickListener(v -> open(AUTHOR_URL));
+        findViewById(R.id.youtube).setOnClickListener(v -> open(YOUTUBE_URL));
+        findViewById(R.id.instagram).setOnClickListener(v -> open(INSTAGRAM_URL));
         ((TextView) findViewById(R.id.version)).setText(getString(R.string.version_line, versionName()));
         GameConfig.ensureDefaults(this);
         config = GameConfig.load(this);

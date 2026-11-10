@@ -7,7 +7,9 @@
     <string name="settings">Configurações</string>
     <string name="help">Ajuda</string>
     <string name="github">GitHub (novas versões e relatar problemas)</string>
-    <string name="credit">Port Android desenvolvido por 1nsec</string>
+    <string name="credit">Port Android criado por 1nsec</string>
+    <string name="link_youtube">▶  YouTube · 1nsec</string>
+    <string name="link_instagram">◎  Instagram · @1nsecore</string>
     <string name="disc_selected">Disco: %1$s · toque para trocar</string>
     <string name="disc_found">Disco na pasta de dados: %1$s · toque para escolher outro</string>
     <string name="disc_missing">Nenhuma ISO ainda · toque em Escolher ISO (a Ajuda diz onde mais ela pode ficar)</string>
