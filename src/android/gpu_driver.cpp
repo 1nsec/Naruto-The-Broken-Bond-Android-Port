@@ -9,6 +9,8 @@
 //   BROKENBOND_GPU_DRIVER   auto (default), system or turnip
 //   BROKENBOND_DRIVER_DIR   folder of the bundled driver (app-private storage)
 //   BROKENBOND_DRIVER_NAME  its file name
+//   BROKENBOND_DRIVER_LABEL the driver's name for the log (a driver the player
+//                           added in Settings replaces the bundled one)
 //   BROKENBOND_HOOK_DIR     the app's native library folder (adrenotools' hooks)
 // "auto" asks the system driver first and takes Turnip on a Qualcomm GPU that
 // lacks one of the features. Plume's Vulkan loader (volk) calls
@@ -143,7 +145,9 @@ extern "C" PFN_vkGetInstanceProcAddr brokenbond_android_vulkan_loader(void) {
   PFN_vkGetInstanceProcAddr turnip = OpenBundled();
   if (turnip) {
     DeviceReport bundled = Probe(turnip);
-    Log("Turnip (bundled)", bundled);
+    // The bundled Turnip, or a driver the player added in Settings (BROKENBOND_DRIVER_LABEL).
+    const char* label = Env("BROKENBOND_DRIVER_LABEL");
+    Log(label ? label : "Turnip (bundled)", bundled);
     if (bundled.found) return turnip;
     REXLOG_WARN("[narutobb] GPU driver: Turnip found no GPU it supports; using the system driver");
   }

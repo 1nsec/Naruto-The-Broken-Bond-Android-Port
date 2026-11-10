@@ -25,10 +25,12 @@ import java.io.File;
  * folder's assets/ folder, where the game finds it on its own as on PC.
  */
 public class LauncherActivity extends Activity {
-    private static final int PICK_ISO = 1;
+    private static final int PICK_ISO = 1, PICK_DLC = 2;
     private static final long MIN_ISO_BYTES = 1L << 30;  // The game's disc image is about 7 GB.
     // The project's page: new versions (Releases) and problem reports (Issues).
     private static final String GITHUB_URL = "https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port";
+    // Who made the Android port (the credit line under the logo).
+    private static final String AUTHOR_URL = "https://github.com/1nsec";
 
     private TextView status;
     private Button play;
@@ -44,7 +46,9 @@ public class LauncherActivity extends Activity {
         findViewById(R.id.settings).setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.help).setOnClickListener(v -> showHelp());
         findViewById(R.id.export_logs).setOnClickListener(v -> exportLogs());
-        findViewById(R.id.github).setOnClickListener(v -> openGitHub());
+        findViewById(R.id.github).setOnClickListener(v -> open(GITHUB_URL));
+        findViewById(R.id.credit).setOnClickListener(v -> open(AUTHOR_URL));
+        findViewById(R.id.dlc).setOnClickListener(v -> showDlc());
         ((TextView) findViewById(R.id.version)).setText(getString(R.string.version_line, versionName()));
         GameConfig.ensureDefaults(this);
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION, 0x401000)) {
@@ -115,6 +119,10 @@ public class LauncherActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_DLC && resultCode == RESULT_OK && data != null) {
+            addDlc(data);
+            return;
+        }
         if (requestCode != PICK_ISO || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         try {
@@ -187,12 +195,74 @@ public class LauncherActivity extends Activity {
         }
     }
 
-    /** The project's GitHub page in the browser. */
-    private void openGitHub() {
+    /** A web page in the browser (the project's GitHub page, its author's). */
+    private void open(String url) {
         try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_URL)));
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
         } catch (android.content.ActivityNotFoundException e) {
-            Toast.makeText(this, GITHUB_URL, Toast.LENGTH_LONG).show();
+            Toast.makeText(this, url, Toast.LENGTH_LONG).show();
         }
+    }
+
+    /** The downloadable content: what is installed or waits for the next start, add, remove. */
+    private void showDlc() {
+        StringBuilder text = new StringBuilder(getString(R.string.dlc_message));
+        java.util.List<DlcPackages.Package> packages = DlcPackages.list(this);
+        text.append("\n\n");
+        if (packages.isEmpty()) text.append(getString(R.string.dlc_none));
+        for (DlcPackages.Package p : packages)
+            text.append("• ").append(p.name).append(p.installed ? "" : " " + getString(R.string.dlc_pending)).append('\n');
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.dlc)
+                .setMessage(text.toString().trim())
+                .setPositiveButton(R.string.dlc_add, (d, w) -> {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                    try {
+                        startActivityForResult(intent, PICK_DLC);
+                    } catch (Exception e) {
+                        Toast.makeText(this, R.string.no_file_picker, Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null);
+        if (!packages.isEmpty()) {
+            dialog.setNeutralButton(R.string.dlc_remove_all, (d, w) -> new AlertDialog.Builder(this)
+                    .setMessage(R.string.dlc_remove_confirm)
+                    .setPositiveButton(android.R.string.ok, (d2, w2) -> DlcPackages.removeAll(this))
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show());
+        }
+        dialog.show();
+    }
+
+    /** Copies the picked packages into dlc/, off the UI thread (they can be large). */
+    private void addDlc(Intent data) {
+        java.util.List<Uri> uris = new java.util.ArrayList<>();
+        if (data.getClipData() != null) {
+            for (int i = 0; i < data.getClipData().getItemCount(); ++i) uris.add(data.getClipData().getItemAt(i).getUri());
+        } else if (data.getData() != null) {
+            uris.add(data.getData());
+        }
+        if (uris.isEmpty()) return;
+        Toast.makeText(this, R.string.dlc_copying, Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            StringBuilder report = new StringBuilder();
+            for (Uri uri : uris) {
+                String file = Storage.displayName(this, uri);
+                try {
+                    String name = DlcPackages.add(this, uri);
+                    report.append(getString(R.string.dlc_added, name)).append('\n');
+                } catch (Exception e) {
+                    report.append(getString(R.string.dlc_add_failed, file, e.getMessage())).append('\n');
+                }
+            }
+            runOnUiThread(() -> new AlertDialog.Builder(this)
+                    .setTitle(R.string.dlc)
+                    .setMessage(report.toString().trim())
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show());
+        }, "dlc-copy").start();
     }
 }

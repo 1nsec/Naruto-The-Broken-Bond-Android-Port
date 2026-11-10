@@ -182,7 +182,7 @@ Everything about building the APK, from your PC or in the cloud, signing, and ho
 
 | Part | Made by |
 |---|---|
-| Android port: ReXGlue SDK patch for Android, Vulkan on Android, launcher app, on-screen controller | this repository, written with Claude AI |
+| Android port: ReXGlue SDK patch for Android, Vulkan on Android, launcher app, on-screen controller | [1nsec](https://github.com/1nsec) (this repository), written with Claude AI |
 | PC port v2.5: PC Options, remapping, Auto Jutsu, free camera, weather, Hokage skins and more | Auremana666 and Claude AI ([details](docs/pc-port.md#who-made-what)) |
 | Recompilation setup, XMA audio fixes and the native renderer | [jorjbarbosa](https://github.com/jorjbarbosa) ([broken-bond-recomp](https://github.com/jorjbarbosa/broken-bond-recomp)) |
 | Static recompilation runtime | [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) (BSD-3-Clause), built on [Xenia](https://github.com/xenia-project/xenia) |

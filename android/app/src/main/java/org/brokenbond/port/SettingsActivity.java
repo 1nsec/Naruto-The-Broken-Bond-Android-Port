@@ -2,7 +2,9 @@ package org.brokenbond.port;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -20,6 +22,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The common settings of naruto.toml, plus the on-screen controller's. The
@@ -27,6 +31,7 @@ import java.io.File;
  * the ones worth setting before the first start on a phone.
  */
 public class SettingsActivity extends Activity {
+    private static final int PICK_DRIVER = 1;
     private GameConfig config;
     private LinearLayout list;
 
@@ -219,6 +224,102 @@ public class SettingsActivity extends Activity {
         row.addView(bar, new LinearLayout.LayoutParams(dp(220), ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
+    /**
+     * Settings > GPU driver: automatic, the system's, the bundled Turnip, or a
+     * driver the player added (CustomDrivers: an adrenotools .zip), with the
+     * buttons to add one and to remove the one chosen.
+     */
+    private void gpuDrivers() {
+        List<String> labels = new ArrayList<>(), values = new ArrayList<>();
+        labels.add(getString(R.string.gpu_driver_auto));
+        values.add("auto");
+        labels.add(getString(R.string.gpu_driver_system));
+        values.add("system");
+        labels.add(getString(R.string.gpu_driver_turnip));
+        values.add("turnip");
+        for (CustomDrivers.Driver driver : CustomDrivers.list(this)) {
+            labels.add(getString(R.string.gpu_driver_custom, driver.label()));
+            values.add(CustomDrivers.PREFIX + driver.id);
+        }
+        prefChoice(R.string.setting_gpu_driver, Storage.KEY_GPU_DRIVER, labels.toArray(new String[0]),
+                values.toArray(new String[0]), "auto");
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        Button add = new Button(this);
+        add.setText(R.string.gpu_driver_add);
+        add.setAllCaps(false);
+        add.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {"application/zip", "application/x-zip-compressed",
+                    "application/octet-stream"});
+            try {
+                startActivityForResult(intent, PICK_DRIVER);
+            } catch (Exception e) {
+                Toast.makeText(this, R.string.no_file_picker, Toast.LENGTH_LONG).show();
+            }
+        });
+        row.addView(add);
+        Button remove = new Button(this);
+        remove.setText(R.string.gpu_driver_remove);
+        remove.setAllCaps(false);
+        remove.setOnClickListener(v -> {
+            String chosen = Storage.prefs(this).getString(Storage.KEY_GPU_DRIVER, "auto");
+            CustomDrivers.Driver driver = CustomDrivers.find(this, chosen);
+            if (driver == null) {
+                Toast.makeText(this, R.string.gpu_driver_remove_none, Toast.LENGTH_LONG).show();
+                return;
+            }
+            new AlertDialog.Builder(this)
+                    .setMessage(getString(R.string.gpu_driver_remove_confirm, driver.label()))
+                    .setPositiveButton(android.R.string.ok, (d, w) -> {
+                        CustomDrivers.remove(driver);
+                        Storage.prefs(this).edit().putString(Storage.KEY_GPU_DRIVER, "auto").apply();
+                        rebuild();
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        });
+        row.addView(remove);
+        list.addView(row);
+        TextView note = new TextView(this);
+        note.setText(R.string.gpu_driver_note);
+        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        list.addView(note);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != PICK_DRIVER || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        Toast.makeText(this, R.string.gpu_driver_installing, Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String message;
+            try {
+                CustomDrivers.Driver driver = CustomDrivers.install(this, uri);
+                Storage.prefs(this).edit().putString(Storage.KEY_GPU_DRIVER, CustomDrivers.PREFIX + driver.id).apply();
+                message = getString(R.string.gpu_driver_installed, driver.label());
+            } catch (Exception e) {
+                message = getString(R.string.gpu_driver_install_failed, e.getMessage());
+            }
+            final String text = message;
+            runOnUiThread(() -> {
+                Toast.makeText(this, text, Toast.LENGTH_LONG).show();
+                rebuild();
+            });
+        }, "driver-install").start();
+    }
+
+    /** The screen built again with what is saved (a driver added or removed). */
+    private void rebuild() {
+        if (!config.save()) Toast.makeText(this, R.string.settings_save_failed, Toast.LENGTH_LONG).show();
+        config = GameConfig.load(this);
+        list.removeAllViews();
+        build();
+    }
+
     private void build() {
         TextView note = new TextView(this);
         note.setText(R.string.settings_note);
@@ -255,10 +356,7 @@ public class SettingsActivity extends Activity {
         toggle(R.string.setting_async_shaders, "async_shaders", true);
         toggle(R.string.setting_show_fps, "show_fps", false);
         prefToggle(R.string.setting_performance_log, Storage.KEY_PERF_LOG, true);
-        prefChoice(R.string.setting_gpu_driver, Storage.KEY_GPU_DRIVER,
-                new String[] {getString(R.string.gpu_driver_auto), getString(R.string.gpu_driver_system),
-                        getString(R.string.gpu_driver_turnip)},
-                new String[] {"auto", "system", "turnip"}, "auto");
+        gpuDrivers();
         prefChoice(R.string.setting_turnip_mode, Storage.KEY_TURNIP_MODE,
                 new String[] {getString(R.string.turnip_mode_auto), getString(R.string.turnip_mode_sysmem),
                         getString(R.string.turnip_mode_gmem)},

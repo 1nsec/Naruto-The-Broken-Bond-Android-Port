@@ -7,6 +7,10 @@ Beta of the Android version of **Naruto: The Broken Bond PC Port v2.5**: the rec
 
 ## New in the beta
 
+- **DLC:** the launcher's **DLC** button adds the game's downloadable content from your own Xbox 360 (the package files of `Content/0000000000000000/55530825/00000002/`); the game installs them at its next start.
+- **Your own GPU drivers:** Settings > GPU driver > **Add driver (.zip)** installs other Turnip builds (the adrenotools packages published for Android emulators), next to the Turnip the app carries. Snapdragon (Adreno) only.
+- **Auto-rotate:** the game turns with the phone between the two landscape sides.
+- The launcher shows who made the Android port (**1nsec**), and its GitHub button has an icon.
 - **Full screen:** Settings > **Screen** > *Full screen* (or PC Options > Display > Aspect ratio > Automatic) fills a phone's wide screen with a wider view of the game instead of black bars on the sides.
 - **The picked ISO keeps working:** on some phones the game could not open the ISO again in a later session and went straight back to the launcher, so it had to be picked every time.
 - **Camera on the on-screen controls:** no more camera stick. Drag a finger anywhere on the screen (outside the buttons and the left stick) to turn the camera, as in mobile games. Its sensitivity is in Settings and in PC Options > Controls.

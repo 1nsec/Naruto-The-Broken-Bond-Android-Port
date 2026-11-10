@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Symbols "code" (outlined), Apache License 2.0: see assets/licenses. The source code's
+     page (the GitHub button of the launcher). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="@color/text">
+  <group android:translateY="960">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M320,-240L80,-480L320,-720L377,-663L193,-479L376,-296L320,-240ZM640,-240L583,-297L767,-481L584,-664L640,-720L880,-480L640,-240Z"/>
+  </group>
+</vector>

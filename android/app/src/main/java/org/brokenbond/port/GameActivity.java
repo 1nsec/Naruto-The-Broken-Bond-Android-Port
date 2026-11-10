@@ -3,6 +3,7 @@ package org.brokenbond.port;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.hardware.input.InputManager;
 import android.net.Uri;
 import android.os.Build;
@@ -45,6 +46,7 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
         File data = Storage.dataDir(this);
         GameConfig.ensureDefaults(this);
         forceFullscreen();
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         try {
             // The runtime's stand-in for the executable's folder, and a temp folder.
             Os.setenv("REX_ANDROID_DATA_DIR", data.getAbsolutePath(), true);
@@ -82,7 +84,10 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
      * app's private storage where it can be loaded (once per installed APK).
      */
     private void setUpGpuDriver() throws ErrnoException {
-        Os.setenv("BROKENBOND_GPU_DRIVER", Storage.prefs(this).getString(Storage.KEY_GPU_DRIVER, "auto"), true);
+        String choice = Storage.prefs(this).getString(Storage.KEY_GPU_DRIVER, "auto");
+        CustomDrivers.Driver custom = CustomDrivers.find(this, choice);
+        if (choice.startsWith(CustomDrivers.PREFIX) && custom == null) choice = "auto";  // Removed since.
+        Os.setenv("BROKENBOND_GPU_DRIVER", custom != null ? "turnip" : choice, true);
         // Settings > Turnip rendering: Turnip draws each render pass in tiles of
         // its on-chip memory (gmem) or straight to memory (sysmem); it picks per
         // pass unless told (TU_DEBUG, read only by Turnip).
@@ -90,6 +95,14 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
         if ("sysmem".equals(mode) || "gmem".equals(mode)) Os.setenv("TU_DEBUG", mode, true);
         else Os.unsetenv("TU_DEBUG");
         Os.setenv("BROKENBOND_HOOK_DIR", getApplicationInfo().nativeLibraryDir, true);
+        if (custom != null) {
+            // A driver the player added (Settings > GPU driver): loaded like the bundled Turnip.
+            Os.setenv("BROKENBOND_DRIVER_DIR", custom.folder.getAbsolutePath() + "/", true);
+            Os.setenv("BROKENBOND_DRIVER_NAME", custom.library, true);
+            Os.setenv("BROKENBOND_DRIVER_LABEL", custom.label(), true);
+            return;
+        }
+        Os.setenv("BROKENBOND_DRIVER_LABEL", "Turnip (bundled)", true);
         File folder = new File(getFilesDir(), "gpu/turnip");
         File driver = new File(folder, TURNIP_LIBRARY);
         File stamp = new File(folder, "installed-from");
@@ -240,6 +253,17 @@ public class GameActivity extends SDLActivity implements InputManager.InputDevic
         } catch (Exception e) {
             Log.e(TAG, "Could not open the disc image " + uri, e);
         }
+    }
+
+    /**
+     * The screen turns with the phone between the two landscape sides, as in
+     * mobile games. SDL asks for an orientation from the window it creates (all
+     * of them, portrait included, for its resizable window, under the phone's
+     * rotation lock); the game is always landscape.
+     */
+    @Override
+    public void setOrientationBis(int w, int h, boolean resizable, String hint) {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
     }
 
     @Override

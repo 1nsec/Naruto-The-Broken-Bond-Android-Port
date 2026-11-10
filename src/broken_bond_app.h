@@ -39,6 +39,7 @@ void StopIdlePresenter();
 }  // namespace gpu
 #endif
 #include "pc/auto_jutsu.h"
+#include "pc/dlc_packages.h"
 #include "pc/fps_counter.h"
 #include "pc/free_camera.h"
 #include "pc/game_speed.h"
@@ -195,6 +196,14 @@ class BrokenBondApp : public rex::ReXApp {
     return drawer;
   }
 #endif
+
+  // The title's module is loaded and its main thread not started yet: the downloadable content
+  // packages waiting in dlc/ (the launcher's DLC on Android) are installed now, before the game
+  // looks for its content.
+  void OnPostLaunchModule(rex::system::XThread* thread) override {
+    (void)thread;
+    InstallDlcPackages();
+  }
 
   void OnPostSetup() override {
     RestoreXenosAdapter();

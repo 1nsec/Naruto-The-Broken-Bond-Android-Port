@@ -43,6 +43,7 @@ set(BROKENBOND_SOURCES
     src/pc/free_camera.cpp
     src/pc/game_speed.cpp
     src/pc/hokage_fighters.cpp
+    src/pc/dlc_packages.cpp
 )
 
 # The shipping native build uses the Rise renderer adapted to Broken Bond,

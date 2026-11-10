@@ -7,6 +7,19 @@
     <string name="settings">Configurações</string>
     <string name="help">Ajuda</string>
     <string name="github">GitHub (novas versões e relatar problemas)</string>
+    <string name="credit">Port Android desenvolvido por 1nsec</string>
+    <string name="dlc">DLC (conteúdo extra)</string>
+    <string name="dlc_message">Adicione as DLCs do jogo do seu próprio Xbox 360: os arquivos de pacote da pasta de conteúdo (Content/0000000000000000/55530825/00000002/). O jogo instala na próxima vez que abrir.</string>
+    <string name="dlc_none">Nenhuma DLC ainda.</string>
+    <string name="dlc_pending">(instala na próxima vez que o jogo abrir)</string>
+    <string name="dlc_add">Adicionar DLC…</string>
+    <string name="dlc_remove_all">Remover todas</string>
+    <string name="dlc_remove_confirm">Remover todas as DLCs do jogo? Seus saves continuam.</string>
+    <string name="dlc_copying">Copiando a DLC…</string>
+    <string name="dlc_added">Adicionada: %1$s. Ela instala na próxima vez que o jogo abrir.</string>
+    <string name="dlc_add_failed">%1$s: %2$s</string>
+    <string name="dlc_not_package">não é um pacote de conteúdo de Xbox 360</string>
+    <string name="dlc_other_game">não é DLC do Naruto: The Broken Bond</string>
     <string name="export_logs">Salvar logs para relatar um problema</string>
     <string name="export_logs_working">Salvando os logs…</string>
     <string name="export_logs_done">Salvo em Downloads:\n%1$s\n\nMande esse arquivo junto com o relato do problema (issue no GitHub).</string>
@@ -82,4 +95,13 @@
     <string name="gpu_driver_auto">Automático</string>
     <string name="gpu_driver_system">Do sistema (Qualcomm)</string>
     <string name="gpu_driver_turnip">Turnip (incluso)</string>
+    <string name="gpu_driver_custom">Personalizado: %1$s</string>
+    <string name="gpu_driver_add">Adicionar driver (.zip)…</string>
+    <string name="gpu_driver_remove">Remover o driver escolhido</string>
+    <string name="gpu_driver_remove_none">Escolha antes, em Driver de GPU, um driver que você adicionou.</string>
+    <string name="gpu_driver_remove_confirm">Remover %1$s?</string>
+    <string name="gpu_driver_note">Você pode adicionar outras versões do Turnip: os pacotes .zip feitos para o adrenotools (com um meta.json e o driver dentro), como os publicados para emuladores de Android. Eles só funcionam em GPUs Snapdragon (Adreno). Se o jogo não abrir com um deles, volte para Turnip (incluso) ou Automático.</string>
+    <string name="gpu_driver_installing">Instalando o driver…</string>
+    <string name="gpu_driver_installed">Driver instalado e escolhido: %1$s</string>
+    <string name="gpu_driver_install_failed">Não deu para instalar o driver: %1$s</string>
 </resources>

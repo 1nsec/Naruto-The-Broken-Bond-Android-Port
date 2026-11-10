@@ -227,7 +227,22 @@ workflow; its APK cannot play anything.
   three logs and profiles and the newest images. Its timers cost little: the counter is read
   without a barrier and scaled without divisions, each slot has its own cache line, and the
   slots timed around every draw time one call in eight on each thread (counted eight times).
-- The launcher's **GitHub** button opens the project's page (new versions and problem reports).
+- The launcher's **GitHub** button opens the project's page (new versions and problem reports); the
+  credit line under the logo opens its author's (1nsec).
+- **DLC** (launcher): the player picks the game's downloadable content packages (STFS files, CON,
+  LIVE or PIRS, content type `00000002` of title `55530825`); the launcher checks their header and
+  copies them into `dlc/` in the data folder. At the next start, once the title's module is loaded
+  and before its main thread runs (`OnPostLaunchModule`), `src/pc/dlc_packages.cpp` installs each
+  one with the SDK's content manager (`ContentManager::InstallContent`: extracted into
+  `hdd/0000000000000000/55530825/00000002/<file name>/` with its `.header`, display name and license
+  bits) and deletes the copy. The same `dlc/` folder next to `broken_bond.exe` works on PC.
+- **Custom GPU drivers** (Settings > GPU driver > Add driver (.zip)): an adrenotools package (a
+  `meta.json` naming its `libraryName`, and that library) is kept in `gpu/custom/<id>/` in the app's
+  private storage (`CustomDrivers.java`; only those two files are taken from the zip, by name).
+  Choosing it hands its folder and library to the game as the bundled Turnip is
+  (`BROKENBOND_DRIVER_DIR`, `BROKENBOND_DRIVER_NAME`; `BROKENBOND_DRIVER_LABEL` names it in the log).
+- **Rotation:** the game activity asks for sensor landscape, also when SDL sets the orientation for
+  its (resizable) window, which would allow portrait under the phone's rotation lock.
 - **Screen** (Settings; PC Options > Display > Aspect ratio): *Full screen* is `aspect_ratio = "auto"`:
   the game draws a view as wide as the screen into its 16:9 image (`ultrawide.cpp`; the display's
   size is taken in landscape) and the Vulkan present stretches it back out, like the D3D12 one. The
