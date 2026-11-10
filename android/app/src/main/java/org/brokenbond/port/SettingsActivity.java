@@ -31,7 +31,7 @@ import java.util.List;
  * the ones worth setting before the first start on a phone.
  */
 public class SettingsActivity extends Activity {
-    private static final int PICK_DRIVER = 1;
+    private static final int PICK_DRIVER = 1, PICK_MUSIC = 2;
     private GameConfig config;
     private LinearLayout list;
 
@@ -276,9 +276,78 @@ public class SettingsActivity extends Activity {
         list.addView(note);
     }
 
+    /** The launcher's music: on or off, and the port's theme or a song from the phone. */
+    private void launcherMusic() {
+        prefToggle(R.string.setting_launcher_music, Storage.KEY_LAUNCHER_MUSIC, true);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        Button choose = new Button(this);
+        choose.setText(R.string.launcher_music_choose);
+        choose.setAllCaps(false);
+        choose.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("audio/*");
+            try {
+                startActivityForResult(intent, PICK_MUSIC);
+            } catch (Exception e) {
+                Toast.makeText(this, R.string.no_file_picker, Toast.LENGTH_LONG).show();
+            }
+        });
+        row.addView(choose);
+        Button theme = new Button(this);
+        theme.setText(R.string.launcher_music_theme);
+        theme.setAllCaps(false);
+        theme.setOnClickListener(v -> {
+            chooseSong(null);
+            rebuild();
+        });
+        row.addView(theme);
+        list.addView(row);
+        TextView note = new TextView(this);
+        String song = Storage.prefs(this).getString(Storage.KEY_LAUNCHER_MUSIC_NAME, null);
+        note.setText(song == null ? getString(R.string.launcher_music_playing_theme)
+                : getString(R.string.launcher_music_playing, song));
+        note.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        list.addView(note);
+    }
+
+    /** Keeps a song for the launcher (null: the theme), letting go of the one before. */
+    private void chooseSong(Uri uri) {
+        SharedPreferences prefs = Storage.prefs(this);
+        String before = prefs.getString(Storage.KEY_LAUNCHER_MUSIC_URI, null);
+        if (before != null && (uri == null || !before.equals(uri.toString()))) {
+            try {
+                getContentResolver().releasePersistableUriPermission(Uri.parse(before),
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (SecurityException ignored) {
+                // Already gone.
+            }
+        }
+        if (uri == null) {
+            prefs.edit().remove(Storage.KEY_LAUNCHER_MUSIC_URI).remove(Storage.KEY_LAUNCHER_MUSIC_NAME).apply();
+            return;
+        }
+        prefs.edit().putString(Storage.KEY_LAUNCHER_MUSIC_URI, uri.toString())
+                .putString(Storage.KEY_LAUNCHER_MUSIC_NAME, Storage.displayName(this, uri))
+                .putBoolean(Storage.KEY_LAUNCHER_MUSIC, true).apply();
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_MUSIC) {
+            if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+            Uri uri = data.getData();
+            try {
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (SecurityException e) {
+                // Some pickers give no lasting permission: the song plays until the phone restarts.
+            }
+            chooseSong(uri);
+            rebuild();
+            return;
+        }
         if (requestCode != PICK_DRIVER || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         Toast.makeText(this, R.string.gpu_driver_installing, Toast.LENGTH_SHORT).show();
@@ -357,6 +426,7 @@ public class SettingsActivity extends Activity {
         toggle(R.string.setting_title_screen, "show_title_screen", true);
         toggle(R.string.setting_mute, "audio_mute", false);
         prefToggle(R.string.setting_launcher_sounds, Storage.KEY_LAUNCHER_SOUNDS, true);
+        launcherMusic();
 
         header(R.string.settings_touch);
         prefToggle(R.string.setting_touch, Storage.KEY_TOUCH, true);

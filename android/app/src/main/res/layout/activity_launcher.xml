@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The launcher: the game's logo, Play and the disc on the left; quick settings and shortcuts
-     on the right (built by LauncherActivity), over an animated background. -->
+     on the right (built by LauncherActivity), over an animated background, under the effects
+     (smoke, kunai and shuriken). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -140,4 +141,9 @@
             </LinearLayout>
         </ScrollView>
     </LinearLayout>
+
+    <org.brokenbond.port.EffectsView
+        android:id="@+id/effects"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 </FrameLayout>

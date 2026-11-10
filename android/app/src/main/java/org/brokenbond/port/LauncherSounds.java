@@ -6,13 +6,14 @@ import android.media.SoundPool;
 
 /**
  * The launcher's sounds (res/raw, synthesized by tools/android/make-launcher-sounds.py):
- * a scroll unrolling when the launcher opens and for the screens it opens, a
- * paper flick for a choice, a wooden clack for the other taps and a kunai for
- * Play. Settings > Launcher sounds turns them off.
+ * a scroll unrolling when the launcher opens, a puff of smoke for a choice and
+ * for the shortcuts that open a screen, a wooden clack for the other taps, and
+ * a drummer's call with a drum for Play. Settings > Launcher sounds turns them off.
  */
 final class LauncherSounds {
-    static final int SCROLL = 0, FLICK = 1, CLACK = 2, KUNAI = 3;
-    private static final int[] RESOURCES = {R.raw.ui_scroll, R.raw.ui_flick, R.raw.ui_clack, R.raw.ui_kunai};
+    static final int SCROLL = 0, POOF = 1, CLACK = 2, PLAY = 3;
+    private static final int[] RESOURCES = {R.raw.ui_scroll, R.raw.ui_poof, R.raw.ui_clack, R.raw.ui_play};
+    private static final float[] VOLUMES = {0.7f, 0.75f, 0.7f, 0.9f};
 
     private final Context context;
     private final SoundPool pool;
@@ -48,8 +49,7 @@ final class LauncherSounds {
             pending = sound;
             return;
         }
-        float volume = sound == KUNAI ? 0.9f : 0.7f;
-        pool.play(ids[sound], volume, volume, 1, 0, 1f);
+        pool.play(ids[sound], VOLUMES[sound], VOLUMES[sound], 1, 0, 1f);
     }
 
     void release() {

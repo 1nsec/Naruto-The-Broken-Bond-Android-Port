@@ -239,9 +239,18 @@ workflow; its APK cannot play anything.
   launcher is on screen); the
   columns slide in at the start, the logo floats, Play breathes and a band of light crosses it
   (`ShineDrawable.java`), and the tiles sink under the finger. The loops stop while the launcher is
-  not on screen. Its sounds (`LauncherSounds.java`, Settings > Launcher sounds) are synthesized by
-  `tools/android/make-launcher-sounds.py` (a scroll, a paper flick, a wooden clack, a kunai);
-  nothing is sampled from the games or the anime.
+  not on screen. `EffectsView.java`, over everything and never taking touches, draws a puff of smoke
+  over a choice tapped (the red seal pops in out of it) and over the Settings, DLC and Help tiles
+  (which open 0.22 s later), and for Play throws kunai and shuriken at the button, which land in its
+  edges over about 0.6 s and shake it; the game starts 0.9 s after the tap. Its sounds
+  (`LauncherSounds.java`, Settings > Launcher sounds) are synthesized by
+  `tools/android/make-launcher-sounds.py` (a scroll as it opens, a puff of smoke, a wooden clack, and
+  for Play a drummer's call and a shoulder drum), and its music (`LauncherMusic.java`, Settings >
+  Launcher music) by `tools/android/make-launcher-music.py`: a 40-second loop for flute, koto,
+  bass, pad, taiko and shime written for the port. Nothing is sampled from the games or the anime.
+  The music fades in, pauses with the launcher, fades out for Play and does not start over music
+  another app is playing; Settings can play a song from the phone instead (the system file picker,
+  with a lasting read permission).
 - The launcher's **GitHub** button opens the project's page (new versions and problem reports); the
   credit line under the logo opens its author's (1nsec).
 - **DLC** (launcher): the player picks the game's downloadable content packages (STFS files, CON,

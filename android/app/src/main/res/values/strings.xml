@@ -94,6 +94,11 @@
     <string name="setting_title_screen">PC title screen</string>
     <string name="setting_mute">Mute audio</string>
     <string name="setting_launcher_sounds">Launcher sounds</string>
+    <string name="setting_launcher_music">Launcher music</string>
+    <string name="launcher_music_choose">Choose a song…</string>
+    <string name="launcher_music_theme">Port theme</string>
+    <string name="launcher_music_playing_theme">Playing the port\'s theme, original music made for it. You can play any song on your phone instead.</string>
+    <string name="launcher_music_playing">Playing: %1$s</string>
     <string name="setting_touch">Show on-screen controls</string>
     <string name="setting_touch_opacity">Opacity</string>
     <string name="setting_touch_scale">Size</string>

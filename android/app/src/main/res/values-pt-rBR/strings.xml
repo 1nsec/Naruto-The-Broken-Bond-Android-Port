@@ -93,6 +93,11 @@
     <string name="setting_title_screen">Tela de título do PC</string>
     <string name="setting_mute">Sem som</string>
     <string name="setting_launcher_sounds">Sons do launcher</string>
+    <string name="setting_launcher_music">Música do launcher</string>
+    <string name="launcher_music_choose">Escolher música…</string>
+    <string name="launcher_music_theme">Tema do port</string>
+    <string name="launcher_music_playing_theme">Tocando o tema do port, uma música original feita para ele. Você pode tocar qualquer música do seu celular no lugar.</string>
+    <string name="launcher_music_playing">Tocando: %1$s</string>
     <string name="setting_touch">Mostrar controles na tela</string>
     <string name="setting_touch_opacity">Opacidade</string>
     <string name="setting_touch_scale">Tamanho</string>

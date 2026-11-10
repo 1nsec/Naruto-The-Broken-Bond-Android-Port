@@ -10,11 +10,11 @@ import android.widget.TextView;
 /**
  * A row of choices pressed into a parchment card, the chosen one stamped as a
  * red seal: the launcher's quick settings. Each choice can have a small line
- * under its name.
+ * under its name. A seal tapped pops in (out of the launcher's puff of smoke).
  */
 final class SegmentedControl extends LinearLayout {
     interface Listener {
-        void onChosen(int index);
+        void onChosen(int index, android.view.View option);
     }
 
     private final LinearLayout[] options;
@@ -56,7 +56,11 @@ final class SegmentedControl extends LinearLayout {
             option.setOnClickListener(v -> {
                 if (chosen == index) return;
                 setChosen(index);
-                listener.onChosen(index);
+                v.setScaleX(0.7f);
+                v.setScaleY(0.7f);
+                v.animate().scaleX(1f).scaleY(1f).setStartDelay(70).setDuration(280)
+                        .setInterpolator(new android.view.animation.OvershootInterpolator(2.4f)).start();
+                listener.onChosen(index, v);
             });
             options[i] = option;
             addView(option, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));

@@ -27,6 +27,9 @@ final class Storage {
     static final String KEY_GPU_DRIVER = "gpu_driver";  // auto, system or turnip
     static final String KEY_PERF_LOG = "performance_log";  // On by default while the port is an alpha.
     static final String KEY_LAUNCHER_SOUNDS = "launcher_sounds";  // The launcher's click sounds (LauncherSounds).
+    static final String KEY_LAUNCHER_MUSIC = "launcher_music";  // The launcher's music (LauncherMusic).
+    static final String KEY_LAUNCHER_MUSIC_URI = "launcher_music_uri";  // A song chosen in Settings, or none for the theme.
+    static final String KEY_LAUNCHER_MUSIC_NAME = "launcher_music_name";
     static final String KEY_TURNIP_MODE = "turnip_mode";  // auto, sysmem or gmem (TU_DEBUG)
 
     private Storage() {}

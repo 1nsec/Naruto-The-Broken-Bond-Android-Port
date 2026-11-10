@@ -52,12 +52,19 @@ public class LauncherActivity extends Activity {
     // The launcher's motion besides the background: the logo floats, Play breathes and shines.
     private final java.util.List<ValueAnimator> loops = new java.util.ArrayList<>();
     private LauncherSounds sounds;
+    private LauncherMusic music;
+    private EffectsView effects;
+    private boolean starting;  // Play was tapped: the game starts once the kunai land.
+    private final Runnable launch = this::startGame;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
         sounds = new LauncherSounds(this);
+        music = new LauncherMusic(this);
+        setVolumeControlStream(android.media.AudioManager.STREAM_MUSIC);
+        effects = findViewById(R.id.effects);
         disc = findViewById(R.id.pick_iso);
         play = findViewById(R.id.play);
         disc.setOnClickListener(v -> {
@@ -65,9 +72,18 @@ public class LauncherActivity extends Activity {
             pickIso();
         });
         play.setOnClickListener(v -> {
-            sounds.play(hasDisc ? LauncherSounds.KUNAI : LauncherSounds.CLACK);
-            if (hasDisc) startGame();
-            else pickIso();
+            if (starting) return;
+            if (!hasDisc) {
+                sounds.play(LauncherSounds.CLACK);
+                pickIso();
+                return;
+            }
+            // The call and the drum, kunai and shuriken thrown at Play; the game once they land.
+            starting = true;
+            sounds.play(LauncherSounds.PLAY);
+            effects.volley(play);
+            music.fadeOut();
+            play.postDelayed(launch, 900);
         });
         findViewById(R.id.credit).setOnClickListener(v -> open(AUTHOR_URL));
         findViewById(R.id.youtube).setOnClickListener(v -> {
@@ -100,11 +116,14 @@ public class LauncherActivity extends Activity {
         refresh();
         showChoices();
         startLoops();
+        starting = false;
+        music.start();
     }
 
     @Override
     protected void onDestroy() {
         sounds.release();
+        music.release();
         super.onDestroy();
     }
 
@@ -112,6 +131,9 @@ public class LauncherActivity extends Activity {
     protected void onPause() {
         for (ValueAnimator loop : loops) loop.cancel();
         loops.clear();
+        music.pause();
+        play.removeCallbacks(launch);  // Left before the kunai landed: no game in the background.
+        starting = false;
         super.onPause();
     }
 
@@ -170,8 +192,8 @@ public class LauncherActivity extends Activity {
     private void buildPanel() {
         LinearLayout panel = findViewById(R.id.panel);
         preset = new SegmentedControl(this, new String[] {getString(R.string.preset_performance),
-                getString(R.string.preset_balanced), getString(R.string.preset_quality)}, null, index -> {
-            sounds.play(LauncherSounds.FLICK);
+                getString(R.string.preset_balanced), getString(R.string.preset_quality)}, null, (index, option) -> {
+            poof(option);
             Presets.apply(config, index);
             save();
             showChoices();
@@ -179,21 +201,21 @@ public class LauncherActivity extends Activity {
         panel.addView(card(R.string.setting_preset, preset), cardParams());
         resolution = new SegmentedControl(this, new String[] {"360p", "540p", "720p", "1080p"},
                 new String[] {getString(R.string.res_fast), getString(R.string.res_light),
-                        getString(R.string.res_original), getString(R.string.res_sharp)}, index -> {
-            sounds.play(LauncherSounds.FLICK);
+                        getString(R.string.res_original), getString(R.string.res_sharp)}, (index, option) -> {
+            poof(option);
             config.setRaw("internal_resolution_scale", RESOLUTIONS[index]);
             save();
             showChoices();
         });
         panel.addView(card(R.string.setting_resolution, resolution), cardParams());
         screen = new SegmentedControl(this, new String[] {getString(R.string.screen_169), getString(R.string.screen_full)},
-                null, index -> {
-            sounds.play(LauncherSounds.FLICK);
+                null, (index, option) -> {
+            poof(option);
             config.setRaw("aspect_ratio", index == 0 ? "\"16:9\"" : "\"auto\"");
             save();
         });
-        frameRate = new SegmentedControl(this, new String[] {"30 FPS", "60 FPS"}, null, index -> {
-            sounds.play(LauncherSounds.FLICK);
+        frameRate = new SegmentedControl(this, new String[] {"30 FPS", "60 FPS"}, null, (index, option) -> {
+            poof(option);
             config.setInt("frame_rate", index == 0 ? 30 : 60);
             save();
         });
@@ -207,12 +229,13 @@ public class LauncherActivity extends Activity {
         panel.addView(row, cardParams());
         LinearLayout tiles = new LinearLayout(this);
         tiles.setOrientation(LinearLayout.HORIZONTAL);
-        tile(tiles, R.drawable.ic_touch_options, R.string.tile_settings, LauncherSounds.SCROLL,
+        // The tiles that open a screen go up in smoke first.
+        tile(tiles, R.drawable.ic_touch_options, R.string.tile_settings, true,
                 v -> startActivity(new Intent(this, SettingsActivity.class)));
-        tile(tiles, R.drawable.ic_dlc, R.string.tile_dlc, LauncherSounds.SCROLL, v -> showDlc());
-        tile(tiles, R.drawable.ic_help, R.string.tile_help, LauncherSounds.SCROLL, v -> showHelp());
-        tile(tiles, R.drawable.ic_logs, R.string.tile_logs, LauncherSounds.CLACK, v -> exportLogs());
-        tile(tiles, R.drawable.ic_code, R.string.tile_github, LauncherSounds.CLACK, v -> open(GITHUB_URL));
+        tile(tiles, R.drawable.ic_dlc, R.string.tile_dlc, true, v -> showDlc());
+        tile(tiles, R.drawable.ic_help, R.string.tile_help, true, v -> showHelp());
+        tile(tiles, R.drawable.ic_logs, R.string.tile_logs, false, v -> exportLogs());
+        tile(tiles, R.drawable.ic_code, R.string.tile_github, false, v -> open(GITHUB_URL));
         panel.addView(tiles, cardParams());
     }
 
@@ -226,6 +249,12 @@ public class LauncherActivity extends Activity {
         resolution.setChosen(chosen);
         screen.setChosen("auto".equals(config.getString("aspect_ratio", "16:9")) ? 1 : 0);
         frameRate.setChosen(config.getDouble("frame_rate", 30) >= 60 ? 1 : 0);
+    }
+
+    /** A puff of smoke over what was tapped, and its sound. */
+    private void poof(View around) {
+        sounds.play(LauncherSounds.POOF);
+        effects.puff(around);
     }
 
     private void save() {
@@ -255,7 +284,7 @@ public class LauncherActivity extends Activity {
         return params;
     }
 
-    private void tile(LinearLayout row, int icon, int label, int sound, View.OnClickListener action) {
+    private void tile(LinearLayout row, int icon, int label, boolean smoke, View.OnClickListener action) {
         LinearLayout tile = new LinearLayout(this);
         tile.setOrientation(LinearLayout.VERTICAL);
         tile.setGravity(Gravity.CENTER);
@@ -264,8 +293,13 @@ public class LauncherActivity extends Activity {
         tile.setClickable(true);
         tile.setFocusable(true);
         tile.setOnClickListener(v -> {
-            sounds.play(sound);
-            action.onClick(v);
+            if (!smoke) {
+                sounds.play(LauncherSounds.CLACK);
+                action.onClick(v);
+                return;
+            }
+            poof(v);
+            v.postDelayed(() -> action.onClick(v), 220);  // Long enough to see the smoke.
         });
         tile.setOnTouchListener((v, event) -> {
             if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN)
