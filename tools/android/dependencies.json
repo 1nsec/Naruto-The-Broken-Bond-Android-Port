@@ -8,7 +8,7 @@
   },
   "mesa": {
     "url": "https://gitlab.freedesktop.org/mesa/mesa.git",
-    "tag": "mesa-25.1.0",
+    "tag": "mesa-26.1.6",
     "license": "MIT"
   }
 }

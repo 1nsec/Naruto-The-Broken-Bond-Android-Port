@@ -39,6 +39,7 @@ void StopIdlePresenter();
 }  // namespace gpu
 #endif
 #include "pc/auto_jutsu.h"
+#include "pc/dlc_packages.h"
 #include "pc/fps_counter.h"
 #include "pc/free_camera.h"
 #include "pc/game_speed.h"
@@ -48,6 +49,11 @@ void StopIdlePresenter();
 #include "pc/overlay_drawer.h"
 #include "pc/pad_input.h"
 #include "pc/player_assignment.h"
+#ifdef __ANDROID__
+#include <SDL3/SDL_hints.h>
+
+#include "android/sampling_profiler.h"
+#endif
 #include "pc/title_screen.h"
 #include "pc/ultrawide.h"
 
@@ -191,8 +197,24 @@ class BrokenBondApp : public rex::ReXApp {
   }
 #endif
 
+  // The title's module is loaded and its main thread not started yet: the downloadable content
+  // packages waiting in dlc/ (the launcher's DLC on Android) are installed now, before the game
+  // looks for its content.
+  void OnPostLaunchModule(rex::system::XThread* thread) override {
+    (void)thread;
+    InstallDlcPackages();
+  }
+
   void OnPostSetup() override {
     RestoreXenosAdapter();
+#ifdef __ANDROID__
+    // SDL 3 on Android: each event pump queues a poll sentinel, adding it
+    // wakes the event wait (SDL_SendWakeupEvent), and SDL_WaitEvent of the UI
+    // loop never blocked, a whole core (the fastest) busy with SDLThread. The
+    // UI loop waits for events and pumps nothing in a loop of its own.
+    SDL_SetHint(SDL_HINT_POLL_SENTINEL, "0");
+    narutobb::profiler::Start();  // With the performance log (Settings > Performance log).
+#endif
 #ifdef BROKENBOND_NATIVE_RENDERER_BOOTSTRAP
     // The overlay stays on screen while the game draws nothing (the title screen holds the boot).
     gpu::StartIdlePresenter();

@@ -160,7 +160,7 @@ inline VkStencilOpState StencilFace(uint32_t value, uint32_t read, uint32_t writ
 }
 inline NativeResult MakeGraphicsPipeline(VkDevice device, VkPipelineLayout layout, const PipelineDesc& d,
     const std::map<std::string, uint32_t>& locations, PipelineSet::Pipeline& out,
-    VkFormat pass_color = VK_FORMAT_UNDEFINED, bool auxiliary = false) {
+    VkFormat pass_color = VK_FORMAT_UNDEFINED, bool auxiliary = false, VkPipelineCache cache = VK_NULL_HANDLE) {
   const auto& w = d.state;
   if (!d.vs.Present() || d.vs.format != ShaderFormat::kSpirv ||
       (!w[17] && (!d.ps.Present() || d.ps.format != ShaderFormat::kSpirv)))
@@ -266,7 +266,7 @@ inline NativeResult MakeGraphicsPipeline(VkDevice device, VkPipelineLayout layou
     info.pInputAssemblyState = &assembly; info.pViewportState = &viewport; info.pRasterizationState = &raster;
     info.pMultisampleState = &ms; info.pDepthStencilState = &ds; info.pColorBlendState = &blend;
     info.pDynamicState = &dynamic; info.layout = layout; info.renderPass = pipeline->pass;
-    result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline->pipeline);
+    result = vkCreateGraphicsPipelines(device, cache, 1, &info, nullptr, &pipeline->pipeline);
   }
   for (auto module : modules) if (module) vkDestroyShaderModule(device, module, nullptr);
   if (result != VK_SUCCESS) return NativeResult::Failed("native-vulkan-graphics-pipeline", result);

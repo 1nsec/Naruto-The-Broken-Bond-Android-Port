@@ -14,9 +14,10 @@ reads constant_id(0), given when the pipeline is created. Each module goes throu
 spirv-val in the same environment, and its interface (spirv_module.py) is recorded.
 
 The report checks the corpus against the layout the Vulkan backend builds:
-- the descriptor bindings (2D, 3D and cube textures in sets 0 to 2, samplers in set 3,
-  each an array at binding 0) and the 24-byte push constant block (the addresses of the
-  VS, PS and shared constants);
+- the descriptor bindings: 2D, 3D and cube textures in sets 0 to 2, samplers in set 3,
+  each an array at binding 0, and the uniform buffers of the VS, PS and shared constants
+  (the fork's cbuffers b0 to b2 in space 4) at bindings 1 to 3 of set 3, which the
+  backend binds as dynamic uniform buffers; no push constants;
 - the stage interface: every VS writes Position, the six clip distances and the 18
   interpolators; a PS reads only those (and FragCoord, FrontFacing);
 - the vertex inputs: the [[vk::location]] of each element, as the fork's table gives it
@@ -49,7 +50,12 @@ TARGET_ENVIRONMENT = 'vulkan1.2'
 INTERPOLATORS = 18
 VERTEX_INPUT = re.compile(r'^\t\[\[vk::location\((\d+)\)\]\] in (\w+) i\w+ : ([A-Z]+)(\d+),$', re.M)
 BINDINGS = {(0, 0): 'image2D<float>[]', (1, 0): 'image3D<float>[]', (2, 0): 'imageCube<float>[]', (3, 0): 'sampler[]'}
-PUSH_CONSTANT_BYTES = 24
+# The constant buffers: (set, binding) -> the bytes the backend binds (its blocks).
+UNIFORM_BUFFERS = {(3, 1): 4096, (3, 2): 4096, (3, 3): 512}
+# The registers of the fork's HLSL (type and number, space) at their Vulkan binding and set.
+REGISTERS = [('t0', 0, 0, 0), ('t0', 1, 0, 1), ('t0', 2, 0, 2), ('s0', 3, 0, 3),
+             ('b0', 4, 1, 3), ('b1', 4, 2, 3), ('b2', 4, 3, 3)]
+PUSH_CONSTANT_BYTES = 0
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('cache', type=Path)
@@ -76,6 +82,7 @@ validator_id = shader_store.files_identity([spirv_val])
 def arguments(pixel: bool):
     return ['-T', 'ps_6_0' if pixel else 'vs_6_0', '-E', 'main', '-HV', '2021', '-spirv',
             f'-fspv-target-env={TARGET_ENVIRONMENT}', '-fvk-use-dx-layout', '-fvk-stage-io-order=decl',
+            *(f for r in REGISTERS for f in ('-fvk-bind-register', r[0], *map(str, r[1:]))),
             *([] if pixel else ['-fvk-invert-y']), '-Qstrip_debug']
 
 
@@ -84,7 +91,13 @@ def check(entry: dict, interface: dict, text: str):
     broken = []
     pixel = entry['stage'] == 'ps'
     for b in interface['bindings']:
-        if BINDINGS.get((b['set'], b['binding'])) != b['type']:
+        at = (b['set'], b['binding'])
+        if at in UNIFORM_BUFFERS:
+            if b['storage'] != 'uniform':
+                broken.append('uniform-buffer-storage')
+            elif not 0 < b.get('bytes', 0) <= UNIFORM_BUFFERS[at]:
+                broken.append('uniform-buffer-bytes')
+        elif BINDINGS.get(at) != b['type']:
             broken.append('binding')
     if interface['push_constant_bytes'] != PUSH_CONSTANT_BYTES:
         broken.append('push-constant')
@@ -105,9 +118,20 @@ def check(entry: dict, interface: dict, text: str):
         declared = [(int(loc), kind, f'{usage}{index}') for loc, kind, usage, index in VERTEX_INPUT.findall(text)]
         entry['vertex_inputs'] = {semantic: loc for loc, _, semantic in declared}
         inputs = located(interface['inputs'])
-        if (len({loc for loc, _, _ in declared}) != len(declared) or set(inputs) != {loc for loc, _, _ in declared}
-                or any(t != 'uint4' for t in inputs.values()) or any(kind != 'uint4' for _, kind, _ in declared)):
-            broken.append('vertex-inputs')
+        declared_locations = {loc for loc, _, _ in declared}
+        if len(declared_locations) != len(declared):
+            broken.append('vertex-inputs-duplicate')
+        if set(inputs) - declared_locations:
+            broken.append('vertex-inputs-undeclared')
+        if any(t != 'uint4' for t in inputs.values()) or any(kind != 'uint4' for _, kind, _ in declared):
+            broken.append('vertex-inputs-type')
+        # DXC removes an input whose value the module never uses (the instancing shaders
+        # fetch POSITION1 into a register they overwrite: the Xenos fetch only set up the
+        # vertex index there). MakeGraphicsPipeline binds only the locations the module
+        # reads, so such an element is left out of the pipeline.
+        unread = sorted(declared_locations - set(inputs))
+        if unread:
+            entry['vertex_inputs_unread'] = unread
         if interface['spec_constants']:
             broken.append('vertex-spec-constants')
     return broken
@@ -187,16 +211,20 @@ summary = dict(
     target_environment=TARGET_ENVIRONMENT, spirv_versions=sorted({r['interface']['version'] for r in ok}),
     capabilities=union('capabilities'), extensions=union('extensions'),
     # The contract every module was checked against, and what the corpus uses of it.
-    layout=dict(bindings=[dict(set=s, binding=b, type=t) for (s, b), t in sorted(BINDINGS.items())],
+    layout=dict(bindings=sorted([dict(set=s, binding=b, type=t) for (s, b), t in BINDINGS.items()] +
+                                [dict(set=s, binding=b, type='uniform-buffer', detail=str(n))
+                                 for (s, b), n in UNIFORM_BUFFERS.items()], key=lambda b: (b['set'], b['binding'])),
                 push_constant_bytes=PUSH_CONSTANT_BYTES),
     stage_interface=dict(interpolators=INTERPOLATORS, interpolator_type='float4', clip_distances=6,
                          vertex_input_type='uint4', io_order='decl', vertex_y='inverted (-fvk-invert-y)'),
-    bindings=sorted({(b['set'], b['binding'], b['type']) for r in ok for b in r['interface']['bindings']}),
+    bindings=sorted({(b['set'], b['binding'], 'uniform-buffer' if b['storage'] == 'uniform' else b['type'])
+                     for r in ok for b in r['interface']['bindings']}),
     push_constant_bytes=sorted({r['interface']['push_constant_bytes'] for r in ok}),
     spec_constants={stage: sorted({k for r in ok if r['stage'] == stage for k in r['interface']['spec_constants']})
                     for stage in ('vs', 'ps')},
     spec_masks={stage: sorted({r['mask'] for r in results if r['stage'] == stage}) for stage in ('vs', 'ps')},
     vertex_input_locations={s: sorted(v) for s, v in sorted(locations.items())},
+    vertex_shaders_with_unread_inputs=sum(1 for r in ok if r.get('vertex_inputs_unread')),
     locations_shared_in_the_corpus={loc: sorted(s) for loc, s in sorted(semantics.items()) if len(s) > 1},
     specialization_route='shared' if not broken and all(r['result'] == 'ok' for r in results) else None)
 report = dict(started_at_utc=started.isoformat(), finished_at_utc=finished.isoformat(), cache=str(cache),

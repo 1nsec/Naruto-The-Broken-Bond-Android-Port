@@ -34,9 +34,9 @@ STUB = '\nuint g_SpecConstants() { return 0; }\n'
 # not compile ("undeclared identifier 's16_Texture1DDescriptorIndex'").
 # Their descriptor indices go to c18 (texture) and c19 (sampler) of the shared
 # constants, one component per register (the engine writes them at bytes 288 and
-# 304 + 4 * (register - 16)); c0 to c15 stay for registers 0 to 15. The SPIR-V
-# branch reads the same bytes by the address of the shared constants, as
-# XenosRecomp defines the indices of registers 0 to 15 there. A 1D texture
+# 304 + 4 * (register - 16)); c0 to c15 stay for registers 0 to 15. DXIL and
+# SPIR-V read them from the same SharedConstants buffer, declared in offset
+# order between the fork's two shared constant macros. A 1D texture
 # is bound as a 2D texture one texel high and sampled at level 0, as a vertex
 # shader has no derivatives. XenosRecomp has no vertex textures; this is a
 # change to its output.
@@ -59,20 +59,16 @@ def patch_vertex_textures(text: str):
             kinds.setdefault(register, set()).add(kind)
     if any(len(k) > 1 for k in kinds.values()):
         raise ValueError('vertex-texture-dimensions-conflict')
+    # In offset order (c18 then c19, by component): SPIR-V rejects a packoffset
+    # below the previous one.
+    slots = sorted(((19 if kind == 'Sampler' else 18, int(register) - 16), register, kind) for register, kind in found)
     declarations = ''.join(
-        f'\tuint s{register}_{kind}DescriptorIndex : packoffset(c{19 if kind == "Sampler" else 18}.{"xyzw"[int(register) - 16]});\n'
-        for register, kind in found)
-    anchor = '\tDEFINE_SHARED_CONSTANTS();'
-    if text.count(anchor) != 1:
+        f'\tuint s{register}_{kind}DescriptorIndex : packoffset(c{vector}.{"xyzw"[component]});\n'
+        for (vector, component), register, kind in slots)
+    anchor = '\tDEFINE_SHARED_CONSTANTS_HIGH();'
+    if text.count(anchor) != 1 or text.count('\tDEFINE_SHARED_CONSTANTS_LOW();\n' + anchor) != 1:
         raise ValueError('shared-constants-anchor')
     text = text.replace(anchor, declarations + anchor, 1)
-    addresses = ''.join(
-        f'#define s{register}_{kind}DescriptorIndex vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + '
-        f'{(304 if kind == "Sampler" else 288) + 4 * (int(register) - 16)})\n' for register, kind in found)
-    anchor = '#else\n\ncbuffer VertexShaderConstants'
-    if text.count(anchor) != 1:
-        raise ValueError('spirv-constants-anchor')
-    text = text.replace(anchor, addresses + '\n' + anchor, 1)
     if 'tfetch1D(' in text and 'float4 tfetch1D(' not in text:
         anchor = 'cbuffer VertexShaderConstants'
         if text.count(anchor) != 1:

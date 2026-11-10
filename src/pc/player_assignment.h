@@ -6,6 +6,8 @@
 //   2     the first controller is player 1, the keyboard player 2, other controllers 3 and 4
 //
 // With no controller connected the keyboard is always player 1, so the menus stay usable.
+// On Android the on-screen controller (an SDL virtual gamepad) ranks after the physical
+// controllers, so a connected or built-in controller is player 1.
 
 #pragma once
 
@@ -30,6 +32,9 @@ class PlayerAssignment final : public rex::input::DeviceAssignment {
 
  private:
   uint32_t UserFor(const rex::input::DeviceInfo& device) const;  // mutex_ held
+  // The controller's place: the SDK's ordinal; on Android its place among the
+  // connected controllers, the on-screen controller after the physical ones. mutex_ held.
+  uint32_t Rank(const rex::input::DeviceInfo& device) const;
 
   mutable std::mutex mutex_;
   std::vector<rex::input::DeviceInfo> devices_;

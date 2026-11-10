@@ -5,7 +5,7 @@ param(
     [string]$SdkPrefix,
     [string]$AndroidSdk,
     [string]$SpirvVal,
-    [string]$Version = '2.5-android-alpha',
+    [string]$Version = '2.5-android-beta',
     [string]$ShaderCache,
     [string]$AdrenotoolsSource,
     [string]$TurnipDriver,

@@ -22,6 +22,13 @@ bool IsKeyboard(const DeviceInfo& device) {
   return device.synthetic && device.name == "Keyboard and Mouse";
 }
 
+#ifdef __ANDROID__
+// The Android app's on-screen controller (src/android/touch_controller.cpp).
+bool IsOnScreen(const DeviceInfo& device) {
+  return !device.synthetic && device.name == "On-screen controller";
+}
+#endif
+
 }  // namespace
 
 void PlayerAssignment::OnDevicesChanged(const std::vector<DeviceInfo>& devices) {
@@ -42,6 +49,26 @@ const PlayerAssignment* PlayerAssignment::Current() {
   return g_current;
 }
 
+uint32_t PlayerAssignment::Rank(const DeviceInfo& device) const {
+#ifndef __ANDROID__
+  // The SDK's ordinal: unplugging pad one does not move pad two to player 1.
+  return device.ordinal;
+#else
+  // The on-screen controller attaches with the game and would take ordinal 0
+  // from a controller built into the device or connected later.
+  if (device.synthetic) return 0;
+  uint32_t rank = 0;
+  for (const auto& other : devices_) {
+    if (other.synthetic || other.id == device.id) continue;
+    // Physical controllers first, each group in the SDK's order.
+    const bool before = IsOnScreen(other) == IsOnScreen(device) ? other.ordinal < device.ordinal
+                                                                 : IsOnScreen(device);
+    if (before) ++rank;
+  }
+  return rank;
+#endif
+}
+
 uint32_t PlayerAssignment::UserFor(const DeviceInfo& device) const {
   const std::string mode = REXCVAR_GET(keyboard_player);
   const bool any_pad = std::any_of(devices_.begin(), devices_.end(),
@@ -55,9 +82,10 @@ uint32_t PlayerAssignment::UserFor(const DeviceInfo& device) const {
   if (device.synthetic) {
     return 0;  // the NOP stand-in keeps player 1 connected
   }
-  if (keyboard_first) return device.ordinal + 1;
-  if (keyboard_second) return device.ordinal == 0 ? 0 : device.ordinal + 1;
-  return device.ordinal;
+  const uint32_t rank = Rank(device);
+  if (keyboard_first) return rank + 1;
+  if (keyboard_second) return rank == 0 ? 0 : rank + 1;
+  return rank;
 }
 
 void PlayerAssignment::DevicesForUser(uint32_t user_index, std::vector<DeviceId>& out) const {
@@ -94,9 +122,13 @@ int PlayerAssignment::ControllerNumber(DeviceId id) const {
     if (device.id == id && !device.synthetic) self = &device;
   }
   if (!self) return -1;
+#ifdef __ANDROID__
+  return static_cast<int>(Rank(*self));
+#else
   int number = 0;
   for (const auto& device : devices_) {
     if (!device.synthetic && device.ordinal < self->ordinal) ++number;
   }
   return number;
+#endif
 }

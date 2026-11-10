@@ -14,6 +14,19 @@
 #include <vector>
 
 namespace gpu {
+// The lowest internal scale: below the title's 1280 x 720 only on Android,
+// where a phone GPU gains most from fewer pixels (0.75: 960 x 540).
+// The highest: 4x (5120 x 2880) on a PC; 2x (2560 x 1440) on Android, where
+// a larger one only exhausts the phone's memory (PC Options offers up to 1.5x
+// there, but naruto.toml can say more).
+#ifdef __ANDROID__
+inline constexpr float kMinResolutionScale = 0.5f;
+inline constexpr float kMaxResolutionScale = 2.0f;
+#else
+inline constexpr float kMinResolutionScale = 1.0f;
+inline constexpr float kMaxResolutionScale = 4.0f;
+#endif
+
 struct ResolutionScale {
   float x = 1.0f, y = 1.0f;
   bool Unit() const { return x == 1.0f && y == 1.0f; }

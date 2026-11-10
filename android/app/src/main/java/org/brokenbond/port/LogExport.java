@@ -28,12 +28,14 @@ import java.util.zip.ZipOutputStream;
  *
  * <p>The data folder (Android/data/...) cannot be opened by file managers on
  * Android 11 and newer; Downloads can. The zip holds the device's details,
- * naruto.toml, the newest files of logs/ (game logs and crash reports) and
- * the app's own system log (logcat), which also has what happened before the
- * game's log started.
+ * naruto.toml, the newest files of logs/ (game logs and crash reports), the
+ * performance logs of the newest sessions (Settings > Performance log:
+ * pipeline-runs/<time>/performance.csv) and the app's own system log
+ * (logcat), which also has what happened before the game's log started.
  */
 final class LogExport {
     private static final int MAX_LOG_FILES = 15;
+    private static final int MAX_PERFORMANCE_RUNS = 3;
 
     private LogExport() {}
 
@@ -59,6 +61,27 @@ final class LogExport {
                     Arrays.sort(logs, Comparator.<File>comparingLong(File::lastModified).reversed());
                     for (int i = 0; i < Math.min(logs.length, MAX_LOG_FILES); ++i) {
                         addFile(zip, logs[i], "logs/" + logs[i].getName());
+                    }
+                }
+                File[] runs = new File(data, "pipeline-runs").listFiles(File::isDirectory);
+                if (runs != null) {
+                    Arrays.sort(runs, Comparator.<File>comparingLong(File::lastModified).reversed());
+                    boolean images = false;
+                    for (int i = 0, added = 0; i < runs.length && added < MAX_PERFORMANCE_RUNS; ++i) {
+                        File csv = new File(runs[i], "performance.csv");
+                        if (!csv.isFile()) continue;
+                        addFile(zip, csv, "performance/" + runs[i].getName() + ".csv");
+                        File profile = new File(runs[i], "profile.txt");
+                        if (profile.isFile()) addFile(zip, profile, "performance/" + runs[i].getName() + "-profile.txt");
+                        ++added;
+                        // The surface images of the newest session that has them.
+                        File[] surfaces = new File(runs[i], "surfaces").listFiles(File::isFile);
+                        if (!images && surfaces != null && surfaces.length > 0) {
+                            for (File image : surfaces) {
+                                addFile(zip, image, "performance/" + runs[i].getName() + "-surfaces/" + image.getName());
+                            }
+                            images = true;
+                        }
                     }
                 }
                 addText(zip, "logcat.txt", logcat());

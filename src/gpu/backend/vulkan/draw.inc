@@ -30,6 +30,7 @@ bool GraphicsError(std::string& evidence, const char* reason, VkResult result = 
 
 bool Backend::State::EnsureGraphics(std::string& evidence) {
   if (draw_layout) return true;
+  EnsurePipelineCache();
   VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dynamic{
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT};
   VkPhysicalDeviceCustomBorderColorFeaturesEXT border{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT};
@@ -53,23 +54,30 @@ bool Backend::State::EnsureGraphics(std::string& evidence) {
     vertex_locations[(*it)[1]] = uint32_t(std::stoul((*it)[2]));
   if (vertex_locations.empty()) return GraphicsError(evidence, "native-vulkan-vertex-locations-empty");
   VkResult result = VK_SUCCESS;
+  // Sets 0 to 2: the 2D, 3D and cube textures; set 3: the samplers, then the
+  // VS, PS and shared constants as dynamic uniform buffers (kDrawConstantBytes),
+  // which the GPU can keep in its constant registers.
+  constexpr VkShaderStageFlags stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   for (uint32_t i = 0; i < 4; ++i) {
-    VkDescriptorSetLayoutBinding binding{0, i == 3 ? VK_DESCRIPTOR_TYPE_SAMPLER :
-        VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+    VkDescriptorSetLayoutBinding bindings[4]{
+        {0, i == 3 ? VK_DESCRIPTOR_TYPE_SAMPLER : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, stages, nullptr}};
+    for (uint32_t b = 1; b < 4; ++b) bindings[b] = {b, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, stages, nullptr};
     VkDescriptorSetLayoutCreateInfo info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    info.bindingCount = 1; info.pBindings = &binding;
+    info.bindingCount = i == 3 ? 4 : 1; info.pBindings = bindings;
     if ((result = vkCreateDescriptorSetLayout(vulkan->vk, &info, nullptr, &draw_sets[i])) != VK_SUCCESS) {
       ReleaseGraphics(); return GraphicsError(evidence, "native-vulkan-draw-set-layout", result);
     }
   }
-  VkPushConstantRange push{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 24};
   VkPipelineLayoutCreateInfo info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-  info.setLayoutCount = 4; info.pSetLayouts = draw_sets.data(); info.pushConstantRangeCount = 1; info.pPushConstantRanges = &push;
+  info.setLayoutCount = 4; info.pSetLayouts = draw_sets.data();
   if ((result = vkCreatePipelineLayout(vulkan->vk, &info, nullptr, &draw_layout)) != VK_SUCCESS) {
     ReleaseGraphics(); return GraphicsError(evidence, "native-vulkan-draw-layout", result);
   }
   pipeline_set.Configure([this](const PipelineDesc& d, PipelineSet::Pipeline& out) {
-    return MakeGraphicsPipeline(vulkan->vk, draw_layout, d, vertex_locations, out);
+    const auto made = MakeGraphicsPipeline(vulkan->vk, draw_layout, d, vertex_locations, out, VK_FORMAT_UNDEFINED,
+                                           false, pipeline_cache);
+    if (made.ok) pipelines_created.fetch_add(1, std::memory_order_relaxed);
+    return made;
   });
   return true;
 }
@@ -134,7 +142,44 @@ std::string Backend::PipelineList() {
   return out + "]";
 }
 
+// The draw distance (draw_distance). A rigid mesh with its own world matrix
+// (DrawRequest::rigid_world) has the clip w of its origin, the depth in front
+// of the camera, at c3.w (its VS computes oPos.w = dot(c3, position)) and its
+// place in the world at (c12.w, c13.w, c14.w). Left out: the meshes of up to
+// 1536 indices whose origin is farther than the distance, those of up to 6144
+// farther than twice the distance. The larger meshes stay (the origin of the
+// ground and the houses says little about their nearest part), as do the
+// meshes placed at the world's origin (geometry in world coordinates), the
+// characters (bone palette) and the instanced vegetation (not rigid_world).
+profile::Counter Backend::State::LeftOutByDistance(const DrawRequest& r) {
+  const bool census = profile::Profiling();
+  if (!r.rigid_world) {
+    if (census) ++depth_census_other;
+    return profile::kCounterCount;
+  }
+  if (!census && draw_distance <= 0) return profile::kCounterCount;
+  const auto constant = [&](uint32_t reg, uint32_t component) {
+    float value;
+    std::memcpy(&value, vs_block.data() + reg * 16 + component * 4, sizeof(value));
+    return value;
+  };
+  const float depth = constant(3, 3);
+  const bool world_origin = constant(12, 3) == 0 && constant(13, 3) == 0 && constant(14, 3) == 0;
+  const unsigned size = r.index_count <= 1536 ? 0 : r.index_count <= 6144 ? 1 : 2;
+  if (census) {
+    if (world_origin) ++depth_census_world;
+    else ++depth_census[size][depth < 25 ? 0 : depth < 50 ? 1 : depth < 100 ? 2 : depth < 200 ? 3 : depth < 400 ? 4 : 5];
+  }
+  if (draw_distance > 0 && !world_origin && size < 2 && std::isfinite(depth) &&
+      depth > draw_distance * (size ? 2.0f : 1.0f)) {
+    if (census) ++depth_census_left_out;
+    return profile::kDistanceDrawsSkipped;
+  }
+  return profile::kCounterCount;
+}
+
 bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& evidence) {
+  profile::Timer draw_time(profile::kEngineDraw);
   fence = 0;
   auto fail = [&](const char* reason, VkResult code = VK_ERROR_UNKNOWN) { return GraphicsError(evidence, reason, code); };
   auto& s = *state_;
@@ -157,43 +202,109 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   if (!r.vs.Present() || r.vs.format != ShaderFormat::kSpirv ||
       (r.depth_only ? bool(r.ps.bytes) : !r.ps.Present() || r.ps.format != ShaderFormat::kSpirv))
     return fail("native-draw-shaders");
+  if (profile::Profiling()) s.CountDraw(r.depth_only, color, depth);
+  // The performance options leave some draws out (LeftOutByTarget, then the
+  // draw distance once the constants are applied, below).
+  profile::Counter left_out = s.LeftOutByTarget(color, depth);
+  const bool scene_draw = depth != nullptr;  // Before the pass merge attaches one.
+  uint32_t color_key = color ? r.color_key : 0, depth_key = depth ? r.depth_key : 0;  // The surfaces drawn to.
+  // A draw that leaves out one attachment of the open draw pass stays in it:
+  // with its depth (tests off: no depth access) for a draw without depth test
+  // on the pass's color target, with its color (write mask 0, no fragment
+  // shader) for a depth-only draw on the pass's depth target. On a tiled GPU
+  // each new pass stores the targets and loads them back.
+  if (left_out == profile::kCounterCount && s.batch_open && s.batch.draw_pass_active) {
+    if (color && !depth && s.batch.draw_depth && color->Image() == s.batch.draw_color) {
+      auto it = s.surfaces.find(s.batch.draw_depth_key);
+      if (it != s.surfaces.end() && it->second.Image() == s.batch.draw_depth) {
+        depth = &it->second; depth_key = it->first;
+        profile::Count(profile::kPassMergedDraws, 1);
+      }
+    } else if (!color && depth && r.depth_only && s.batch.draw_color && depth->Image() == s.batch.draw_depth) {
+      auto it = s.surfaces.find(s.batch.draw_color_key);
+      if (it != s.surfaces.end() && it->second.Image() == s.batch.draw_color &&
+          it->second.desc.width == depth->desc.width && it->second.desc.height == depth->desc.height) {
+        color = &it->second; color_key = it->first;
+        profile::Count(profile::kPassMergedDraws, 1);
+      }
+    }
+  }
   const auto& target = color ? *color : *depth;
   if (!r.index_count || !r.elements || r.elements->empty() || r.streams.empty() || r.streams.size() > 8)
     return fail("native-draw-vertex-input");
   for (const auto& e : *r.elements)
     if (e.slot >= r.streams.size() || !r.streams[e.slot].stride) return fail("native-draw-vertex-element");
   if (!s.EnsureGraphics(evidence)) return false;
+  // The constants and the texture copies first: a draw left out or skipped
+  // keeps them current for the next draws (the requests carry only the
+  // registers written since the last one). Uploads may close a full batch, so
+  // all of them go before this draw's descriptors and retained resources.
+  if (!ApplyDrawConstants(r.vs_constants, r.vs_constants_delta, s.vs_block) ||
+      !ApplyDrawConstants(r.ps_constants, r.ps_constants_delta, s.ps_block)) return fail("native-draw-constants");
+  for (const auto& t : r.textures) if (!t.resolved && !t.data.empty())
+    if (!UploadSampled(t, evidence)) return false;
+  if (left_out == profile::kCounterCount && scene_draw) left_out = s.LeftOutByDistance(r);
+  if (left_out != profile::kCounterCount) {
+    profile::Count(left_out, 1);
+    evidence.clear();
+    return true;
+  }
   PipelineDesc desc{r.vs, r.ps, r.elements, r.layout_id ? r.layout_id : ElementsId(*r.elements)};
   if (!DrawStateWords(r, target.desc.samples, depth != nullptr, color != nullptr, desc.state))
     return fail("native-draw-topology-uncovered");
   const uint64_t key = VulkanPipelineKey(desc), triple = TripleKey(r.vs.key, r.ps.key, desc.layout_id);
   auto& pipeline = s.pipelines[key];
   const bool created = !pipeline;
+  bool skip_draw = false;  // The pipeline is being created asynchronously (skip take).
+  // Timed only when the pipeline is absent (its take, wait or creation); the
+  // lookup of a present one is part of the draw.
+  profile::Timer pipeline_time(created ? profile::kEnginePipeline : profile::kCount);
   if (!pipeline) {
-    // Normal and diagnostic draws both remain visible on Vulkan. Never skip
-    // a draw because a pipeline compilation is pending.
-    auto take = s.pipeline_set.Take(key, triple, r.pipeline_take == DrawRequest::PipelineTake::kSkip ?
-        DrawRequest::PipelineTake::kPrefetch : r.pipeline_take);
+    // The take (pipeline_set.h), as in D3D12: with PC Options > Skip Unready
+    // Graphics (async_shaders, the skip take) a draw whose pipeline is not
+    // ready posts it to the asynchronous threads and leaves the frame without
+    // itself, instead of stopping the frame while the driver compiles it (the
+    // stutter of a slow phone driver); otherwise the draw waits for it or
+    // creates it.
+    auto take = s.pipeline_set.Take(key, triple, r.pipeline_take);
     pipeline = std::move(take.pipeline);
-    s.pipeline_origins[key] = take.origin ? take.origin : "created";
-    if (!pipeline) {
+    skip_draw = take.skip;
+    if (take.post) s.pipeline_set.Post(key, desc, false, true);
+    if (!pipeline && !skip_draw) {
       const auto begin = std::chrono::steady_clock::now();
-      const auto result = MakeGraphicsPipeline(s.vulkan->vk, s.draw_layout, desc, s.vertex_locations, pipeline);
+      const auto result = MakeGraphicsPipeline(s.vulkan->vk, s.draw_layout, desc, s.vertex_locations, pipeline,
+                                               VK_FORMAT_UNDEFINED, false, s.pipeline_cache);
       if (!result.ok) { s.pipelines.erase(key); return fail(result.reason, VkResult(result.code)); }
       const auto micros = uint32_t(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count());
       s.pipeline_create_us[key] = micros;
       s.pipeline_origins[key] = s.pipeline_set.NoteCreated(take, triple, micros);
+      s.pipelines_created.fetch_add(1, std::memory_order_relaxed);
+    } else if (!skip_draw) {
+      s.pipeline_origins[key] = take.origin ? take.origin : "created";
     }
-    s.pipeline_worlds[key] = WorldKey();
-    s.pipeline_descs.emplace(key, desc);
+    if (skip_draw) {
+      s.pipelines.erase(key);  // `pipeline` is not used below.
+    } else {
+      s.pipeline_worlds[key] = WorldKey();
+      if (s.pipeline_descs.emplace(key, desc).second) s.pipeline_order.push_back(key);
+    }
   }
-  if (!ApplyDrawConstants(r.vs_constants, r.vs_constants_delta, s.vs_block) ||
-      !ApplyDrawConstants(r.ps_constants, r.ps_constants_delta, s.ps_block)) return fail("native-draw-constants");
-  // Uploads may close a full batch, so perform all of them before allocating
-  // this draw's descriptors and retaining its resources.
-  for (const auto& t : r.textures) if (!t.resolved && !t.data.empty())
-    if (!UploadSampled(t, evidence)) return false;
+  pipeline_time.Stop();
+  if (skip_draw) {
+    // The constants and the texture copies stay current for the next draws;
+    // nothing is recorded.
+    s.draw_counters.skipped.fetch_add(1, std::memory_order_relaxed);
+    if (r.want_evidence) evidence = fmt::format("{{\"drawn\":false,\"skipped\":\"pipeline-pending\",\"pipeline\":\"{:016x}\"}}", key);
+    else evidence.clear();
+    return true;
+  }
   const char* reason = nullptr; VkResult result = VK_SUCCESS;
+  if (s.batch_open && s.batch.operations >= kBatchOperationsEarly &&
+      (!s.batch.draw_pass_active || s.batch.draw_color != (color ? color->Image() : VK_NULL_HANDLE) ||
+       s.batch.draw_depth != (depth ? depth->Image() : VK_NULL_HANDLE))) {
+    profile::Count(profile::kEarlySubmits, 1);
+    if (!s.CloseBatch(reason, result)) return fail(reason, result);
+  }
   if (!s.OpenBatch(reason, result)) return fail(reason, result);
   s.batch.list->setFramebuffer(nullptr);
   const auto commands = s.DrawCommands();
@@ -236,6 +347,7 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     }
     s.fallback_initialized = true;
   }
+  profile::Timer texture_time(profile::kEngineTexture);
   std::array<VkDescriptorSet, 4> sets{};
   std::array<std::array<VkDescriptorImageInfo, 32>, 4> infos{};
   VkSamplerCreateInfo default_sampler{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -313,17 +425,20 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     const uint32_t sampler_offset = t.reg < 16 ? 192 + t.reg * 4 : 304 + (t.reg - 16) * 4;
     std::memcpy(shared.data() + image_offset, &slot, 4); std::memcpy(shared.data() + sampler_offset, &slot, 4);
   }
-  if ((result = resources.Descriptors(s.draw_sets, infos, sets)) != VK_SUCCESS)
-    return fail("native-vulkan-draw-descriptors", result);
+  texture_time.Stop();
+  profile::Timer upload_time(profile::kEngineUpload);
   // Each draw gets one contiguous allocation; offsets are stable even if the
-  // upload page vector grows on the next draw.
+  // upload page vector grows on the next draw. The constant blocks stay at
+  // multiples of 512 bytes: the alignment of a dynamic uniform buffer offset.
   auto align = [](size_t n) { return (n + 511) & ~size_t(511); };
-  const bool vs_reuse = r.vs_constants_version && s.batch.vs_constants && s.batch.vs_version == r.vs_constants_version;
-  const bool ps_reuse = r.ps_constants_version && s.batch.ps_constants && s.batch.ps_version == r.ps_constants_version;
+  const bool vs_reuse = r.vs_constants_version && s.batch.vs_buffer && s.batch.vs_version == r.vs_constants_version;
+  const bool ps_reuse = r.ps_constants_version && s.batch.ps_buffer && s.batch.ps_version == r.ps_constants_version;
+  static_assert(sizeof(shared) == kDrawConstantBytes[2] && sizeof(s.batch.shared_bytes) == kDrawConstantBytes[2]);
+  const bool shared_reuse = s.batch.shared_buffer && std::memcmp(s.batch.shared_bytes.data(), shared.data(), 512) == 0;
   size_t bytes = 0;
-  const size_t vs_at = bytes; if (!vs_reuse) bytes += 4096;
-  const size_t ps_at = bytes; if (!ps_reuse) bytes += 4096;
-  const size_t shared_at = bytes; bytes += 512;
+  const size_t vs_at = bytes; if (!vs_reuse) bytes += kDrawConstantBytes[0];
+  const size_t ps_at = bytes; if (!ps_reuse) bytes += kDrawConstantBytes[1];
+  const size_t shared_at = bytes; if (!shared_reuse) bytes += kDrawConstantBytes[2];
   s.draw_counters.constant_bytes.fetch_add(bytes, std::memory_order_relaxed);
   std::array<size_t, 8> offsets{};
   for (size_t i = 0; i < r.streams.size(); ++i) {
@@ -338,14 +453,20 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
   State::UploadPage* page{}; VkDeviceSize base{};
   if (!s.Upload(bytes, page, base, result)) return fail("native-draw-upload", result);
   auto* cpu = page->buffer->mapped + base;
-  if (!vs_reuse) std::memcpy(cpu + vs_at, s.vs_block.data(), 4096);
-  if (!ps_reuse) std::memcpy(cpu + ps_at, s.ps_block.data(), 4096);
-  std::memcpy(cpu + shared_at, shared.data(), 512);
-  const auto gpu = page->address + base;
-  if (!vs_reuse) s.batch.vs_constants = gpu + vs_at;
-  if (!ps_reuse) s.batch.ps_constants = gpu + ps_at;
+  if (!vs_reuse) std::memcpy(cpu + vs_at, s.vs_block.data(), kDrawConstantBytes[0]);
+  if (!ps_reuse) std::memcpy(cpu + ps_at, s.ps_block.data(), kDrawConstantBytes[1]);
+  if (!shared_reuse) std::memcpy(cpu + shared_at, shared.data(), kDrawConstantBytes[2]);
+  if (!vs_reuse) { s.batch.vs_buffer = page->buffer->buffer; s.batch.vs_offset = base + vs_at; }
+  if (!ps_reuse) { s.batch.ps_buffer = page->buffer->buffer; s.batch.ps_offset = base + ps_at; }
+  if (!shared_reuse) {
+    s.batch.shared_buffer = page->buffer->buffer; s.batch.shared_offset = base + shared_at;
+    s.batch.shared_bytes = shared;
+  }
   s.batch.vs_version = r.vs_constants_version; s.batch.ps_version = r.ps_constants_version;
-  const uint64_t constants[]{s.batch.vs_constants, s.batch.ps_constants, gpu + shared_at};
+  // The sets name the buffers; each draw gives its blocks' offsets in them.
+  const std::array<VkBuffer, 3> constant_buffers{s.batch.vs_buffer, s.batch.ps_buffer, s.batch.shared_buffer};
+  const std::array<uint32_t, 3> constant_offsets{uint32_t(s.batch.vs_offset), uint32_t(s.batch.ps_offset),
+                                                 uint32_t(s.batch.shared_offset)};
   std::array<VkBuffer, 8> streams{};
   std::array<VkDeviceSize, 8> stream_offsets{}, strides{};
   for (size_t i = 0; i < r.streams.size(); ++i) {
@@ -370,10 +491,17 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     auto& b = it->second; indices = b.buffer->buffer; index_offset = r.index_offset;
     s.DrawTransition(indices, b.state, kBufferDraw); b.last_use = s.batch.sequence;
   } else std::memcpy(cpu + index_at, r.indices.data(), index_bytes);
+  upload_time.Stop();
+  {
+    profile::Timer descriptor_time(profile::kEngineTexture);
+    if ((result = resources.Descriptors(s.draw_sets, infos, constant_buffers, sets)) != VK_SUCCESS)
+      return fail("native-vulkan-draw-descriptors", result);
+  }
+  profile::Timer record_time(profile::kEngineRecord);
   const VkImage color_image = color ? color->Image() : VK_NULL_HANDLE;
   const VkImage depth_image = depth ? depth->Image() : VK_NULL_HANDLE;
   if (s.batch.draw_pass_active && (s.batch.draw_color != color_image || s.batch.draw_depth != depth_image))
-    s.EndDrawPass();
+    s.EndDrawPass(profile::kPassEndTarget);
   auto* p = static_cast<GraphicsPipeline*>(pipeline.get());
   if (!s.batch.draw_pass_active) {
     std::vector<VkImageView> attachments;
@@ -395,7 +523,9 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     vkCmdBeginRenderPass(commands, &begin, VK_SUBPASS_CONTENTS_INLINE);
     s.batch.draw_pass_active = true;
     s.batch.draw_color = color_image; s.batch.draw_depth = depth_image;
+    s.batch.draw_color_key = color_key; s.batch.draw_depth_key = depth_key;
     s.draw_counters.passes.fetch_add(1, std::memory_order_relaxed);
+    profile::Count(profile::kRenderPasses, 1);
   }
   if (color) color->last_use = s.batch.sequence;
   if (depth) depth->last_use = s.batch.sequence;
@@ -439,12 +569,16 @@ bool Backend::DrawIndexed(const DrawRequest& r, uint64_t& fence, std::string& ev
     vkCmdBindIndexBuffer(commands, indices, index_offset, r.index32 ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16);
     bound.draw_indices = indices; bound.draw_index_offset = index_offset; bound.draw_index32 = r.index32;
   }
-  if (!valid || bound.draw_sets != sets) {
-    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, s.draw_layout, 0, 4, sets.data(), 0, nullptr);
-    bound.draw_sets = sets;
-    s.draw_counters.descriptor_binds.fetch_add(1, std::memory_order_relaxed);
+  // Set 3 carries the dynamic offsets of the constants: bound when they or
+  // the set changed, with the texture sets only when those changed.
+  const bool textures_bound = valid && std::equal(sets.begin(), sets.begin() + 3, bound.draw_sets.begin());
+  if (!textures_bound || bound.draw_sets[3] != sets[3] || bound.draw_constant_offsets != constant_offsets) {
+    const uint32_t first_set = textures_bound ? 3 : 0;
+    vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, s.draw_layout, first_set, 4 - first_set,
+                            sets.data() + first_set, 3, constant_offsets.data());
+    if (!textures_bound) s.draw_counters.descriptor_binds.fetch_add(1, std::memory_order_relaxed);
+    bound.draw_sets = sets; bound.draw_constant_offsets = constant_offsets;
   }
-  vkCmdPushConstants(commands, s.draw_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 24, constants);
   vkCmdDrawIndexed(commands, r.index_count, r.instance_count, 0, r.base_vertex, 0);
   bound.draw_bindings_valid = true;
   fence = s.batch.sequence; ++s.operations;

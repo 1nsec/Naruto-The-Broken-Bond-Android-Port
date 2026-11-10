@@ -1,7 +1,8 @@
 // The on-screen controller of the Android app (TouchControllerView.java) as an
 // SDL virtual gamepad: the SDK's SDL input driver, and the PC Options menu
 // (pad_input_sdl.cpp), see it as one more controller. Called from the Java UI
-// thread; SDL's joystick calls lock internally.
+// thread; SDL's joystick calls lock internally. Its camera drag turns the
+// camera like the PC port's mouse (mouse_camera.cpp) where the player can.
 #include <jni.h>
 
 #include <mutex>
@@ -9,6 +10,8 @@
 #include <SDL3/SDL.h>
 
 #include <rex/logging.h>
+
+#include "pc/mouse_camera.h"
 
 namespace {
 
@@ -49,11 +52,27 @@ bool Attach() {
   return true;
 }
 
+void Detach() {
+  if (!joystick) return;
+  SDL_CloseJoystick(joystick);
+  SDL_DetachVirtualJoystick(joystick_id);
+  joystick = nullptr;
+  joystick_id = 0;
+  REXLOG_INFO("[narutobb] On-screen controller detached");
+}
+
 }  // namespace
 
 extern "C" JNIEXPORT jboolean JNICALL Java_org_brokenbond_port_TouchControllerView_nativeAttach(JNIEnv*, jclass) {
   std::lock_guard lock(mutex);
   return Attach() ? JNI_TRUE : JNI_FALSE;
+}
+
+// The controller is hidden (a physical controller is connected, or the player
+// hid it): the game stops seeing it until the next touch attaches it again.
+extern "C" JNIEXPORT void JNICALL Java_org_brokenbond_port_TouchControllerView_nativeDetach(JNIEnv*, jclass) {
+  std::lock_guard lock(mutex);
+  Detach();
 }
 
 extern "C" JNIEXPORT void JNICALL Java_org_brokenbond_port_TouchControllerView_nativeButton(JNIEnv*, jclass,
@@ -71,4 +90,16 @@ extern "C" JNIEXPORT void JNICALL Java_org_brokenbond_port_TouchControllerView_n
   if (value < -32768) value = -32768;
   if (value > 32767) value = 32767;
   SDL_SetJoystickVirtualAxis(joystick, axis, static_cast<Sint16>(value));
+}
+
+// The camera drag: whether it turns the camera directly now (mouse_camera.cpp), and its motion in
+// screen heights (right and down positive).
+extern "C" JNIEXPORT jboolean JNICALL Java_org_brokenbond_port_TouchControllerView_nativeLookActive(JNIEnv*,
+                                                                                                jclass) {
+  return TouchLookActive() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_org_brokenbond_port_TouchControllerView_nativeLook(JNIEnv*, jclass, jfloat dx,
+                                                                                       jfloat dy) {
+  AddTouchLook(dx, dy);
 }

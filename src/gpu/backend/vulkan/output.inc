@@ -62,6 +62,147 @@ bool Backend::State::OutputEffects(OutputImage& source, BackImage& back, uint32_
   return true;
 }
 
+Backend::State::Acquired Backend::State::AcquireBack(uint32_t& index, std::vector<int32_t>& results,
+                                                       std::string& evidence) {
+  RECT rect{};
+  if (!IsWindow(window) || !GetClientRect(window, &rect) || IsIconic(window) || rect.right <= 0 || rect.bottom <= 0) {
+    evidence = "{\"presented\":false,\"skipped\":\"window-empty\"}"; return Acquired::kSkipped;
+  }
+  const char* reason = nullptr; VkResult result = VK_SUCCESS;
+  if (!CloseBatch(reason, result)) { GraphicsError(evidence, reason, result); return Acquired::kFailed; }
+#ifdef __ANDROID__
+  {
+    // After a pause the Activity has a new ANativeWindow (none while it is in
+    // the background): the frame is skipped, or the surface follows the window.
+    void* current = SDL_GetPointerProperty(SDL_GetWindowProperties(static_cast<SDL_Window*>(window)),
+                                           SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
+    if (!current) {
+      evidence = "{\"presented\":false,\"skipped\":\"no-native-window\"}"; return Acquired::kSkipped;
+    }
+    if (current != native_window) {
+      if (!RetireSwapchain(evidence) || !CreateWindowSurface(evidence)) return Acquired::kFailed;
+      recreate_swapchain = true;
+    }
+  }
+#endif
+  if (!swapchain || recreate_swapchain || uint32_t(rect.right) != swap_extent.width || uint32_t(rect.bottom) != swap_extent.height)
+    if (!CreateSwapchain(rect.right, rect.bottom, evidence)) return Acquired::kFailed;
+  // Bound the presentation queue to one pending frame independently of render completion.
+  for (auto& back : back_images) if (back.pending) {
+    if (!WaitPresent(back.presented, evidence)) return Acquired::kFailed;
+    back.pending = false;
+  }
+  if (!acquire_fence) {
+    VkFenceCreateInfo info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    if ((result = vkCreateFence(vulkan->vk, &info, nullptr, &acquire_fence)) != VK_SUCCESS) {
+      GraphicsError(evidence, "native-vulkan-acquire-fence", result); return Acquired::kFailed;
+    }
+  }
+  if ((result = vkResetFences(vulkan->vk, 1, &acquire_fence)) != VK_SUCCESS) {
+    GraphicsError(evidence, "native-vulkan-acquire-reset", result); return Acquired::kFailed;
+  }
+  const auto deadline = std::chrono::steady_clock::now() + kWaitBudget;
+  do {
+    if (!IsWindow(window) || IsIconic(window)) {
+      evidence = "{\"presented\":false,\"skipped\":\"window-closed-or-minimized\"}"; return Acquired::kSkipped;
+    }
+    result = vkAcquireNextImageKHR(vulkan->vk, swapchain, 20'000'000, VK_NULL_HANDLE, acquire_fence, &index);
+    results.push_back(int32_t(result));
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+      GetClientRect(window, &rect);
+      if (rect.right <= 0 || rect.bottom <= 0) {
+        evidence = "{\"presented\":false,\"skipped\":\"window-empty\"}"; return Acquired::kSkipped;
+      }
+      if (!CreateSwapchain(rect.right, rect.bottom, evidence)) return Acquired::kFailed;
+    } else if (result != VK_TIMEOUT && result != VK_NOT_READY) break;
+  } while (std::chrono::steady_clock::now() < deadline && !failures->Failed());
+  if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    Observe(result); GraphicsError(evidence, "native-vulkan-acquire", result); return Acquired::kFailed;
+  }
+#ifndef __ANDROID__
+  // Android reports suboptimal for the identity transform on a rotated panel
+  // (CreateSwapchain), every frame: it is not a reason to recreate there.
+  if (result == VK_SUBOPTIMAL_KHR) recreate_swapchain = true;
+#endif
+  acquire_pending = true;
+  if (!WaitPresent(acquire_fence, evidence)) return Acquired::kFailed;
+  acquire_pending = false;
+  if (!OpenBatch(reason, result)) { GraphicsError(evidence, reason, result); return Acquired::kFailed; }
+  return Acquired::kImage;
+}
+
+bool Backend::State::QueuePresent(uint32_t index, uint64_t& sequence, VkResult& present_result,
+                                  std::string& evidence) {
+  auto& back = back_images.at(index);
+  const Use present{VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0};
+  Transition(Commands(), back.image, VK_IMAGE_ASPECT_COLOR_BIT, back.state, present);
+  sequence = batch.sequence;
+  submit_signal = back.rendered;
+  const char* reason = nullptr; VkResult result = VK_SUCCESS;
+  if (!CloseBatch(reason, result)) return GraphicsError(evidence, reason, result);
+  if (present_fences && (result = vkResetFences(vulkan->vk, 1, &back.presented)) != VK_SUCCESS)
+    return GraphicsError(evidence, "native-present-fence-reset", result);
+  VkSwapchainPresentFenceInfoEXT retirement{VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT};
+  retirement.swapchainCount = 1; retirement.pFences = &back.presented;
+  VkPresentInfoKHR info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, present_fences ? &retirement : nullptr};
+  info.waitSemaphoreCount = 1; info.pWaitSemaphores = &back.rendered;
+  info.swapchainCount = 1; info.pSwapchains = &swapchain; info.pImageIndices = &index;
+  auto* vulkan_queue = static_cast<plume::VulkanCommandQueue*>(queue.get())->queue;
+  const bool authorized = failures->Authorize([&] {
+    std::lock_guard lock(*vulkan_queue->mutex);
+    result = vkQueuePresentKHR(vulkan_queue->vk, &info);
+  });
+  if (!authorized) return GraphicsError(evidence, "native-present-refused-after-failure");
+  back.pending = present_fences;
+  ++presents;
+  present_result = result;
+#ifdef __ANDROID__
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_ERROR_SURFACE_LOST_KHR) recreate_swapchain = true;
+  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+#else
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) recreate_swapchain = true;
+  else if (result != VK_SUCCESS) {
+#endif
+    Observe(result); return GraphicsError(evidence, "native-vulkan-present", result);
+  }
+  return true;
+}
+
+// The game image of a stage slot into the back image: the gamma ramp, the
+// output effects and the scaling to the window (black bars around).
+bool Backend::State::DrawStage(OutputImage& stage, BackImage& back, std::string& evidence) {
+  VkResult result = VK_SUCCESS;
+  State::UploadPage* page{}; VkDeviceSize ramp_offset{};
+  if (!Upload(4096, page, ramp_offset, result)) return GraphicsError(evidence, "native-present-ramp-upload", result);
+  auto* ramp = reinterpret_cast<uint32_t*>(page->buffer->mapped + ramp_offset);
+  const bool brightness = std::fabs(present_mode.brightness - 0.5f) > 0.001f;
+  const double exponent = 1.0 / std::clamp(1.0 + (double(present_mode.brightness) - 0.5) * 1.2, 0.1, 4.0);
+  for (uint32_t i = 0; i < 256; ++i) for (uint32_t channel = 0; channel < 4; ++channel) {
+    const uint32_t value = channel == 3 ? 0 : gamma[channel * 256 + i];
+    ramp[4 * i + channel] = brightness ? uint32_t(std::lround(1023.0 * std::pow(std::min(value, 1023u) / 1023.0, exponent))) : value;
+  }
+  // Largest rect of the image's aspect, centered; the rest is black. With a
+  // wider aspect ratio (PC Options > Display; auto takes the screen's,
+  // ultrawide.cpp), the game drew a wider view into its 16:9 image, which this
+  // stretches back out, as the D3D12 backend does.
+  const double wide = overlay::TargetAspect();
+  const double image_width = wide > 1.8 ? stage.height * wide : double(stage.width);
+  const double aspect_scale = std::min(double(swap_extent.width) / image_width, double(swap_extent.height) / stage.height);
+  const uint32_t vw = std::clamp<uint32_t>(uint32_t(std::lround(image_width * aspect_scale)), 1, swap_extent.width);
+  const uint32_t vh = std::clamp<uint32_t>(uint32_t(std::lround(stage.height * aspect_scale)), 1, swap_extent.height);
+  const uint32_t x = (swap_extent.width - vw) / 2, y = (swap_extent.height - vh) / 2;
+  const auto bits = [](float f) { return std::bit_cast<uint32_t>(f); };
+  if (present_mode.effect != PresentEffect::kBilinear || present_mode.post_effect != SwapPostEffect::kNone) {
+    if (!OutputEffects(stage, back, x, y, vw, vh, page->buffer->buffer, ramp_offset, evidence)) return false;
+  } else {
+    const std::array<uint32_t, 12> c{bits(float(x)), bits(float(y)), bits(float(stage.width) / vw), bits(float(stage.height) / vh),
+        stage.width, stage.height, bits(float(vw)), bits(float(vh))};
+    if (!OutputPass(stage, back.image, back.state, swap_format, swap_extent.width, swap_extent.height,
+                      "present_ps", 0, c, page->buffer->buffer, ramp_offset, evidence)) return false;
+  }
+  return true;
+}
+
 bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, uint32_t& width,
                        uint32_t& height, std::string& evidence) {
   auto& s = *state_; bgra.clear(); width = height = 0;
@@ -69,93 +210,18 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
     return GraphicsError(evidence, "native-present-owner-or-slot");
   auto& stage = s.stages[slot];
   if (!stage.staged || stage.presented) return GraphicsError(evidence, "native-present-slot-not-staged");
-  RECT rect{};
-  if (!IsWindow(s.window) || !GetClientRect(s.window, &rect) || IsIconic(s.window) || rect.right <= 0 || rect.bottom <= 0) {
-    stage.presented = true; evidence = "{\"presented\":false,\"skipped\":\"window-empty\"}"; return true;
-  }
-  const char* reason = nullptr; VkResult result = VK_SUCCESS;
-  if (!s.CloseBatch(reason, result)) return GraphicsError(evidence, reason, result);
-#ifdef __ANDROID__
-  {
-    // After a pause the Activity has a new ANativeWindow (none while it is in
-    // the background): the frame is skipped, or the surface follows the window.
-    void* native_window = SDL_GetPointerProperty(SDL_GetWindowProperties(static_cast<SDL_Window*>(s.window)),
-                                                 SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
-    if (!native_window) {
-      stage.presented = true; evidence = "{\"presented\":false,\"skipped\":\"no-native-window\"}"; return true;
-    }
-    if (native_window != s.native_window) {
-      if (!s.RetireSwapchain(evidence) || !s.CreateWindowSurface(evidence)) return false;
-      s.recreate_swapchain = true;
-    }
-  }
-#endif
-  if (!s.swapchain || s.recreate_swapchain || uint32_t(rect.right) != s.swap_extent.width || uint32_t(rect.bottom) != s.swap_extent.height)
-    if (!s.CreateSwapchain(rect.right, rect.bottom, evidence)) return false;
-  // Bound the presentation queue to one pending frame independently of render completion.
-  for (auto& back : s.back_images) if (back.pending) {
-    if (!s.WaitPresent(back.presented, evidence)) return false;
-    back.pending = false;
-  }
-  if (!s.acquire_fence) {
-    VkFenceCreateInfo info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-    if ((result = vkCreateFence(s.vulkan->vk, &info, nullptr, &s.acquire_fence)) != VK_SUCCESS)
-      return GraphicsError(evidence, "native-vulkan-acquire-fence", result);
-  }
-  if ((result = vkResetFences(s.vulkan->vk, 1, &s.acquire_fence)) != VK_SUCCESS)
-    return GraphicsError(evidence, "native-vulkan-acquire-reset", result);
   uint32_t index = 0;
-  const auto deadline = std::chrono::steady_clock::now() + kWaitBudget;
   std::vector<int32_t> acquire_results;
-  do {
-    if (!IsWindow(s.window) || IsIconic(s.window)) {
-      stage.presented = true; evidence = "{\"presented\":false,\"skipped\":\"window-closed-or-minimized\"}"; return true;
-    }
-    result = vkAcquireNextImageKHR(s.vulkan->vk, s.swapchain, 20'000'000, VK_NULL_HANDLE, s.acquire_fence, &index);
-    acquire_results.push_back(int32_t(result));
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-      GetClientRect(s.window, &rect);
-      if (rect.right <= 0 || rect.bottom <= 0) {
-        stage.presented = true; evidence = "{\"presented\":false,\"skipped\":\"window-empty\"}"; return true;
-      }
-      if (!s.CreateSwapchain(rect.right, rect.bottom, evidence)) return false;
-    } else if (result != VK_TIMEOUT && result != VK_NOT_READY) break;
-  } while (std::chrono::steady_clock::now() < deadline && !s.failures->Failed());
-  if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-    s.Observe(result); return GraphicsError(evidence, "native-vulkan-acquire", result);
+  switch (s.AcquireBack(index, acquire_results, evidence)) {
+    case State::Acquired::kSkipped: stage.presented = true; return true;
+    case State::Acquired::kFailed: return false;
+    case State::Acquired::kImage: break;
   }
-#ifndef __ANDROID__
-  // Android reports suboptimal for the identity transform on a rotated panel
-  // (CreateSwapchain), every frame: it is not a reason to recreate there.
-  if (result == VK_SUBOPTIMAL_KHR) s.recreate_swapchain = true;
-#endif
-  s.acquire_pending = true;
-  if (!s.WaitPresent(s.acquire_fence, evidence)) return false;
-  s.acquire_pending = false;
   auto& back = s.back_images.at(index);
-  if (!s.OpenBatch(reason, result)) return GraphicsError(evidence, reason, result);
-  State::UploadPage* page{}; VkDeviceSize ramp_offset{};
-  if (!s.Upload(4096, page, ramp_offset, result)) return GraphicsError(evidence, "native-present-ramp-upload", result);
-  auto* ramp = reinterpret_cast<uint32_t*>(page->buffer->mapped + ramp_offset);
-  const bool brightness = std::fabs(s.present_mode.brightness - 0.5f) > 0.001f;
-  const double exponent = 1.0 / std::clamp(1.0 + (double(s.present_mode.brightness) - 0.5) * 1.2, 0.1, 4.0);
-  for (uint32_t i = 0; i < 256; ++i) for (uint32_t channel = 0; channel < 4; ++channel) {
-    const uint32_t value = channel == 3 ? 0 : s.gamma[channel * 256 + i];
-    ramp[4 * i + channel] = brightness ? uint32_t(std::lround(1023.0 * std::pow(std::min(value, 1023u) / 1023.0, exponent))) : value;
-  }
-  const double aspect_scale = std::min(double(s.swap_extent.width) / stage.width, double(s.swap_extent.height) / stage.height);
-  const uint32_t vw = std::max(1u, uint32_t(std::lround(stage.width * aspect_scale)));
-  const uint32_t vh = std::max(1u, uint32_t(std::lround(stage.height * aspect_scale)));
-  const uint32_t x = (s.swap_extent.width - vw) / 2, y = (s.swap_extent.height - vh) / 2;
-  const auto bits = [](float f) { return std::bit_cast<uint32_t>(f); };
-  if (s.present_mode.effect != PresentEffect::kBilinear || s.present_mode.post_effect != SwapPostEffect::kNone) {
-    if (!s.OutputEffects(stage, back, x, y, vw, vh, page->buffer->buffer, ramp_offset, evidence)) return false;
-  } else {
-    const std::array<uint32_t, 12> c{bits(float(x)), bits(float(y)), bits(float(stage.width) / vw), bits(float(stage.height) / vh),
-        stage.width, stage.height, bits(float(vw)), bits(float(vh))};
-    if (!s.OutputPass(stage, back.image, back.state, s.swap_format, s.swap_extent.width, s.swap_extent.height,
-                      "present_ps", 0, c, page->buffer->buffer, ramp_offset, evidence)) return false;
-  }
+  VkResult result = VK_SUCCESS;
+  if (!s.DrawStage(stage, back, evidence)) return false;
+  // The PC overlay (options menu, title screen, FPS counter) over the image.
+  if (!s.DrawOverlay(back, evidence)) return false;
   std::shared_ptr<VmaBuffer> readback;
   const VkDeviceSize bytes = VkDeviceSize(s.swap_extent.width) * s.swap_extent.height * 4;
   if (capture) {
@@ -171,36 +237,13 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
     vkCmdPipelineBarrier(s.Commands(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
   }
-  const Use present{VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0};
-  Transition(s.Commands(), back.image, VK_IMAGE_ASPECT_COLOR_BIT, back.state, present);
-  stage.last_use = s.batch.sequence; const uint64_t sequence = s.batch.sequence;
-  s.submit_signal = back.rendered;
-  if (!s.CloseBatch(reason, result)) return GraphicsError(evidence, reason, result);
-  if (s.present_fences && (result = vkResetFences(s.vulkan->vk, 1, &back.presented)) != VK_SUCCESS)
-    return GraphicsError(evidence, "native-present-fence-reset", result);
-  VkSwapchainPresentFenceInfoEXT completion{VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT};
-  completion.swapchainCount = 1; completion.pFences = &back.presented;
-  VkPresentInfoKHR info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, s.present_fences ? &completion : nullptr};
-  info.waitSemaphoreCount = 1; info.pWaitSemaphores = &back.rendered;
-  info.swapchainCount = 1; info.pSwapchains = &s.swapchain; info.pImageIndices = &index;
-  auto* queue = static_cast<plume::VulkanCommandQueue*>(s.queue.get())->queue;
-  const bool authorized = s.failures->Authorize([&] {
-    std::lock_guard lock(*queue->mutex);
-    result = vkQueuePresentKHR(queue->vk, &info);
-  });
-  if (!authorized) return GraphicsError(evidence, "native-present-refused-after-failure");
-  back.pending = s.present_fences;
-  stage.presented = true; ++s.presents;
-  const VkResult present_result = result;
-#ifdef __ANDROID__
-  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_ERROR_SURFACE_LOST_KHR) s.recreate_swapchain = true;
-  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-#else
-  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) s.recreate_swapchain = true;
-  else if (result != VK_SUCCESS) {
-#endif
-    s.Observe(result); return GraphicsError(evidence, "native-vulkan-present", result);
-  }
+  stage.last_use = s.batch.sequence;
+  uint64_t sequence = 0; VkResult present_result = VK_SUCCESS;
+  if (!s.QueuePresent(index, sequence, present_result, evidence)) return false;
+  stage.presented = true;
+  s.last_presented_slot = int(slot);
+  s.MaybeSavePipelineCache();
+  s.LogDrawCensus();
   if (capture) {
     if (!s.completion->WaitFor(sequence, kWaitBudget)) return GraphicsError(evidence, "native-present-capture-wait", VK_TIMEOUT);
     if ((result = vmaInvalidateAllocation(s.vulkan->allocator, readback->allocation, 0, bytes)) != VK_SUCCESS)
@@ -209,8 +252,49 @@ bool Backend::Present(uint32_t slot, bool capture, std::vector<uint8_t>& bgra, u
     bgra.assign(readback->mapped, readback->mapped + bytes);
   }
   evidence = fmt::format("{{\"presented\":true,\"backend\":\"vulkan\",\"present_result\":{},\"acquire_results\":[{}],"
-      "\"generation\":{},\"image\":{},\"size\":[{},{}],\"fence\":{},\"present_mode\":{},\"effective_frame_latency\":1}}",
+      "\"generation\":{},\"image\":{},\"size\":[{},{}],\"fence\":{},\"present_mode\":{},\"effective_frame_latency\":1,"
+      "\"overlay\":\"{}\"}}",
       int32_t(present_result), fmt::join(acquire_results, ","), s.swap_generation, index, s.swap_extent.width,
-      s.swap_extent.height, sequence, int(s.swap_mode));
+      s.swap_extent.height, sequence, int(s.swap_mode), JsonText(s.overlay_status));
+  return true;
+}
+
+// A frame under the PC overlay while the game presents nothing (the PC title
+// screen holds the boot; long loads; a slow frame of a phone with the FPS
+// counter on): the game's last image again, so the screen holds still instead
+// of flashing black between the game's frames; black before the first. The
+// stage slots are only read.
+bool Backend::PresentIdle(std::string& evidence) {
+  auto& s = *state_;
+  if (!s.ready || s.owner_thread != GetCurrentThreadId() || s.operation_poisoned || s.unproved_execution)
+    return GraphicsError(evidence, "native-idle-owner-or-state");
+  if (!s.window) return GraphicsError(evidence, "native-idle-no-window");
+  uint32_t index = 0;
+  std::vector<int32_t> acquire_results;
+  switch (s.AcquireBack(index, acquire_results, evidence)) {
+    case State::Acquired::kSkipped: return true;
+    case State::Acquired::kFailed: return false;
+    case State::Acquired::kImage: break;
+  }
+  auto& back = s.back_images.at(index);
+  const bool last_image = s.last_presented_slot >= 0 && size_t(s.last_presented_slot) < s.stages.size() &&
+                          s.stages[s.last_presented_slot].image && s.stages[s.last_presented_slot].presented;
+  if (last_image) {
+    if (!s.DrawStage(s.stages[s.last_presented_slot], back, evidence)) return false;
+  } else {
+    s.batch.list->setFramebuffer(nullptr);
+    const auto commands = s.Commands();
+    Transition(commands, back.image, VK_IMAGE_ASPECT_COLOR_BIT, back.state, kCopyDest, true);
+    const VkClearColorValue black{{0, 0, 0, 1}};
+    const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCmdClearColorImage(commands, back.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &black, 1, &range);
+  }
+  if (!s.DrawOverlay(back, evidence)) return false;
+  ++s.batch.operations;
+  uint64_t sequence = 0; VkResult present_result = VK_SUCCESS;
+  if (!s.QueuePresent(index, sequence, present_result, evidence)) return false;
+  evidence = fmt::format("{{\"presented\":true,\"idle\":true,\"backend\":\"vulkan\",\"present_result\":{},"
+      "\"image\":{},\"fence\":{},\"last_image\":{},\"overlay\":\"{}\"}}", int32_t(present_result), index,
+      sequence, last_image, JsonText(s.overlay_status));
   return true;
 }

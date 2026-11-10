@@ -1,7 +1,10 @@
 #include "shader_recompiler.h"
 #include "shader_common.h"
+#include <algorithm>
+#include <map>
 #include <stdexcept>
 #include <unordered_set>
+#include <vector>
 
 static constexpr char SWIZZLES[] = 
 { 
@@ -1194,7 +1197,18 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         }
     }
 
-    out += "#ifdef __spirv__\n\n";
+    // NARUTO_RECOMP: SPIR-V reads the constants from the same uniform buffers
+    // as DXIL (the Vulkan backend binds them to set 3, bindings 1 to 3), which
+    // Adreno keeps in its constant registers. The upstream SPIR-V path loads
+    // each constant from a buffer device address instead.
+#ifdef NARUTO_RECOMP
+    constexpr bool constantsByAddress = false;
+#else
+    constexpr bool constantsByAddress = true;
+#endif
+
+    if (constantsByAddress)
+        out += "#ifdef __spirv__\n\n";
 
 #ifdef UNLEASHED_RECOMP
     bool isMetaInstancer = false;
@@ -1231,14 +1245,14 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         {
             const char* shaderName = isPixelShader ? "Pixel" : "Vertex";
 
-            if (constantInfo->registerCount > 1)
+            if (constantsByAddress && constantInfo->registerCount > 1)
             {
                 uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
 
                 println("#define {}(INDEX) select((INDEX) < {}, vk::RawBufferLoad<float4>(g_PushConstants.{}ShaderConstants + ({} + min(INDEX, {})) * 16, 0x10), 0.0)",
                     constantName, tailCount, shaderName, constantInfo->registerIndex.get(), tailCount - 1);
             }
-            else
+            else if (constantsByAddress)
             {
                 println("#define {} vk::RawBufferLoad<float4>(g_PushConstants.{}ShaderConstants + {}, 0x10)",
                     constantName, shaderName, constantInfo->registerIndex * 16);
@@ -1252,7 +1266,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
         case RegisterSet::Sampler:
         {
-            for (uint32_t element = 0; element < constantInfo->registerCount; ++element)
+            for (uint32_t element = 0; constantsByAddress && element < constantInfo->registerCount; ++element)
             {
                 const uint32_t index = constantInfo->registerIndex + element;
                 const auto& name = samplers.at(index);
@@ -1272,67 +1286,113 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         }
     }
 
-    out += "\n#else\n\n";
+    if (constantsByAddress)
+        out += "\n#else\n\n";
 
     println("cbuffer {}ShaderConstants : register(b{}, space4)", isPixelShader ? "Pixel" : "Vertex", isPixelShader ? 1 : 0);
     out += "{\n";
 
-    for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
+    if (!constantsByAddress)
     {
-        const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
-            constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
-
-        if (constantInfo->registerSet == RegisterSet::Float4)
+        // NARUTO_RECOMP: the 256 registers as one array, each constant a macro
+        // on its registers. A relative read past the registers the constant
+        // table gives an array (a bone palette indexed by a0) reads the
+        // registers that follow, as on the console and as the address loads
+        // did, instead of indexing a member array out of its bounds, which
+        // SPIR-V leaves undefined (DXC then dropped vertex inputs).
+        out += "\tfloat4 g_Float4Constants[256] : packoffset(c0);\n";
+        out += "};\n\n";
+        for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
         {
+            const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
+                constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
+            if (constantInfo->registerSet != RegisterSet::Float4)
+                continue;
             const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
-
-            print("\tfloat4 {}", constantName);
-
-            if (constantInfo->registerCount > 1)
-                print("[{}]", constantInfo->registerCount.get());
-
-            println(" : packoffset(c{});", constantInfo->registerIndex.get());
-
+            const uint32_t reg = constantInfo->registerIndex.get();
+            if (reg > 255 || constantInfo->registerCount.get() == 0)
+                throw std::runtime_error(fmt::format("Float4 constant {} outside the registers: {} + {}", constantName, reg,
+                    constantInfo->registerCount.get()));
             if (constantInfo->registerCount > 1)
             {
-                uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
-                println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount, tailCount - 1);
+                // The registers a relative read may reach: to c223 in a pixel
+                // shader (as before), within the 256 registers in any case.
+                const uint32_t limit = isPixelShader && reg < 224 ? 224 : 256;
+                const uint32_t tailCount = limit - reg;
+                println("#define {0}(INDEX) select((INDEX) < {1}, g_Float4Constants[{2} + min(INDEX, {3})], 0.0)",
+                    constantName, tailCount, reg, tailCount - 1);
+            }
+            else
+            {
+                println("#define {} (g_Float4Constants[{}])", constantName, reg);
             }
         }
+        out += "\n";
     }
+    else
+    {
+        for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
+        {
+            const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
+                constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
 
-    out += "};\n\n";
+            if (constantInfo->registerSet == RegisterSet::Float4)
+            {
+                const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
+
+                print("\tfloat4 {}", constantName);
+
+                if (constantInfo->registerCount > 1)
+                    print("[{}]", constantInfo->registerCount.get());
+
+                println(" : packoffset(c{});", constantInfo->registerIndex.get());
+
+                if (constantInfo->registerCount > 1)
+                {
+                    uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
+                    println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount, tailCount - 1);
+                }
+            }
+        }
+
+        out += "};\n\n";
+    }
 
     out += "cbuffer SharedConstants : register(b2, space4)\n";
     out += "{\n";
 
-    for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
+    // The descriptor indices by offset: each texture dimension, then the
+    // samplers, each bank in register order (samplers is ordered by register).
+    const std::map<uint32_t, std::string> samplersByRegister(samplers.begin(), samplers.end());
+    for (size_t j = 0; j <= std::size(TEXTURE_DIMENSIONS); j++)
     {
-        const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
-            constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
-
-        if (constantInfo->registerSet == RegisterSet::Sampler)
+        for (const auto& [index, name] : samplersByRegister)
         {
-            for (uint32_t element = 0; element < constantInfo->registerCount; ++element)
+            if (j < std::size(TEXTURE_DIMENSIONS))
             {
-                const uint32_t index = constantInfo->registerIndex + element;
-                const auto& name = samplers.at(index);
-                for (size_t j = 0; j < std::size(TEXTURE_DIMENSIONS); j++)
-                {
-                    println("\tuint {}_Texture{}DescriptorIndex : packoffset(c{}.{});",
-                        name, TEXTURE_DIMENSIONS[j], j * 4 + index / 4, SWIZZLES[index % 4]);
-                }
-
+                println("\tuint {}_Texture{}DescriptorIndex : packoffset(c{}.{});",
+                    name, TEXTURE_DIMENSIONS[j], j * 4 + index / 4, SWIZZLES[index % 4]);
+            }
+            else
+            {
                 println("\tuint {}_SamplerDescriptorIndex : packoffset(c{}.{});",
                     name, 4 * std::size(TEXTURE_DIMENSIONS) + index / 4, SWIZZLES[index % 4]);
             }
         }
     }
 
+#ifdef NARUTO_RECOMP
+    // c16 and c17; the cache builder declares the vertex texture indices of
+    // c18 and c19 between the two.
+    out += "\tDEFINE_SHARED_CONSTANTS_LOW();\n";
+    out += "\tDEFINE_SHARED_CONSTANTS_HIGH();\n";
+#else
     out += "\tDEFINE_SHARED_CONSTANTS();\n";
+#endif
     out += "};\n\n";
 
-    out += "#endif\n";
+    if (constantsByAddress)
+        out += "#endif\n";
 
     for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
     {

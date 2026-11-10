@@ -269,6 +269,12 @@ struct DrawRequest {
   Topology topology = Topology::kTriangleList;
   int32_t base_vertex = 0;
   uint32_t instance_count = 1;
+  // The VS draws one rigid mesh with its own world matrix: g_mWorldViewProj
+  // at c0..c3, g_mWorld at c12..c14, no bone palette, no instancing
+  // (ShaderEntry::rigid_world). Then c3.w is the clip w (the depth in front of
+  // the camera) of the mesh's origin and (c12.w, c13.w, c14.w) its place in the
+  // world: the draw distance option (draw_distance) reads them.
+  bool rigid_world = false;
   // The constant blocks live in the engine (one 4 KB block each for the
   // VS and the PS). A request
   // carries either the whole block (4096 bytes in vs_constants / ps_constants:

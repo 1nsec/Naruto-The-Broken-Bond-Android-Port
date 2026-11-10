@@ -397,11 +397,23 @@ void OptionsMenu::BuildPages() {
                                    {"240", "240"}},
                                   "Above 30, extra frames are drawn between the game's own for smoother motion."));
   graphics.items.push_back(choice("RENDER RESOLUTION", "internal_resolution_scale",
-                                  {{"1280X720 (ORIGINAL)", "1"},
+                                  {
+#ifdef __ANDROID__
+                                   // From below the original up to 1080p on phones (gpu/common/resolution_scale.h).
+                                   {"640X360", "0.5"},
+                                   {"800X450", "0.625"},
+                                   {"960X540", "0.75"},
+                                   {"1280X720 (ORIGINAL)", "1"},
+                                   {"1600X900", "1.25"},
+                                   {"1920X1080", "1.5"}},
+#else
+                                   {"1280X720 (ORIGINAL)", "1"},
+                                   {"1600X900", "1.25"},
                                    {"1920X1080", "1.5"},
                                    {"2560X1440", "2"},
                                    {"3840X2160", "3"},
                                    {"5120X2880", "4"}},
+#endif
                                   "Resolution the game is drawn at. Higher is sharper but slower."));
   graphics.items.push_back(choice("ANTI-ALIASING", "msaa_samples",
                                   {{"OFF", "1"}, {"2X MSAA", "2"}, {"4X MSAA (ORIGINAL)", "0"}, {"8X MSAA", "8"}},
@@ -414,6 +426,16 @@ void OptionsMenu::BuildPages() {
   graphics.items.push_back(choice("UPSCALING", "upscaling",
                                   {{"BILINEAR", "bilinear"}, {"AMD CAS", "cas"}, {"AMD FSR", "fsr"}},
                                   "How the picture is stretched to your screen. CAS and FSR are sharper."));
+#ifdef __ANDROID__
+  // The Vulkan backend reads these at each frame's end (gpu/settings.cpp).
+  graphics.items.push_back(toggle("WATER REFLECTIONS", "water_reflections",
+                                  "Off is faster in the open world; the water then reflects nothing. Changes right away."));
+  graphics.items.push_back(toggle("CHARACTER SHADOWS", "character_shadows",
+                                  "Off is a little faster. Changes right away."));
+  graphics.items.push_back(choice("DRAW DISTANCE", "draw_distance",
+                                  {{"FULL (ORIGINAL)", "0"}, {"MEDIUM", "120"}, {"SHORT", "60"}},
+                                  "Experimental: shorter hides small distant objects for speed. Changes right away."));
+#endif
   {
     Item bright;
     bright.kind = Kind::kSlider;
@@ -466,6 +488,20 @@ void OptionsMenu::BuildPages() {
     sens.step = 0.1f;
     controls.items.push_back(sens);
   }
+#ifdef __ANDROID__
+  {
+    // The on-screen controls' camera drag (mouse_camera.cpp); read at every logic step.
+    Item touch;
+    touch.kind = Kind::kSlider;
+    touch.label = "TOUCH CAMERA SENSITIVITY";
+    touch.cvar = "touch_camera_sensitivity";
+    touch.min = 0.1f;
+    touch.max = 5.0f;
+    touch.step = 0.1f;
+    touch.help = "How far a finger dragged over the screen turns the camera. Changes right away.";
+    controls.items.push_back(touch);
+  }
+#endif
   controls.items.push_back(submenu("KEY BINDINGS", 4));
   {
     Item pad = submenu("CONTROLLER LAYOUT", 11);

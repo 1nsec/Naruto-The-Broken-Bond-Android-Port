@@ -80,8 +80,10 @@ def contract_lines(spirv):
     """The requirement and layout lines of the SPIR-V contract (the manifest's spirv)."""
     lines = [f'require\tcapability\t{name}' for name in spirv['required']['capabilities']]
     lines += [f'require\textension\t{name}' for name in spirv['required']['extensions']]
-    lines += [f"binding\tdraw\t{b['set']}\t{b['binding']}\t{b['type']}\t-" for b in spirv['layout']['bindings']]
-    lines.append(f"push\tdraw\tvertex+fragment\t0\t{spirv['layout']['push_constant_bytes']}")
+    lines += [f"binding\tdraw\t{b['set']}\t{b['binding']}\t{b['type']}\t{b.get('detail', '-')}"
+              for b in spirv['layout']['bindings']]
+    if spirv['layout']['push_constant_bytes']:
+        lines.append(f"push\tdraw\tvertex+fragment\t0\t{spirv['layout']['push_constant_bytes']}")
     for name, layout in sorted(spirv['passes']['layouts'].items()):
         lines += [f"binding\t{name}\t{layout['set']}\t{b['binding']}\t{b['type']}\t{b.get('detail', '-')}"
                   for b in layout['bindings']]

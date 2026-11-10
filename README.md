@@ -5,7 +5,13 @@
 **The Xbox 360 game, recompiled to run natively on Android phones.**<br>
 Unofficial fan port · bring your own game
 
-![Status: alpha](https://img.shields.io/badge/status-alpha-f28c28?style=for-the-badge)
+### Android port by [1nsec](https://github.com/1nsec)
+
+This is the port's official page: [github.com/1nsec/Naruto-The-Broken-Bond-Android-Port](https://github.com/1nsec/Naruto-The-Broken-Bond-Android-Port).<br>
+Copies posted on other sites are re-uploads, often with someone else's name on them; download the APK from [Releases](../../releases) here.
+
+![Status: beta](https://img.shields.io/badge/status-beta-f28c28?style=for-the-badge)
+![Android port by 1nsec](https://img.shields.io/badge/Android%20port%20by-1nsec-f28c28?style=for-the-badge)
 ![Android 10+](https://img.shields.io/badge/Android-10%2B-3ddc84?style=for-the-badge&logo=android&logoColor=white)
 ![GPU: Snapdragon / Adreno](https://img.shields.io/badge/GPU-Snapdragon%20%2F%20Adreno-e4002b?style=for-the-badge&logo=qualcomm&logoColor=white)
 ![Vulkan](https://img.shields.io/badge/renderer-Vulkan-ac162c?style=for-the-badge&logo=vulkan&logoColor=white)
@@ -26,8 +32,9 @@ Unofficial fan port · bring your own game
 > Media or Microsoft. Naruto is a trademark of its owners.
 
 > [!WARNING]
-> **Alpha:** these are the first builds to run on phones. Expect crashes and graphics problems, and
-> please [report them](#reporting-problems): logs from real phones are what move the port forward.
+> **Beta:** the game plays through on a Snapdragon 865 handheld at 30 FPS, but it has been tested on
+> few devices. Expect the odd crash, graphics problem or stutter, and please
+> [report them](#reporting-problems): logs from real phones are what move the port forward.
 
 ## What it is
 
@@ -63,7 +70,7 @@ Pick your ISO once, adjust the settings for your phone, and tap **Play**.
 <td>
 
 **🕹️ Touch or controller**<br>
-On-screen controls with floating sticks, or any Bluetooth / USB controller.
+On-screen controls with a floating stick and drag-to-turn camera, or any Bluetooth / USB controller.
 
 </td>
 <td>
@@ -109,9 +116,9 @@ textures need a format their Vulkan drivers lack.
 | | |
 |---|---|
 | **Buttons** | Each shows its action: **X** attack (the big one), **Y** heavy attack, **A** jump, **B** block, **RB** kunai, **RT** sprint, **LT** jutsus, **LB** inventory; the small badge names the pad button |
-| **Sticks** | Touch the lower left to move and the lower middle to turn the camera; each stick appears where your thumb lands |
+| **Move and camera** | Touch the lower left to move (the stick appears where your thumb lands); drag a finger anywhere else on the screen to turn the camera |
 | **Gear button** | Opens **PC Options** (Back + Start), with every graphics and game option |
-| **Controllers** | Bluetooth and USB controllers work (Xbox, PlayStation, Switch Pro and most Android gamepads); the on-screen controls hide while one is connected |
+| **Controllers** | Bluetooth and USB controllers and the built-in controls of handhelds like the Retroid Pocket work (Xbox, PlayStation, Switch Pro and most Android gamepads) and are player 1; the on-screen controls hide while one is connected; **Back + Start** opens PC Options |
 | **Back gesture** | Opens a menu to continue, hide or show the on-screen controls, or quit |
 
 The opacity and size of the on-screen controls are in the launcher's **Settings**.
@@ -129,8 +136,9 @@ levels. Those come from your ISO, the same way the PC version works.
 <summary><b>Will it run on my phone?</b></summary>
 
 If it has a Snapdragon chip with an Adreno 6xx or newer GPU and Android 10+, it should start; how
-well it runs depends on the phone. Mali and PowerVR GPUs are not supported yet. The launcher warns
-when a phone lacks Vulkan 1.1.
+well it runs depends on the phone. When the phone's own Qualcomm driver lacks a feature the
+renderer needs (as on the Snapdragon 865), the app switches to **Turnip**, the open-source Adreno
+driver it carries (Settings > GPU driver). Mali and PowerVR GPUs are not supported yet.
 </details>
 
 <details>
@@ -144,9 +152,12 @@ first.
 <details>
 <summary><b>It runs slowly or gets hot.</b></summary>
 
-Lower the render resolution in **Settings**, keep the frame rate at 30 FPS, and leave
-anti-aliasing off. The first time an area loads it can stutter once while its graphics are
-prepared.
+Tap **Performance** in **Settings > Graphics** (540p, no anti-aliasing, water reflections or
+character shadows, short draw distance), or lower the render
+resolution further, and keep the frame rate at 30 FPS. The first time an area is played it can stutter while its graphics are
+prepared; they are kept for the next sessions. To report slowness, play the slow part and send
+the zip of **Save logs for a problem report**: during the beta it includes a performance log
+(Settings > Performance log).
 </details>
 
 <details>
@@ -177,12 +188,13 @@ Everything about building the APK, from your PC or in the cloud, signing, and ho
 
 | Part | Made by |
 |---|---|
-| Android port: ReXGlue SDK patch for Android, Vulkan on Android, launcher app, on-screen controller | this repository, written with Claude AI |
+| Android port: ReXGlue SDK patch for Android, Vulkan on Android, launcher app, on-screen controller | [1nsec](https://github.com/1nsec) (this repository), written with Claude AI |
 | PC port v2.5: PC Options, remapping, Auto Jutsu, free camera, weather, Hokage skins and more | Auremana666 and Claude AI ([details](docs/pc-port.md#who-made-what)) |
 | Recompilation setup, XMA audio fixes and the native renderer | [jorjbarbosa](https://github.com/jorjbarbosa) ([broken-bond-recomp](https://github.com/jorjbarbosa/broken-bond-recomp)) |
 | Static recompilation runtime | [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk) (BSD-3-Clause), built on [Xenia](https://github.com/xenia-project/xenia) |
 | Input, audio and the app's game activity | [SDL3](https://libsdl.org) (zlib license) |
 | Icons of the on-screen controls | [Material Symbols](https://github.com/google/material-design-icons) (Apache License 2.0) |
+| Turnip, the bundled Adreno Vulkan driver | [Mesa](https://mesa3d.org) (MIT), loaded with [libadrenotools](https://github.com/bylaws/libadrenotools) (BSD-2-Clause) |
 
 Thanks to everyone credited in the [PC port](docs/pc-port.md#credits), including **tylerl567**
 for testing on the Steam Deck. The style of the on-screen controls is inspired by

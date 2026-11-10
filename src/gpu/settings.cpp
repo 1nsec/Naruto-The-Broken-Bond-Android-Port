@@ -29,6 +29,25 @@ REXCVAR_DEFINE_BOOL(async_shaders, true, "broken_bond/Graphics",
                     "Skip a draw while its graphics pipeline is created instead of waiting (fewer stutters on "
                     "slow drivers, objects may pop in)")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+// The water reflections: the scene drawn again into a half-size target with
+// depth (the Vulkan backend leaves those draws out when off; on Android the
+// open world's reflection is about a sixth of its draws).
+REXCVAR_DEFINE_BOOL(water_reflections, true, "broken_bond/Graphics",
+                    "Draw the water reflections (off: faster, the water reflects nothing; Vulkan only)");
+// The characters' shadows: their silhouettes drawn into small square color
+// targets (256 x 256 and 128 x 128 at 720p) that the ground then samples. The
+// Vulkan backend leaves those draws out when off; the targets stay cleared.
+REXCVAR_DEFINE_BOOL(character_shadows, true, "broken_bond/Graphics",
+                    "Draw the characters' shadows (off: a little faster; Vulkan only)");
+// A draw distance of the renderer's own: the scene draws of rigid meshes
+// (DrawRequest::rigid_world) whose origin lies farther in front of the camera
+// than this many game units are left out (twice as far for the larger meshes;
+// the largest ones, the characters and the instanced vegetation always stay).
+// 0 draws everything the game sends.
+REXCVAR_DEFINE_INT32(draw_distance, 0, "broken_bond/Graphics",
+                     "Leave out the small objects farther than this many game units (0 = the game's own draw "
+                     "distance; experimental, Vulkan only)")
+    .range(0, 10000);
 // Brightness: an exponent on the title's gamma ramp.
 REXCVAR_DEFINE_DOUBLE(brightness, 0.5, "broken_bond/Graphics",
                       "Brightness of the native renderer's output (0.5 = the game's own)")
@@ -58,8 +77,8 @@ REXCVAR_DEFINE_INT32(frame_rate, 30, "broken_bond/Graphics",
     .range(30, 240)
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 REXCVAR_DEFINE_DOUBLE(internal_resolution_scale, 0.0, "broken_bond/Graphics",
-                      "Internal resolution scale of the native renderer, 1 to 4 with fractions "
-                      "(0 = resolution_scale)")
+                      "Internal resolution scale of the native renderer, 1 to 4 with fractions, from 0.5 on "
+                      "Android (0 = resolution_scale)")
     .range(0.0, 4.0)
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 // Shared launcher choice: native uses the name directly; graphics_device.cpp
@@ -240,11 +259,12 @@ void LoadSettings() {
   const bool shared = rex::cvar::HasNonDefaultValue("resolution_scale");
   const auto axis = [&](int32_t own, std::string_view own_name) {
     const int32_t value = shared && !rex::cvar::HasNonDefaultValue(own_name) ? plugin.resolution_scale : own;
-    return float(std::clamp(value, 1, 4));
+    return std::min(float(std::clamp(value, 1, 4)), kMaxResolutionScale);
   };
   const double internal_scale = REXCVAR_GET(internal_resolution_scale);
   if (std::isfinite(internal_scale) && internal_scale > 0) {
-    s.resolution_scale.x = s.resolution_scale.y = std::clamp(float(internal_scale), 1.0f, 4.0f);
+    s.resolution_scale.x = s.resolution_scale.y =
+        std::clamp(float(internal_scale), kMinResolutionScale, kMaxResolutionScale);
   } else {
     s.resolution_scale.x = axis(plugin.draw_resolution_scale_x, "draw_resolution_scale_x");
     s.resolution_scale.y = axis(plugin.draw_resolution_scale_y, "draw_resolution_scale_y");

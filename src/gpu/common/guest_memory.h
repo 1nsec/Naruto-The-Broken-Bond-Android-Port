@@ -139,23 +139,29 @@ inline void CallGuest(PPCContext& ctx, uint8_t* base, GuestFunction fn, uint32_t
 }
 
 // Swaps a guest buffer by the Xenos endian mode (0 none, 1 8in16, 2 8in32, 3 16in32).
+// Whole words loaded, swapped and stored: the compiler turns these loops into
+// vector byte reversals (NEON REV16/REV32 on a phone), which the byte swaps
+// they replace were not.
 inline bool SwapEndian(std::vector<uint8_t>& data, uint32_t mode) {
   if (mode == 0) return true;
+  uint8_t* p = data.data();
   if (mode == 1) {
-    for (size_t i = 0; i + 2 <= data.size(); i += 2) std::swap(data[i], data[i + 1]);
-    return true;
-  }
-  if (mode == 2) {
-    for (size_t i = 0; i + 4 <= data.size(); i += 4) {
-      std::swap(data[i], data[i + 3]);
-      std::swap(data[i + 1], data[i + 2]);
+    const size_t n = data.size() / 2;
+    for (size_t i = 0; i < n; ++i) {
+      uint16_t v;
+      std::memcpy(&v, p + 2 * i, 2);
+      v = uint16_t((v << 8) | (v >> 8));
+      std::memcpy(p + 2 * i, &v, 2);
     }
     return true;
   }
-  if (mode == 3) {
-    for (size_t i = 0; i + 4 <= data.size(); i += 4) {
-      std::swap(data[i], data[i + 2]);
-      std::swap(data[i + 1], data[i + 3]);
+  if (mode == 2 || mode == 3) {
+    const size_t n = data.size() / 4;
+    for (size_t i = 0; i < n; ++i) {
+      uint32_t v;
+      std::memcpy(&v, p + 4 * i, 4);
+      v = mode == 2 ? (v << 24) | ((v & 0xFF00u) << 8) | ((v >> 8) & 0xFF00u) | (v >> 24) : (v << 16) | (v >> 16);
+      std::memcpy(p + 4 * i, &v, 4);
     }
     return true;
   }

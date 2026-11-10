@@ -274,6 +274,82 @@ index 50638d6..12387bd 100644
  
  namespace rex {
  namespace ui {
+diff --git a/src/audio/sdl/sdl_audio_driver.cpp b/src/audio/sdl/sdl_audio_driver.cpp
+index 20a2cd8..3389b52 100644
+--- a/src/audio/sdl/sdl_audio_driver.cpp
++++ b/src/audio/sdl/sdl_audio_driver.cpp
+@@ -22,7 +22,12 @@
+ #include <rex/dbg.h>
+ #include <rex/logging.h>
+ #include <rex/perf/counter.h>
++#include <rex/platform.h>
+ #include <SDL3/SDL.h>
++#if REX_PLATFORM_ANDROID
++#include <chrono>
++#include <cmath>
++#endif
+ 
+ REXCVAR_DEFINE_BOOL(audio_mute, false, "Audio", "Mute audio output");
+ 
+@@ -75,7 +80,15 @@ bool SDLAudioDriver::Initialize() {
+ 
+   // A 1-channel device gets the stereo fold too, then SDL collapses to mono.
+   // Handing it a 6ch stream instead would use SDL's own downmix.
++#if REX_PLATFORM_ANDROID
++  // Android reports a 6-channel default device on stereo phones and folds the
++  // 5.1 stream itself (AAudio, the AudioTrack path), and on a Retroid Pocket 5
++  // the fights and some cutscenes had no sound. The stereo fold of the PC's
++  // stereo devices runs here instead.
++  if (true) {
++#else
+   if (obtained_spec.channels <= 2) {
++#endif
+     SDL_DestroyAudioStream(sdl_stream_);
+     sdl_stream_ = nullptr;
+     desired_spec.channels = 2;
+@@ -124,6 +137,42 @@ void SDLAudioDriver::SubmitFrame(uint32_t frame_ptr) {
+ 
+   std::memcpy(output_frame, input_frame, frame_samples_ * sizeof(float));
+ 
++#if REX_PLATFORM_ANDROID
++  // The guest's 5.1 levels by channel every 10 s (the frames are sequential
++  // channels of big-endian floats), to tell silence from a mix that lives in
++  // channels a stereo fold weighs down.
++  {
++    static std::array<float, frame_channels_> peak{};
++    static uint64_t frames = 0, silent = 0;
++    static auto last = std::chrono::steady_clock::now();
++    bool sound = false;
++    for (uint32_t c = 0; c < frame_channels_; ++c) {
++      for (uint32_t s = 0; s < channel_samples_; ++s) {
++        uint32_t bits;
++        std::memcpy(&bits, &output_frame[c * channel_samples_ + s], sizeof(bits));
++        bits = __builtin_bswap32(bits);
++        float value;
++        std::memcpy(&value, &bits, sizeof(value));
++        value = std::fabs(value);
++        if (value > peak[c]) peak[c] = value;
++        sound = sound || value > 0.0f;
++      }
++    }
++    ++frames;
++    if (!sound) ++silent;
++    const auto now = std::chrono::steady_clock::now();
++    if (now - last >= std::chrono::seconds(10)) {
++      REXAPU_INFO("audio levels of the last {} frames ({} silent): FL {:.3f} FR {:.3f} FC {:.3f} LFE {:.3f} "
++                  "BL {:.3f} BR {:.3f}; output {} ch",
++                  frames, silent, peak[0], peak[1], peak[2], peak[3], peak[4], peak[5],
++                  static_cast<int>(sdl_device_channels_));
++      peak = {};
++      frames = silent = 0;
++      last = now;
++    }
++  }
++#endif
++
+   static uint32_t sdl_submit_count = 0;
+   if (sdl_submit_count < 10) {
+     REXAPU_DEBUG("SDLAudioDriver::SubmitFrame: frame_ptr={:08X} queued_count={}", frame_ptr,
 diff --git a/src/core/CMakeLists.txt b/src/core/CMakeLists.txt
 index 1ddafd0..a9a29ec 100644
 --- a/src/core/CMakeLists.txt
@@ -467,7 +543,7 @@ index 4fe1ca6..cf0691f 100644
  #include <rex/thread/fiber.h>
  
 diff --git a/src/core/filesystem_posix.cpp b/src/core/filesystem_posix.cpp
-index ef5bdf4..087b798 100644
+index ef5bdf4..e44f4dc 100644
 --- a/src/core/filesystem_posix.cpp
 +++ b/src/core/filesystem_posix.cpp
 @@ -30,6 +30,10 @@
@@ -492,7 +568,7 @@ index ef5bdf4..087b798 100644
  #else
    char buff[FILENAME_MAX] = "";
    readlink("/proc/self/exe", buff, FILENAME_MAX);
-@@ -302,5 +310,37 @@ std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
+@@ -302,5 +310,46 @@ std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
    return result;
  }
  
@@ -508,23 +584,32 @@ index ef5bdf4..087b798 100644
 +  return source.starts_with("content://") || source.starts_with("fd:");
 +}
 +
++// fd:<n> or /proc/self/fd/<n>: a duplicate of the launcher's descriptor, which
++// the caller owns. Not opened again through /proc/self/fd: that opens the
++// file anew under the app's own identity, and the shared storage refuses a
++// file the app holds only a document permission for (a disc image picked in
++// an earlier session then failed to map); the provider's descriptor itself
++// reads. The duplicate keeps the descriptor's access mode (mode is ignored).
 +int OpenAndroidContentFileDescriptor(const std::string_view uri, const char* mode) {
-+  if (!uri.starts_with("fd:")) {
++  (void)mode;
++  std::string_view number;
++  if (uri.starts_with("fd:")) {
++    number = uri.substr(3);
++  } else if (uri.starts_with("/proc/self/fd/")) {
++    number = uri.substr(14);
++  } else {
 +    return -1;
 +  }
 +  int fd = -1;
 +  try {
-+    fd = std::stoi(std::string(uri.substr(3)));
++    fd = std::stoi(std::string(number));
 +  } catch (...) {
 +    return -1;
 +  }
 +  if (fd < 0) {
 +    return -1;
 +  }
-+  // The caller owns the returned descriptor.
-+  int flags = O_CLOEXEC;
-+  flags |= (mode && std::string_view(mode).find('w') != std::string_view::npos) ? O_RDWR : O_RDONLY;
-+  return open(("/proc/self/fd/" + std::to_string(fd)).c_str(), flags);
++  return fcntl(fd, F_DUPFD_CLOEXEC, 0);
 +}
 +#endif  // REX_PLATFORM_ANDROID
 +
@@ -623,8 +708,31 @@ index 0000000..11c83e0
 +}
 +
 +}  // namespace rex
+diff --git a/src/core/mapped_memory_posix.cpp b/src/core/mapped_memory_posix.cpp
+index 8ee8e34..2e147ea 100644
+--- a/src/core/mapped_memory_posix.cpp
++++ b/src/core/mapped_memory_posix.cpp
+@@ -114,7 +114,17 @@ std::unique_ptr<MappedMemory> MappedMemory::Open(const std::filesystem::path& pa
+       open_flags |= O_RDWR;
+       break;
+   }
+-  int file_descriptor = open(path.c_str(), open_flags);
++  int file_descriptor = -1;
++#if REX_PLATFORM_ANDROID
++  // A descriptor the launcher opened (/proc/self/fd/<n>, the picked disc
++  // image): duplicated, not opened again by its path (filesystem_posix.cpp).
++  if (path.native().starts_with("/proc/self/fd/")) {
++    file_descriptor = rex::filesystem::OpenAndroidContentFileDescriptor(
++        path.native(), mode == Mode::kReadWrite ? "rw" : "r");
++  }
++  if (file_descriptor < 0)
++#endif
++    file_descriptor = open(path.c_str(), open_flags);
+   if (file_descriptor < 0) {
+     return nullptr;
+   }
 diff --git a/src/core/memory_posix.cpp b/src/core/memory_posix.cpp
-index b52bf39..863f858 100644
+index b52bf39..725322b 100644
 --- a/src/core/memory_posix.cpp
 +++ b/src/core/memory_posix.cpp
 @@ -53,8 +53,7 @@
@@ -637,7 +745,33 @@ index b52bf39..863f858 100644
  #endif
  
  namespace rex {
-@@ -432,6 +431,8 @@ bool QueryProtect(void* base_address, size_t& length, PageAccess& access_out) {
+@@ -304,12 +303,25 @@ void* AllocFixed(void* base_address, size_t length, AllocationType allocation_ty
+   if (errno == EEXIST && base_address &&
+       (allocation_type == AllocationType::kCommit ||
+        allocation_type == AllocationType::kReserveCommit)) {
++#if REX_PLATFORM_ANDROID
++    // Scanning /proc/self/maps (thousands of mappings on Android) for every
++    // commit took milliseconds of the guest threads' time. msync with MS_ASYNC
++    // changes nothing and fails with ENOMEM where the range is not fully
++    // mapped (EINVAL, an unaligned base: the scan).
++    const int mapped = msync(base_address, length, MS_ASYNC) == 0 ? 1 : errno == ENOMEM ? 0 : -1;
++    if (mapped == 1 || (mapped < 0 && IsRangeFullyMapped(base_address, length))) {
++      if (mprotect(base_address, length, static_cast<int>(prot_requested)) == 0) {
++        return base_address;
++      }
++    }
++#else
+     // Verify the entire range is mapped before using mprotect
+     if (IsRangeFullyMapped(base_address, length)) {
+       if (mprotect(base_address, length, static_cast<int>(prot_requested)) == 0) {
+         return base_address;
+       }
+     }
++#endif
+   }
+ #endif
+ 
+@@ -432,6 +444,8 @@ bool QueryProtect(void* base_address, size_t& length, PageAccess& access_out) {
  FileMappingHandle CreateFileMappingHandle(const std::filesystem::path& path, size_t length,
                                            PageAccess access, bool commit) {
  #if REX_PLATFORM_ANDROID
@@ -754,10 +888,18 @@ index 1655695..05df6d2 100644
  
  }  // namespace rex
 diff --git a/src/core/threading_posix.cpp b/src/core/threading_posix.cpp
-index 9ac8d15..30e20b0 100644
+index 9ac8d15..ef27877 100644
 --- a/src/core/threading_posix.cpp
 +++ b/src/core/threading_posix.cpp
-@@ -270,8 +270,8 @@ static sem_t* RexCreateAnonymousSemaphore() {
+@@ -14,6 +14,7 @@ static_assert(REX_PLATFORM_LINUX || REX_PLATFORM_MAC, "This file is POSIX-only")
+ #include <signal.h>
+ 
+ #include <atomic>
++#include <algorithm>
+ #include <array>
+ #include <cerrno>
+ #include <cstddef>
+@@ -270,8 +271,8 @@ static sem_t* RexCreateAnonymousSemaphore() {
  class PosixConditionBase {
   public:
    PosixConditionBase() {
@@ -768,7 +910,7 @@ index 9ac8d15..30e20b0 100644
      pthread_mutexattr_t attr;
      if (pthread_mutexattr_init(&attr) == 0) {
        if (pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST) == 0) {
-@@ -290,7 +290,7 @@ class PosixConditionBase {
+@@ -290,7 +291,7 @@ class PosixConditionBase {
    WaitResult Wait(std::chrono::milliseconds timeout) {
      bool executed;
      auto predicate = [this] { return this->signaled(); };
@@ -777,7 +919,7 @@ index 9ac8d15..30e20b0 100644
      auto native_mutex = static_cast<pthread_mutex_t*>(mutex_.native_handle());
      int lock_result = pthread_mutex_lock(native_mutex);
      if (lock_result == EOWNERDEAD) {
-@@ -344,7 +344,7 @@ class PosixConditionBase {
+@@ -344,7 +345,7 @@ class PosixConditionBase {
        locks.reserve(handles.size());
  
        for (size_t i = 0; i < handles.size(); ++i) {
@@ -786,6 +928,41 @@ index 9ac8d15..30e20b0 100644
          auto native_mutex = static_cast<pthread_mutex_t*>(handles[i]->mutex_.native_handle());
          int result = pthread_mutex_trylock(native_mutex);
          if (result == 0 || result == EOWNERDEAD) {
+@@ -414,9 +415,18 @@ class PosixConditionBase {
+       if (timeout == std::chrono::milliseconds::max()) {
+         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+       } else {
++#if REX_PLATFORM_ANDROID
++        // In microseconds: the last partial millisecond truncated to a zero
++        // sleep, and the wait spun until its end (a third of a core on the
++        // audio worker).
++        auto remaining = std::chrono::duration_cast<std::chrono::microseconds>(end_time - now);
++        std::this_thread::sleep_for(std::clamp(remaining, std::chrono::microseconds(100),
++                                               std::chrono::microseconds(1000)));
++#else
+         auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - now);
+         auto sleep_time = std::min(remaining, std::chrono::milliseconds(1));
+         std::this_thread::sleep_for(sleep_time);
++#endif
+       }
+     }
+   }
+@@ -1106,8 +1116,15 @@ std::chrono::milliseconds ComputeAlertableWaitTimeout(
+   if (deadline == std::chrono::steady_clock::time_point::max()) {
+     return kAlertablePollSlice;
+   }
++#if REX_PLATFORM_ANDROID
++  // Rounded up: a remaining fraction of a millisecond made a zero timeout,
++  // and the alertable wait spun until its deadline.
++  auto remaining = std::chrono::ceil<std::chrono::milliseconds>(
++      deadline - std::chrono::steady_clock::now());
++#else
+   auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+       deadline - std::chrono::steady_clock::now());
++#endif
+   if (remaining <= std::chrono::milliseconds::zero()) {
+     return std::chrono::milliseconds::zero();
+   }
 diff --git a/src/core/timer_queue.cpp b/src/core/timer_queue.cpp
 index 5cfea05..b029b60 100644
 --- a/src/core/timer_queue.cpp
@@ -891,6 +1068,72 @@ index 5cfea05..b029b60 100644
  };
  
  rex::thread::TimerQueue timer_queue_;
+diff --git a/src/system/mmio_handler.cpp b/src/system/mmio_handler.cpp
+index 2b93005..8484215 100644
+--- a/src/system/mmio_handler.cpp
++++ b/src/system/mmio_handler.cpp
+@@ -406,13 +406,36 @@ bool MMIOHandler::ExceptionCallback(arch::Exception* ex) {
+     // clears the watch we just hit).
+     // Do this under the lock so we don't introduce another race condition.
+     auto lock = global_critical_region_.Acquire();
+-    memory::PageAccess cur_access;
+-    size_t page_length = memory::page_size();
+-    memory::QueryProtect(fault_host_address, page_length, cur_access);
+-    if (cur_access != memory::PageAccess::kNoAccess &&
+-        (!is_write || cur_access != memory::PageAccess::kReadOnly)) {
+-      // Another thread has cleared this watch. Abort.
+-      return true;
++#if REX_PLATFORM_ANDROID
++    // QueryProtect scans /proc/self/maps, milliseconds with the thousands of
++    // mappings of an Android process, on every write watch hit. A write goes
++    // to the callback first (a watched physical page, or one another thread
++    // unwatched meanwhile, which it makes writable again); only a write it
++    // does not handle has the protection checked, as before, and a page that
++    // became writable meanwhile retries the write.
++    if (is_write) {
++      if (access_violation_callback_ &&
++          access_violation_callback_(std::move(lock), access_violation_callback_context_,
++                                     fault_host_address, is_write)) {
++        return true;
++      }
++      auto relock = global_critical_region_.Acquire();
++      memory::PageAccess cur_access;
++      size_t page_length = memory::page_size();
++      memory::QueryProtect(fault_host_address, page_length, cur_access);
++      return cur_access != memory::PageAccess::kNoAccess &&
++             cur_access != memory::PageAccess::kReadOnly;
++    }
++#endif
++    {
++      memory::PageAccess cur_access;
++      size_t page_length = memory::page_size();
++      memory::QueryProtect(fault_host_address, page_length, cur_access);
++      if (cur_access != memory::PageAccess::kNoAccess &&
++          (!is_write || cur_access != memory::PageAccess::kReadOnly)) {
++        // Another thread has cleared this watch. Abort.
++        return true;
++      }
+     }
+     // The address is not found within any range, so either a write watch or an
+     // actual access violation.
+diff --git a/src/system/xmemory.cpp b/src/system/xmemory.cpp
+index 76cc877..e616db9 100644
+--- a/src/system/xmemory.cpp
++++ b/src/system/xmemory.cpp
+@@ -609,7 +609,13 @@ bool Memory::AccessViolationCallback(std::unique_lock<std::recursive_mutex> glob
+           reinterpret_cast<uintptr_t>(host_address) & ~(uintptr_t(host_page_size - 1));
+       if (rex::memory::Protect(reinterpret_cast<void*>(page_base), host_page_size,
+                                rex::memory::PageAccess::kReadWrite, nullptr)) {
++#if REX_PLATFORM_ANDROID
++        // The usual case on Android, where the access violation handler does not
++        // query the protection first: another thread unwatched the page meanwhile.
++        REXSYS_DEBUG(
++#else
+         REXSYS_WARN(
++#endif
+             "Recovered stale physical page protection for guest {:08X} (host {:016X}, "
+             "guest_protect {:08X})",
+             virtual_address, static_cast<uint64_t>(page_base), guest_protect);
 diff --git a/src/ui/CMakeLists.txt b/src/ui/CMakeLists.txt
 index 5bd3dc5..d51e1b8 100644
 --- a/src/ui/CMakeLists.txt

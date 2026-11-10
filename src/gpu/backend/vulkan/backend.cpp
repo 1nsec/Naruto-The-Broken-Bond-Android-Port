@@ -10,7 +10,8 @@
 // command list goes to the queue only through FailureChannel::Authorize.
 //
 // Draws and resolves are in draw.inc/resolve.inc; presentation and its WSI
-// retirement are in present.inc/output.inc. They share this batch lifetime.
+// retirement are in present.inc/output.inc, the PC overlay over the presented
+// image in overlay.inc. They share this batch lifetime.
 #include "gpu/backend/backend.h"
 #include "gpu/backend/lifecycle.h"
 #include "gpu/backend/pipeline_set.h"
@@ -24,18 +25,28 @@
 #include "gpu/common/title_loading.h"
 #include "gpu/d3d/init/initializer_services.h"
 #include "gpu/diagnostics/profile.h"
+#include "gpu/overlay.h"
 #include "gpu/shaders/package.h"
 
 #include <algorithm>
+#include <atomic>
+#include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <filesystem>
 #include <functional>
+#include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
+#include <rex/cvar.h>
 #ifdef __ANDROID__
+#include <android/log.h>  // The overlay's state, once (overlay.inc).
 #include <SDL3/SDL.h>  // The ANativeWindow of the SDL window (present.inc, output.inc).
 #endif
 
@@ -48,6 +59,10 @@ constexpr std::chrono::milliseconds kWaitBudget{5000};
 constexpr size_t kUploadPageBytes = size_t(8) << 20;  // Pooled page; larger requests get their own.
 constexpr VkDeviceSize kUploadAlign = 512;             // Texel blocks and the texture rows of any format.
 constexpr uint64_t kBatchOperationsMax = 2048;         // A longer batch closes without waiting.
+// A batch with this many operations is submitted where a draw starts a new
+// render pass, so that the GPU works on the frame while the rest is recorded
+// instead of waiting for the frame's end (the pass ends there anyway).
+constexpr uint64_t kBatchOperationsEarly = 256;
 
 // How the next command uses an image or a buffer: the image's layout (none
 // for a buffer), the stages and the accesses.
@@ -280,6 +295,7 @@ class Backend final : public gpu::Backend {
   bool StageFront(uint32_t, uint32_t& slot, std::string& evidence) override;
   bool Present(uint32_t, bool, std::vector<uint8_t>& bgra, uint32_t& width, uint32_t& height,
                std::string& evidence) override;
+  bool PresentIdle(std::string& evidence) override;
   std::string ResourceCounts() override;
   bool ReleaseTexture(uint32_t key, std::string& evidence) override;
   bool ReleaseSampled(uint32_t address, std::string& evidence) override;
@@ -342,7 +358,13 @@ struct Backend::State {
   // Submits a recorded command buffer (none: only the fence, the readiness) as
   // sequence next_sequence, unless the session holds a failure (refused). A
   // failed submission poisons the owner.
-  bool Submit(VkCommandBuffer commands, VkResult& result, bool& refused);
+  bool Submit(VkCommandBuffer commands, VkResult& result, bool& refused, VkCommandBuffer prelude = VK_NULL_HANDLE);
+  // The open batch's prelude (Batch::prelude), begun at its first use; null
+  // with the result on failure.
+  VkCommandBuffer PreludeCommands(VkResult& result) {
+    if (!batch.prelude && !(batch.prelude = BeginList(result))) return VK_NULL_HANDLE;
+    return static_cast<plume::VulkanCommandList*>(batch.prelude.get())->vk;
+  }
 
   // Draws, clears, uploads and resolves are recorded into one open batch: a
   // pooled command list and persistent upload pages. A batch closes with one
@@ -363,12 +385,21 @@ struct Backend::State {
     uint64_t operations = 0;
     std::unique_ptr<DrawCache> graphics;
     uint64_t vs_version = 0, ps_version = 0;
-    VkDeviceAddress vs_constants = 0, ps_constants = 0;
+    // The VS and PS constant blocks of the last draw (an upload page and the
+    // block's offset), which the next draw binds again when unchanged.
+    VkBuffer vs_buffer{}, ps_buffer{};
+    VkDeviceSize vs_offset = 0, ps_offset = 0;
+    // The shared constants of the last draw, reused while their bytes repeat.
+    VkBuffer shared_buffer{};
+    VkDeviceSize shared_offset = 0;
+    std::array<uint8_t, 512> shared_bytes{};
     bool draw_pass_active = false;
     VkImage draw_color{}, draw_depth{};
+    uint32_t draw_color_key = 0, draw_depth_key = 0;  // Their surfaces.
     bool draw_bindings_valid = false;
     VkPipeline draw_pipeline{};
     std::array<VkDescriptorSet, 4> draw_sets{};
+    std::array<uint32_t, 3> draw_constant_offsets{};
     VkViewport draw_viewport{};
     VkRect2D draw_scissor{};
     std::array<float, 4> draw_blend{};
@@ -380,7 +411,24 @@ struct Backend::State {
     VkBuffer draw_indices{};
     VkDeviceSize draw_index_offset{};
     bool draw_index32 = false;
+    int32_t gpu_timer = -1;  // Its pair of timestamp queries (gpu_timers), with the profile.
+    // The uploads of buffers and sampled copies that no command of the batch
+    // used yet, recorded apart and submitted before the batch's list: the draw
+    // layer's render pass goes on instead of ending at each upload (on a tiled
+    // GPU each break stores the targets and loads them again).
+    std::unique_ptr<plume::RenderCommandList> prelude;
   };
+  // The GPU time of each batch for the profile (kGpu): a timestamp at its
+  // start and at its end, read once the batch completed.
+  static constexpr uint32_t kGpuTimerPairs = 256;
+  VkQueryPool gpu_timers{};
+  bool gpu_timers_tried = false;
+  uint32_t gpu_timer_next = 0;
+  double gpu_timer_period_ns = 0;
+  uint64_t gpu_timer_mask = 0;
+  void StartGpuTimer(Batch& b);
+  void EndGpuTimer(Batch& b);
+  void ReadGpuTimer(const Batch& b);
   bool batch_open = false, batch_refused = false;
   Batch batch;
   std::deque<Batch> batches_in_flight;
@@ -389,8 +437,9 @@ struct Backend::State {
   std::vector<UploadPage> free_pages;
   uint64_t batches_closed = 0, lists_created = 0, upload_pages_created = 0;
   VkCommandBuffer DrawCommands() const { return static_cast<plume::VulkanCommandList*>(batch.list.get())->vk; }
-  void EndDrawPass() {
+  void EndDrawPass(profile::Counter cause = profile::kPassEndCommand) {
     if (!batch.draw_pass_active) return;
+    profile::Count(cause, 1);
     vkCmdEndRenderPass(DrawCommands());
     batch.draw_pass_active = false;
     batch.draw_bindings_valid = false;
@@ -400,13 +449,13 @@ struct Backend::State {
   void DrawTransition(VkImage image, VkImageAspectFlags aspect, SyncState& state, const Use& use) {
     SyncState next = state;
     VkPipelineStageFlags stages{}; VkAccessFlags access{};
-    if (Synchronize(next, use, state.layout != use.layout, stages, access)) EndDrawPass();
+    if (Synchronize(next, use, state.layout != use.layout, stages, access)) EndDrawPass(profile::kPassEndBarrier);
     Transition(DrawCommands(), image, aspect, state, use);
   }
   void DrawTransition(VkBuffer buffer, SyncState& state, const Use& use) {
     SyncState next = state;
     VkPipelineStageFlags stages{}; VkAccessFlags access{};
-    if (Synchronize(next, use, false, stages, access)) EndDrawPass();
+    if (Synchronize(next, use, false, stages, access)) EndDrawPass(profile::kPassEndBarrier);
     Transition(DrawCommands(), buffer, state, use);
   }
   // A command list from the pool, begun; null with the result on failure.
@@ -456,6 +505,34 @@ struct Backend::State {
     }
   };
   std::unordered_map<uint32_t, Surface> surfaces;
+  // The largest color surface created (the frame's main target), and the
+  // performance options, read at each frame's end (draw.inc, LeftOut): the
+  // draws of the reflection passes left out (water_reflections off: a color
+  // target with depth of half its size), those of the characters' shadows
+  // (character_shadows off: a square color target without depth, at most half
+  // the main target's height) and the draw distance (draw_distance, 0: off).
+  uint32_t main_color_width = 0, main_color_height = 0;
+  bool skip_reflections = false, skip_character_shadows = false;
+  float draw_distance = 0;
+  // The draws with depth by the depth of their mesh's origin, with the
+  // profile, logged with the draw census: the rigid meshes by size (index
+  // count up to 1536, up to 6144, more) and depth (below 25, 50, 100, 200, 400
+  // units, farther), the rigid meshes placed at the world's origin, the others.
+  std::array<std::array<uint64_t, 6>, 3> depth_census{};
+  uint64_t depth_census_world = 0, depth_census_other = 0, depth_census_left_out = 0;
+  // The counter of a draw the target options leave out, kCounterCount when
+  // drawn. Their clears and resolves still run, so the water and the ground
+  // sample a defined, empty target.
+  profile::Counter LeftOutByTarget(const Surface* color, const Surface* depth) const {
+    if (skip_reflections && color && depth && uint64_t(color->desc.width) * 2 == main_color_width &&
+        uint64_t(color->desc.height) * 2 == main_color_height) return profile::kReflectionDrawsSkipped;
+    if (skip_character_shadows && color && !depth && color->desc.width == color->desc.height &&
+        uint64_t(color->desc.height) * 2 <= main_color_height) return profile::kShadowDrawsSkipped;
+    return profile::kCounterCount;
+  }
+  // The same for the draw distance, of a draw with depth once its constants
+  // are applied (draw.inc); counts the depth census with the profile.
+  profile::Counter LeftOutByDistance(const DrawRequest& r);
   std::vector<Surface> retired_surfaces;  // Released, waiting for their sequence.
   // Own textures of guest texture headers: the resolve destinations.
   struct Texture {
@@ -569,8 +646,96 @@ struct Backend::State {
                   const std::array<uint32_t, 12>& constants, VkBuffer ramp, VkDeviceSize ramp_offset, std::string& evidence);
   bool OutputEffects(OutputImage& source, BackImage& back, uint32_t x, uint32_t y, uint32_t width, uint32_t height,
                      VkBuffer ramp, VkDeviceSize ramp_offset, std::string& evidence);
+  // The steps of Present and PresentIdle: the next back image (the open batch
+  // submitted, the swapchain made for the window), kSkipped with the evidence
+  // when there is no window to present to; then, once the image is drawn in
+  // the open batch, the transition to presentation, the submission and the
+  // present. sequence: the batch's.
+  enum class Acquired { kImage, kSkipped, kFailed };
+  Acquired AcquireBack(uint32_t& index, std::vector<int32_t>& results, std::string& evidence);
+  bool DrawStage(OutputImage& stage, BackImage& back, std::string& evidence);
+  int last_presented_slot = -1;  // The stage slot of the last game image presented; -1 before the first.
+  bool QueuePresent(uint32_t index, uint64_t& sequence, VkResult& present_result, std::string& evidence);
+  // The PC overlay (gpu/overlay.h) over the back image, last before its
+  // presentation (overlay.inc). An overlay the device cannot draw is left out
+  // (overlay_status says why) and the game goes on; false only when the batch
+  // failed.
+  struct OverlayTexture {
+    std::weak_ptr<const overlay::Texture> source;
+    std::shared_ptr<VmaImage> image;
+    std::shared_ptr<GraphicsResources> objects;  // Its view and the pool of its descriptor set.
+    VkDescriptorSet set{};
+    SyncState state;
+  };
+  VkDescriptorSetLayout overlay_set{};
+  VkPipelineLayout overlay_layout{};
+  std::shared_ptr<GraphicsResources> overlay_samplers;  // Linear, point.
+  std::map<VkFormat, std::shared_ptr<GraphicsPipeline>> overlay_pipelines;
+  std::unordered_map<const overlay::Texture*, OverlayTexture> overlay_textures;
+  std::shared_ptr<const overlay::Texture> overlay_white;  // Bound for the color-only draws.
+  std::string overlay_status = "none";
+  uint64_t overlay_frames = 0;
+  bool overlay_failed = false;
+  bool EnsureOverlay(VkFormat format, std::shared_ptr<GraphicsPipeline>& pipeline, const char*& reason, VkResult& result);
+  bool PrepareOverlayTexture(const overlay::Texture& texture, OverlayTexture& gpu, const char*& reason, VkResult& result);
+  bool DrawOverlay(BackImage& back, std::string& evidence);
+  void OverlayFailed(const char* reason, VkResult result);
+  void ReleaseOverlay();
   void ReleaseOutput();
   std::map<std::string, PipelineSet::Pipeline> resolve_pipelines;
+  // The draws by their targets (depth only or not, the color and depth
+  // surface sizes), logged every 30 s with the profile: which passes cost the
+  // frames (the shadow maps are the depth-only draws into their own surfaces).
+  std::unordered_map<uint64_t, uint64_t> draw_census;
+  std::chrono::steady_clock::time_point draw_census_since{};
+  uint64_t draw_census_presents = 0;
+  // A color surface of each size drawn to, for the snapshots (SnapshotSurfaces).
+  std::unordered_map<uint64_t, uint32_t> census_color_keys;
+  bool surfaces_snapshotted = false;
+  void CountDraw(bool depth_only, const Surface* color, const Surface* depth) {
+    const auto size = [](const Surface* s) {
+      return s ? (uint64_t(std::min(s->desc.width, 0x7FFFu)) << 15) | std::min(s->desc.height, 0x7FFFu) : 0;
+    };
+    ++draw_census[(uint64_t(depth_only) << 60) | (size(color) << 30) | size(depth)];
+    if (color && !surfaces_snapshotted) census_color_keys[size(color)] = color->desc.key;
+  }
+  void LogDrawCensus();
+  // Once, in a busy frame with the profile: an image of each color surface
+  // size the frame drew to, as BMP files in REX_NATIVE_FRAME_DIR/surfaces
+  // (which pass is which, for the performance options).
+  void SnapshotSurfaces();
+  // The pipeline cache every pipeline is created through, kept on disk
+  // between sessions when the app names a file (pipeline_cache.inc).
+  VkPipelineCache pipeline_cache{};
+  bool pipeline_cache_tried = false;
+  std::string pipeline_cache_path, pipeline_cache_status = "none";
+  size_t pipeline_cache_loaded = 0;
+  std::atomic<uint64_t> pipelines_created{0};  // Graphics pipelines made, by the draws and the asynchronous threads.
+  uint64_t pipelines_saved = 0;                // pipelines_created at the last save.
+  std::chrono::steady_clock::time_point pipeline_cache_saved_at{};
+  std::thread pipeline_cache_writer;
+  std::atomic<bool> pipeline_cache_writing{false};
+  std::atomic<uint64_t> pipeline_cache_saves{0}, pipeline_cache_saved_bytes{0};
+  // The pipelines this device has drawn, in the order of their first draw over
+  // the sessions (BROKENBOND_PIPELINE_LIST): the list the dispatcher's pool
+  // precompiles at the next boot (shaders/pipelines.cpp), one line each.
+  std::vector<uint64_t> pipeline_order;  // pipeline_descs keys, in the order of their first draw.
+  size_t pipeline_order_listed = 0;      // pipeline_order entries already looked at.
+  std::string pipeline_list_path;
+  std::vector<std::string> pipeline_list_lines;
+  std::unordered_set<uint64_t> pipeline_list_keys;  // Logical keys (PipelineKey) of the lines.
+  size_t pipeline_list_loaded = 0;
+  bool LearnPipelines();  // New lines for the pipelines drawn since the last call; true when any.
+  ~State() {
+    if (pipeline_cache_writer.joinable()) pipeline_cache_writer.join();
+  }
+  void EnsurePipelineCache();
+  // Saves when pipelines were created since the last save: on its own thread,
+  // or before returning (wait).
+  void SavePipelineCache(bool wait);
+  void MaybeSavePipelineCache();  // At a present: every kPipelineCacheSaveInterval at most.
+  void ReleasePipelineCache();
+  std::string PipelineCacheSummary() const;
   std::array<uint8_t, 4096> vs_block{}, ps_block{};
   bool EnsureGraphics(std::string& evidence);
   bool ResolvePass(Surface& source, Texture& dest, int32_t sample, std::string& evidence);
@@ -578,6 +743,7 @@ struct Backend::State {
     for (auto view : fallback_views) if (view) vkDestroyImageView(vulkan->vk, view, nullptr);
     fallback_views = {}; fallback_images = {}; fallback_initialized = false;
     pipelines.clear(); resolve_pipelines.clear(); pipeline_descs.clear();
+    pipeline_order.clear(); pipeline_order_listed = 0;
     pipeline_origins.clear(); pipeline_worlds.clear(); pipeline_create_us.clear();
     if (draw_layout) vkDestroyPipelineLayout(vulkan->vk, draw_layout, nullptr);
     if (resolve_layout) vkDestroyPipelineLayout(vulkan->vk, resolve_layout, nullptr);
@@ -599,6 +765,8 @@ struct Backend::State {
 #include "gpu/backend/vulkan/resolve.inc"
 #include "gpu/backend/vulkan/present.inc"
 #include "gpu/backend/vulkan/output.inc"
+#include "gpu/backend/vulkan/overlay.inc"
+#include "gpu/backend/vulkan/pipeline_cache.inc"
 
 #if defined(NATIVE_RENDERER_ENGINE_FAULT_TEST)
 class Backend::State::Hooks final : public CompletionTestHooks {
@@ -649,7 +817,7 @@ class Backend::State::Hooks final : public CompletionTestHooks {
 };
 #endif
 
-bool Backend::State::Submit(VkCommandBuffer commands, VkResult& result, bool& refused) {
+bool Backend::State::Submit(VkCommandBuffer commands, VkResult& result, bool& refused, VkCommandBuffer prelude) {
   refused = false;
   VkFence fence = VK_NULL_HANDLE;
   if (!completion->Acquire(fence, result)) {
@@ -660,8 +828,9 @@ bool Backend::State::Submit(VkCommandBuffer commands, VkResult& result, bool& re
   const uint64_t sequence = next_sequence;
   auto* queue_native = static_cast<plume::VulkanCommandQueue*>(queue.get())->queue;
   VkSubmitInfo info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-  info.commandBufferCount = commands ? 1 : 0;
-  info.pCommandBuffers = commands ? &commands : nullptr;
+  const VkCommandBuffer lists[2]{prelude, commands};
+  info.commandBufferCount = (prelude ? 1u : 0u) + (commands ? 1u : 0u);
+  info.pCommandBuffers = !info.commandBufferCount ? nullptr : prelude ? lists : &lists[1];
   info.signalSemaphoreCount = submit_signal ? 1 : 0;
   info.pSignalSemaphores = submit_signal ? &submit_signal : nullptr;
 #if defined(NATIVE_RENDERER_ENGINE_FAULT_TEST)
@@ -743,11 +912,13 @@ VkResult Backend::State::EndList(plume::RenderCommandList& list) {
 void Backend::State::Reclaim(uint64_t completed) {
   while (!batches_in_flight.empty() && batches_in_flight.front().sequence <= completed) {
     Batch& done = batches_in_flight.front();
+    ReadGpuTimer(done);
     if (done.graphics && free_draw_caches.size() < 4) {
       done.graphics->Recycle();
       free_draw_caches.push_back(std::move(done.graphics));
     }
     free_lists.push_back(std::move(done.list));
+    if (done.prelude) free_lists.push_back(std::move(done.prelude));
     for (auto& page : done.pages)
       if (page.buffer->size == kUploadPageBytes) {
         page.used = 0;
@@ -798,7 +969,49 @@ bool Backend::State::OpenBatch(const char*& reason, VkResult& result) {
   }
   batch = std::move(next);
   batch_open = true;
+  StartGpuTimer(batch);
   return true;
+}
+
+void Backend::State::StartGpuTimer(Batch& b) {
+  if (!profile::Profiling()) return;
+  if (!gpu_timers_tried) {
+    gpu_timers_tried = true;
+    uint32_t count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(vulkan->physicalDevice, &count, nullptr);
+    std::vector<VkQueueFamilyProperties> families(count);
+    vkGetPhysicalDeviceQueueFamilyProperties(vulkan->physicalDevice, &count, families.data());
+    const uint32_t family = vulkan->queueFamilyIndices[0];
+    const uint32_t bits = family < families.size() ? families[family].timestampValidBits : 0;
+    const float period = vulkan->physicalDeviceProperties.limits.timestampPeriod;
+    if (!bits || period <= 0) return;
+    VkQueryPoolCreateInfo info{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+    info.queryType = VK_QUERY_TYPE_TIMESTAMP; info.queryCount = 2 * kGpuTimerPairs;
+    if (vkCreateQueryPool(vulkan->vk, &info, nullptr, &gpu_timers) != VK_SUCCESS) { gpu_timers = VK_NULL_HANDLE; return; }
+    gpu_timer_period_ns = period;
+    gpu_timer_mask = bits >= 64 ? ~uint64_t(0) : (uint64_t(1) << bits) - 1;
+  }
+  if (!gpu_timers) return;
+  b.gpu_timer = int32_t(gpu_timer_next++ % kGpuTimerPairs);
+  const VkCommandBuffer commands = DrawCommands();
+  vkCmdResetQueryPool(commands, gpu_timers, 2 * uint32_t(b.gpu_timer), 2);
+  vkCmdWriteTimestamp(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, gpu_timers, 2 * uint32_t(b.gpu_timer));
+}
+
+void Backend::State::EndGpuTimer(Batch& b) {
+  if (b.gpu_timer < 0 || !gpu_timers) return;
+  b.list->setFramebuffer(nullptr);
+  vkCmdWriteTimestamp(Commands(), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, gpu_timers, 2 * uint32_t(b.gpu_timer) + 1);
+}
+
+void Backend::State::ReadGpuTimer(const Batch& b) {
+  if (b.gpu_timer < 0 || !gpu_timers) return;
+  uint64_t stamps[2]{};
+  if (vkGetQueryPoolResults(vulkan->vk, gpu_timers, 2 * uint32_t(b.gpu_timer), 2, sizeof(stamps), stamps,
+                            sizeof(uint64_t), VK_QUERY_RESULT_64_BIT) != VK_SUCCESS)
+    return;
+  const uint64_t ticks = (stamps[1] - stamps[0]) & gpu_timer_mask;
+  profile::Add(profile::kGpu, uint64_t(double(ticks) * gpu_timer_period_ns));
 }
 
 bool Backend::State::CloseBatch(const char*& reason, VkResult& result) {
@@ -809,8 +1022,10 @@ bool Backend::State::CloseBatch(const char*& reason, VkResult& result) {
     return false;
   }
   profile::Timer submit_time(profile::kEngineSubmit);
+  EndDrawPass(profile::kPassEndBatch);
+  EndGpuTimer(batch);
   batch_open = false;
-  if ((result = EndList(*batch.list)) != VK_SUCCESS) {
+  if ((result = EndList(*batch.list)) != VK_SUCCESS || (batch.prelude && (result = EndList(*batch.prelude)) != VK_SUCCESS)) {
     operation_poisoned = true;
     reason = "native-batch-close";
     return false;
@@ -828,7 +1043,9 @@ bool Backend::State::CloseBatch(const char*& reason, VkResult& result) {
       return false;
     }
   bool refused = false;
-  if (!Submit(Commands(), result, refused)) {
+  const VkCommandBuffer prelude =
+      batch.prelude ? static_cast<plume::VulkanCommandList*>(batch.prelude.get())->vk : VK_NULL_HANDLE;
+  if (!Submit(Commands(), result, refused, prelude)) {
     batch_refused = refused;
     reason = refused ? "native-batch-refused-after-failure" : "native-batch-submit";
     return false;
@@ -996,9 +1213,31 @@ bool Backend::Initialize(std::string& evidence, const RenderMode& mode) {
     return fail("native-vulkan-shader-contract", VK_ERROR_INITIALIZATION_FAILED,
                 fmt::format(",\"error\":\"{}\"", contract_error));
   for (auto& name : MissingFromDevice(state_->contract, *vulkan)) missing.push_back(std::move(name));
-  if (!missing.empty())
+  if (!missing.empty()) {
+    // What the driver itself reports for buffer device addresses (the shader
+    // cache's buffer access), next to what Plume enabled: tells a driver
+    // without the feature from one whose extension list Plume did not match.
+    uint32_t extension_count = 0;
+    vkEnumerateDeviceExtensionProperties(physical, nullptr, &extension_count, nullptr);
+    std::vector<VkExtensionProperties> extensions(extension_count);
+    vkEnumerateDeviceExtensionProperties(physical, nullptr, &extension_count, extensions.data());
+    bool bda_extension = false;
+    for (const auto& extension : extensions)
+      bda_extension |= std::string_view(extension.extensionName) == VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
+    VkPhysicalDeviceBufferDeviceAddressFeatures bda{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES};
+    VkPhysicalDeviceFeatures2 queried{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &bda};
+    vkGetPhysicalDeviceFeatures2(physical, &queried);
+    VkPhysicalDeviceProperties device_properties{};
+    vkGetPhysicalDeviceProperties(physical, &device_properties);
     return fail("native-vulkan-capability", VK_ERROR_FEATURE_NOT_PRESENT,
-                fmt::format(",\"missing\":[\"{}\"]", fmt::join(missing, "\",\"")));
+                fmt::format(",\"missing\":[\"{}\"],\"device\":\"{}\",\"device_api\":\"{}\",\"extension_count\":{},"
+                            "\"bda_extension\":{},\"bda_feature\":{},\"bda_enabled\":{},\"descriptor_indexing_enabled\":{},"
+                            "\"shader_int64\":{}",
+                            fmt::join(missing, "\",\""), JsonText(device_properties.deviceName),
+                            Version(device_properties.apiVersion), extension_count, bda_extension,
+                            bool(bda.bufferDeviceAddress), vulkan->capabilities.bufferDeviceAddress,
+                            vulkan->capabilities.descriptorIndexing, bool(queried.features.shaderInt64)));
+  }
   // The MSAA sample count, lowered to one the device supports for both surface formats.
   state_->render_mode = mode;
   for (unsigned i = 0; i < 256; ++i)
@@ -1120,6 +1359,8 @@ bool Backend::Shutdown(std::string& evidence) {
   state_->retired_textures.clear();
   state_->retired_sampled.clear();
   state_->retired_buffers.clear();
+  // Saved first, with the list of the pipelines drawn, when the session created or drew new ones.
+  state_->ReleasePipelineCache();
   state_->pipeline_set.Clear();
   state_->ReleaseGraphics();
   state_->surfaces.clear();
@@ -1129,6 +1370,9 @@ bool Backend::Shutdown(std::string& evidence) {
   state_->free_views.clear();
   state_->next_view = 1;
   state_->completion.reset();  // Its fences, before the device.
+  if (state_->gpu_timers) vkDestroyQueryPool(state_->vulkan->vk, state_->gpu_timers, nullptr);
+  state_->gpu_timers = VK_NULL_HANDLE;
+  state_->gpu_timers_tried = false;
 #if defined(NATIVE_RENDERER_ENGINE_FAULT_TEST)
   if (state_->hold) vkDestroySemaphore(state_->vulkan->vk, state_->hold, nullptr);
   state_->hold = VK_NULL_HANDLE;
@@ -1220,6 +1464,10 @@ bool Backend::CreateSurface(const SurfaceDesc& guest, std::string& evidence) {
       plume::RenderFramebufferDesc(nullptr, 0, surface.texture.get()) : plume::RenderFramebufferDesc(attachment, 1));
   if (!surface.framebuffer || !static_cast<plume::VulkanFramebuffer*>(surface.framebuffer.get())->vk)
     return fail("native-surface-framebuffer");
+  if (!depth && uint64_t(desc.width) * desc.height > uint64_t(state_->main_color_width) * state_->main_color_height) {
+    state_->main_color_width = desc.width;
+    state_->main_color_height = desc.height;
+  }
   state_->surfaces.emplace(desc.key, std::move(surface));
   evidence = fmt::format("{{\"created\":true,\"key\":{},\"width\":{},\"height\":{},\"guest_format\":{},"
       "\"host_format\":\"{}\",\"samples\":{},\"live_surfaces\":{}}}", desc.key, desc.width, desc.height,
@@ -1306,6 +1554,8 @@ bool Backend::ClearSurfaces(const ClearRequest& request, uint64_t& fence, std::s
   const char* batch_reason = nullptr;
   if (!state_->OpenBatch(batch_reason, result)) return fail(batch_reason, result);
   plume::RenderCommandList& list = *state_->batch.list;
+  profile::Count(profile::kClears, 1);
+  if (state_->batch.draw_pass_active) profile::Count(profile::kClearsInPass, 1);
   const VkCommandBuffer commands = state_->Commands();
   for (auto* surface : colors) {
     HostRect rect;
@@ -1385,6 +1635,10 @@ bool Backend::CloseFrame(void* event, uint64_t& target, std::string& evidence) {
   VkResult result = VK_SUCCESS;
   if (!state_->CloseBatch(batch_reason, result)) return fail(batch_reason, result);
   state_->pipeline_set.EndFrame();
+  state_->skip_reflections = rex::cvar::GetFlagByName("water_reflections") == "false";
+  state_->skip_character_shadows = rex::cvar::GetFlagByName("character_shadows") == "false";
+  const float distance = std::strtof(rex::cvar::GetFlagByName("draw_distance").c_str(), nullptr);
+  state_->draw_distance = std::isfinite(distance) && distance > 0 ? distance : 0;
   target = state_->next_sequence - 1;  // The last submission.
   const uint64_t completed = state_->completion->Completed();
   if (!state_->completion->SetEventOnCompletion(target, static_cast<HANDLE>(event)))
@@ -1419,10 +1673,11 @@ std::string Backend::PipelineSummary() {
   return state_->pipeline_set.Summary() + fmt::format(
       ",\"vulkan_draws\":{},\"draw_descriptor_pools\":{},\"draw_descriptor_groups\":{},\"draw_image_views\":{},"
       "\"draw_samplers\":{},\"draw_framebuffers\":{},\"draw_constant_bytes\":{},\"draw_render_passes\":{},"
-      "\"draw_pipeline_binds\":{},\"draw_descriptor_binds\":{},\"draw_set_allocations\":{}",
+      "\"draw_pipeline_binds\":{},\"draw_descriptor_binds\":{},\"draw_set_allocations\":{},\"vulkan_skipped_draws\":{},"
+      "\"pipeline_cache\":{}",
       c.draws.load(), c.pools.load(), c.groups.load(), c.views.load(), c.samplers.load(),
       c.framebuffers.load(), c.constant_bytes.load(), c.passes.load(), c.pipeline_binds.load(), c.descriptor_binds.load(),
-      c.set_allocations.load());
+      c.set_allocations.load(), c.skipped.load(), state_->PipelineCacheSummary());
 }
 
 bool Backend::LiveResources(ResourceKeys& keys, std::string& evidence) {
@@ -1674,7 +1929,10 @@ bool Backend::UploadSampled(const DrawTexture& t, std::string& evidence) {
     regions[i].imageExtent = {std::max(t.width >> level, 1u), std::max(t.height >> level, 1u), 1};
   }
   // Every level of every face is written: the previous content is not kept.
-  const VkCommandBuffer commands = state_->Commands();
+  // Into the batch's prelude when no command of the batch used the copy yet.
+  VkCommandBuffer commands = s.last_use != state_->batch.sequence ? state_->PreludeCommands(result) : VK_NULL_HANDLE;
+  if (!commands) commands = state_->Commands();
+  else profile::Count(profile::kPreludeUploads, 1);
   Transition(commands, s.image->image, VK_IMAGE_ASPECT_COLOR_BIT, s.state, kCopyDest, true);
   vkCmdCopyBufferToImage(commands, page->buffer->buffer, s.image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                          subresources, regions.data());
@@ -1761,7 +2019,10 @@ bool Backend::UploadBuffer(const BufferUpload& u, std::string& evidence) {
     copies.push_back({at, offset, data.size()});
     at += data.size();
   }
-  const VkCommandBuffer commands = state_->Commands();
+  // Into the batch's prelude when no command of the batch used the buffer yet.
+  VkCommandBuffer commands = b.last_use != state_->batch.sequence ? state_->PreludeCommands(result) : VK_NULL_HANDLE;
+  if (!commands) commands = state_->Commands();
+  else profile::Count(profile::kPreludeUploads, 1);
   Transition(commands, b.buffer->buffer, b.state, kBufferCopyDest);
   vkCmdCopyBuffer(commands, page->buffer->buffer, b.buffer->buffer, uint32_t(copies.size()), copies.data());
   Transition(commands, b.buffer->buffer, b.state, kBufferDraw);

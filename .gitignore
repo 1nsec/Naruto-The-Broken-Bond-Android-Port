@@ -52,3 +52,4 @@ __pycache__/
 /android/local.properties
 /android/*.keystore
 /android/app/src/main/assets/gpu/
+/android/app/src/main/assets/symbols/

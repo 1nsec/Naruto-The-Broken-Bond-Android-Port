@@ -1,9 +1,10 @@
-# Android (alpha)
+# Android (beta)
 
 This repository builds the port as an Android app: the same recompiled game, its native renderer
-on Vulkan, and the PC options menu, with a launcher and on-screen controls. It is an **alpha**:
-the APK is built and packaged in CI, but it has not been tested on a phone yet, so expect crashes
-and graphics problems. Logs from real devices are what moves it forward (see
+on Vulkan, and the PC options menu, with a launcher and on-screen controls. It is a **beta**: it
+plays at 30 FPS on a Retroid Pocket 5 (Snapdragon 865, with the bundled Turnip driver; the open
+world with a short draw distance), but it has been tested on few devices, so expect the odd crash,
+graphics problem or stutter. Logs from real devices are what moves it forward (see
 [Reporting problems](#reporting-problems)).
 
 > **No game files are included, and none are downloaded.** The game code is generated from your
@@ -55,7 +56,7 @@ Then, in PowerShell 7 at the repository root:
 ./scripts/build-android.ps1
 ```
 
-The result is `dist/NarutoBrokenBond-Android-2.5-android-alpha.apk`. With a phone connected over
+The result is `dist/NarutoBrokenBond-Android-2.5-android-beta.apk`. With a phone connected over
 USB (developer options, USB debugging on), `-Install` also installs it with `adb`.
 
 What the script does:
@@ -125,13 +126,17 @@ workflow; its APK cannot play anything.
 3. **Settings** has the options worth setting before the first start (render resolution, frame
    rate, anti-aliasing, language, on-screen controls). They are saved to `naruto.toml`; in game,
    PC Options has all of them.
-4. Tap **Play**. The first start takes a while, and new areas can stutter once while their
-   pipelines are created.
+4. Tap **Play**. The first start takes a while, and new areas can stutter the first time they are
+   played while their pipelines are created (see [Performance](#performance)).
 
 ### Controls
 
-- **On-screen controller:** touch the lower left of the screen for the left stick and the lower
-  middle for the camera stick (each appears where you touch). Each button shows its action, with
+- **On-screen controller:** touch the lower left of the screen for the left stick (it appears
+  where you touch). The camera has no stick: drag a finger anywhere else on the screen to turn it,
+  as in mobile games. Where the player turns the camera (free roaming), the drag's distance turns
+  it like the PC port's mouse (`mouse_camera.cpp`; *Camera drag sensitivity* in Settings, *Touch
+  camera sensitivity* in PC Options > Controls, `touch_camera_sensitivity` in naruto.toml);
+  elsewhere the drag pushes the right stick from where it began. Each button shows its action, with
   the pad button in a small badge: the big **X** (attack) at the lower right with **A** (jump),
   **Y** (heavy attack), **B** (block) and **RB** (kunai) around it and **RT** (sprint) above;
   **LT** (jutsus) and **LB** (inventory) on the upper left under the health bar, with the D-pad
@@ -139,9 +144,116 @@ workflow; its APK cannot play anything.
   (Back + Start). Opacity and size are in Settings. The icons are
   [Material Symbols](https://github.com/google/material-design-icons) (Apache License 2.0; the
   license is in the app's `assets/licenses`).
-- **Controllers:** Bluetooth and USB controllers work through SDL3 (Xbox, PlayStation, Switch Pro
-  and most Android gamepads). The on-screen controller hides while one is connected.
+- **Controllers:** Bluetooth and USB controllers, and the controls built into handhelds such as the
+  Retroid Pocket, work through SDL3 (Xbox, PlayStation, Switch Pro and most Android gamepads).
+  The on-screen controller hides while one is connected and leaves the game's controller list, so
+  a physical controller is always player 1. **Back + Start** opens PC Options.
 - **Back gesture:** opens a menu to continue, hide or show the on-screen controls, or quit.
+
+### Performance
+
+- **Presets** (Settings > Graphics): *Performance* (540p, no anti-aliasing or texture filtering;
+  for the Snapdragon 865 and similar), *Balanced* (720p, the original) and *Quality* (1080p with
+  edge smoothing). On Android the render resolution also goes below the original 720p (360p to
+  540p), which a phone GPU gains most from; the image is scaled up to the screen.
+- **Skip unready graphics** (Settings, on by default; PC Options > Graphics): a draw whose graphics
+  pipeline the driver is still compiling is left out of its frame for a moment and the pipeline is
+  compiled on other cores, instead of the frame waiting for it. Phone drivers compile slowly, so
+  without it every new effect freezes the game for a moment.
+- **Pipelines kept between sessions:** the renderer creates every pipeline through a Vulkan
+  pipeline cache saved in the app's private storage (`files/shader-cache/vulkan-pipelines.bin`,
+  every 20 seconds while new ones are made, and when the game closes). The next sessions make the
+  same pipelines from it in a fraction of the time, so an area stutters only the first time it is
+  played. A file made by another driver (Settings > GPU driver) is ignored and replaced. Mesa's own
+  disk cache for Turnip is pointed at `files/shader-cache/mesa`.
+- **Pipelines prepared ahead:** with the cache, the renderer keeps the list of the pipelines drawn
+  on the device (`files/shader-cache/pipelines.list`, in the order of their first draw, with the
+  area each was first drawn in). The next sessions prepare them in the background from the start,
+  and those of an area while its loading screen is up, as the PC version does with the list built
+  from its test boots (the APK is built without one).
+- **Uploads outside the render pass:** vertex, index and texture data the game sends in the middle
+  of a frame is copied before the frame's drawing (a prelude command list submitted first), unless
+  the frame already used that buffer or texture. On a tiled GPU (Adreno) each interrupted render
+  pass stores the render targets to memory and loads them back.
+- **Shader constants in uniform buffers:** the game shaders read their constants from uniform
+  buffers (bound with dynamic offsets in draw set 3), which the GPU loads into its constant
+  registers, instead of one memory load per constant and per vertex or pixel; repeated shared
+  constants are not uploaded again.
+- **Fewer render passes:** a draw without depth test on the color target of the open render pass,
+  or a depth-only draw on its depth target, stays in that pass (with the depth attached and its
+  test off, or the color attached and not written) instead of starting a new one; on a tiled GPU
+  each pass stores its targets to memory and loads them back. The performance log counts these
+  draws and why passes ended (another target, a barrier, another command, the batch's end).
+- **No busy threads:** SDL's event wait on Android never blocked (each pump queued a poll sentinel
+  that woke it), which kept a whole fast core busy; the poll sentinel is off, so the UI thread
+  sleeps until an event. Timed waits of the runtime no longer spin through their last fraction of a
+  millisecond, and a memory commit (`msync` tells whether the range is mapped) or a write watch
+  hit (the access violation callback goes first; only a write it does not handle has the page's
+  protection read) no longer scans `/proc/self/maps`.
+- **Earlier submission:** a batch of 256 operations or more goes to the GPU where a draw starts a
+  new render pass, so the GPU works on a frame while the rest of it is recorded, instead of waiting
+  for the frame's end.
+- **Water reflections** (Settings and PC Options, off in the Performance preset): off, the draws
+  of the reflection pass (a color target with depth of half the main target's size; about a sixth
+  of the open world's draws) are left out, and the water reflects nothing. Their constants and
+  texture copies still reach the renderer, so the draws after them are unchanged.
+- **Character shadows** (Settings and PC Options, off in the Performance preset): off, the draws
+  of the characters' silhouettes into their shadow maps (square color targets without depth,
+  256 x 256 and 128 x 128 at 720p) are left out; the maps stay cleared and the ground shows no
+  shadow. A small gain: about 50 small draws per frame.
+- **Draw distance** (Settings and PC Options, experimental; Medium in the Performance preset): a
+  distance of the renderer's own, in game units (Medium 120, Short 60; `draw_distance` in
+  naruto.toml, 0 = the game's). The scene draws of rigid meshes with their own world matrix (the
+  vertex shader has `g_mWorldViewProj` at c0 and `g_mWorld` at c12, no bone palette, no
+  instancing) are left out when the origin of the mesh is farther in front of the camera than the
+  distance (c3.w, the clip w of the origin), up to 1536 indices, or twice the distance, up to 6144.
+  Larger meshes (ground, houses), meshes placed at the world's origin, characters and instanced
+  vegetation always stay. With the performance log, logcat gets a *Depth census* every 30 s: the
+  draws per frame by origin depth and mesh size, and those left out.
+- The water reflections, character shadows and draw distance change right away from PC Options.
+- **Turnip rendering** (Settings, experimental): *Automatic* lets Turnip choose per render pass
+  between its on-chip tiles (gmem) and drawing straight to memory (sysmem); the two others force
+  one (`TU_DEBUG`), to compare frame rates.
+- **Performance log** (Settings, on by default during the beta): writes
+  `pipeline-runs/<time>/performance.csv` in the data folder (one line per second: frame times,
+  stutters, the GPU's busy time, the time of the title thread, the translator and the engine and
+  where it goes, render passes, what the pipelines did; the newest five sessions are kept), a
+  draw census every 30 seconds in the system log (draws per frame by render target), once per
+  session images of the frame's render targets (`surfaces/`, to tell its passes apart), and a
+  sampling profile (`profile.txt`, every 30 seconds: the CPU time of each thread and the core it
+  last ran on, then the functions that take the most CPU time on each busy thread, from SIGPROF
+  samples of each thread's own CPU time and the symbol files the build packs into the APK,
+  `assets/symbols`). **Save logs for a problem report** includes the newest
+  three logs and profiles and the newest images. Its timers cost little: the counter is read
+  without a barrier and scaled without divisions, each slot has its own cache line, and the
+  slots timed around every draw time one call in eight on each thread (counted eight times).
+- The launcher's **GitHub** button opens the project's page (new versions and problem reports); the
+  credit line under the logo opens its author's (1nsec).
+- **DLC** (launcher): the player picks the game's downloadable content packages (STFS files, CON,
+  LIVE or PIRS, content type `00000002` of title `55530825`); the launcher checks their header and
+  copies them into `dlc/` in the data folder. At the next start, once the title's module is loaded
+  and before its main thread runs (`OnPostLaunchModule`), `src/pc/dlc_packages.cpp` installs each
+  one with the SDK's content manager (`ContentManager::InstallContent`: extracted into
+  `hdd/0000000000000000/55530825/00000002/<file name>/` with its `.header`, display name and license
+  bits) and deletes the copy. The same `dlc/` folder next to `broken_bond.exe` works on PC.
+- **Custom GPU drivers** (Settings > GPU driver > Add driver (.zip)): an adrenotools package (a
+  `meta.json` naming its `libraryName`, and that library) is kept in `gpu/custom/<id>/` in the app's
+  private storage (`CustomDrivers.java`; only those two files are taken from the zip, by name).
+  Choosing it hands its folder and library to the game as the bundled Turnip is
+  (`BROKENBOND_DRIVER_DIR`, `BROKENBOND_DRIVER_NAME`; `BROKENBOND_DRIVER_LABEL` names it in the log).
+- **Rotation:** the game activity asks for sensor landscape, also when SDL sets the orientation for
+  its (resizable) window, which would allow portrait under the phone's rotation lock.
+- **Screen** (Settings; PC Options > Display > Aspect ratio): *Full screen* is `aspect_ratio = "auto"`:
+  the game draws a view as wide as the screen into its 16:9 image (`ultrawide.cpp`; the display's
+  size is taken in landscape) and the Vulkan present stretches it back out, like the D3D12 one. The
+  HUD is stretched with it.
+- **The picked ISO:** the launcher opens it with the document permission it keeps and passes the
+  descriptor as `/proc/self/fd/<n>`; the runtime duplicates that descriptor instead of opening the
+  path again (the SDK patch, `mapped_memory_posix.cpp`). Opening the path anew goes through the
+  shared storage under the app's own identity, which a tester's phone (Android 16) refused in later
+  sessions ("Disc image could not be mapped").
+- **Render resolution** goes up to 1080p in PC Options on Android; a larger value in naruto.toml
+  is capped at 2x (1440p), since 4x exhausts a phone's memory.
 
 ### Files
 
@@ -165,7 +277,7 @@ the same live.
 
 ## Known limitations
 
-- Untested on hardware so far: the first starts on real phones will find problems.
+- Tested on few devices so far (a Retroid Pocket 5): other phones will find other problems.
 - Adreno only (see [Phone requirements](#phone-requirements)).
 - Leaving the app pauses the game; switching back recreates the Vulkan surface, and this path is
   the least tested. Quitting from the back menu is the safest way out.
@@ -185,7 +297,11 @@ the same live.
   `src/platform/win32_posix.cpp` (files, events, timers, resources), the controller code uses SDL
   (`src/pc/pad_input_sdl.cpp`), and crashes are logged by `src/pc/crash_handler_posix.cpp`.
 - **Renderer:** the native renderer's Vulkan backend presents to the Android window (RGBA
-  swapchain, surface recreated after the app is paused); the D3D12 backend is not built.
+  swapchain, surface recreated after the app is paused) and draws the PC overlay (PC Options, the
+  FPS counter, the PC title screen) over each frame (`src/gpu/backend/vulkan/overlay.inc`, with
+  `src/gpu/backend/overlay_pass.hlsl` built into the shader cache), and, while the game shows
+  nothing for half a second (the PC title screen, loads, a slow frame), the game's last image again
+  under it; the D3D12 backend is not built.
 - **App:** `android/` holds the launcher (`LauncherActivity`), the settings screen, the game
   activity (SDL3's `SDLActivity`, which loads `libmain.so`) and the on-screen controller, which
   is an SDL virtual gamepad (`src/android/touch_controller.cpp`).

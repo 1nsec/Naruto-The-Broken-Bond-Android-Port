@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <utility>
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -61,8 +62,13 @@ double TargetAspect() {
   if (mode == "21:9") return 21.5 / 9.0;  // 3440x1440 and 2560x1080 screens
   if (mode == "32:9") return 32.0 / 9.0;
   if (mode == "auto") {
-    const double w = GetSystemMetrics(SM_CXSCREEN);
-    const double h = GetSystemMetrics(SM_CYSCREEN);
+    double w = GetSystemMetrics(SM_CXSCREEN);
+    double h = GetSystemMetrics(SM_CYSCREEN);
+#ifdef __ANDROID__
+    // The display's mode is in its natural orientation (portrait on a phone);
+    // the game is always landscape.
+    if (h > w) std::swap(w, h);
+#endif
     if (h > 0 && w / h > 1.85) return w / h;
   }
   return kNativeAspect;
@@ -95,15 +101,22 @@ void UpdateUltrawide(uint8_t* base) {
     }
     return;
   }
-  void* where = base + kViewWidthFactorAddress;
+  // The page of the value: VirtualProtect rounds the range to pages itself,
+  // POSIX mprotect (Android) refuses an address inside a page.
+  const uintptr_t page = rex::memory::page_size();
+  const uintptr_t value = reinterpret_cast<uintptr_t>(base + kViewWidthFactorAddress);
+  void* where = reinterpret_cast<void*>(value & ~(page - 1));
+  const size_t length = ((value + sizeof(uint32_t) + page - 1) & ~(page - 1)) - (value & ~(page - 1));
   rex::memory::PageAccess old_access{};
-  if (!rex::memory::Protect(where, sizeof(uint32_t), rex::memory::PageAccess::kReadWrite,
-                            &old_access)) {
-    REXLOG_ERROR("[ultrawide] cannot make the camera value writable");
+  if (!rex::memory::Protect(where, length, rex::memory::PageAccess::kReadWrite, &old_access)) {
+    static bool reported = false;
+    if (!reported) REXLOG_ERROR("[ultrawide] cannot make the camera value writable");
+    reported = true;
     return;
   }
   StoreU32(base, kViewWidthFactorAddress, std::bit_cast<uint32_t>(factor));
-  rex::memory::Protect(where, sizeof(uint32_t), old_access);
+  // An access the platform could not report stays read-write (never no-access).
+  if (old_access != rex::memory::PageAccess::kNoAccess) rex::memory::Protect(where, length, old_access);
   g_applied_factor = factor;
   REXLOG_INFO("[ultrawide] aspect {:.4f}, view width factor {:.6f}", wide ? aspect : kNativeAspect,
               factor);

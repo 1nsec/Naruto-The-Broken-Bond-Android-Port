@@ -46,6 +46,16 @@ query = query.replace("supportedOptionalExtensions.count(VK_EXT_SWAPCHAIN_MAINTE
                      "supportedOptionalExtensions.count(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME))")
 s = s.replace("        VkPhysicalDeviceFeatures2 deviceFeatures", query + "\n        VkPhysicalDeviceFeatures2 deviceFeatures")
 s = s.replace("        std::vector<const char *> enabledExtensions;", enable + "\n        std::vector<const char *> enabledExtensions;", 1)
+# Features that are core in Vulkan 1.2: queried (and enabled) on a 1.2 device
+# even when its extension list leaves out the promoted extension's name.
+for found, extension in (("descriptorIndexingFound", "VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME"),
+                         ("scalarBlockLayoutFound", "VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME"),
+                         ("bufferDeviceAddressFound", "VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME")):
+    line = (f"const bool {found} = supportedOptionalExtensions.find({extension}) != "
+            "supportedOptionalExtensions.end();")
+    assert s.count(line) == 1, found
+    s = s.replace(line, line[:-1] + " || physicalDeviceProperties.apiVersion >= VK_API_VERSION_1_2;")
+
 # Android: the game can bring its own Vulkan driver (Turnip, loaded with
 # libadrenotools; src/android/gpu_driver.cpp). volk then starts from that
 # driver's vkGetInstanceProcAddr instead of the system's libvulkan.
